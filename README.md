@@ -36,6 +36,7 @@ automatically if frames run long. Pin it with a query param:
 | `?q=0`      | DPR 1, no bloom                                      |
 | `?god=1`    | invulnerable (for tuning visuals)                   |
 | `?debug=1`  | exposes `window.__magpie = { game, bird }`           |
+| `?rotate=1` | force the portrait rotate overlay (HUD QA)           |
 
 `prefers-reduced-motion` disables bloom, shake, FOV punch, camera roll and the
 screen-space pulses.

@@ -505,14 +505,16 @@
         font-family: Orbitron, sans-serif;
         font-weight: 700;
         font-size: clamp(16px, 4.2vw, 28px);
-        letter-spacing: 0.28em;
+        letter-spacing: 0.16em;
+        word-spacing: 0.28em;
         color: var(--ice);
         text-shadow: 0 0 18px rgba(61, 224, 255, 0.45);
       }
       .overlay-sub {
         margin-top: 12px;
         font-size: 11px;
-        letter-spacing: 0.28em;
+        letter-spacing: 0.14em;
+        word-spacing: 0.22em;
         color: var(--muted);
       }
       .overlay-glyph {
@@ -539,7 +541,7 @@
         color: var(--ice);
         font-family: inherit;
         font-size: 11px;
-        letter-spacing: 0.28em;
+        letter-spacing: 0.16em;
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
       }
@@ -560,8 +562,9 @@
       }
       #rotateFsHint {
         margin-top: 18px;
-        max-width: 22em;
-        line-height: 1.6;
+        max-width: 18em;
+        line-height: 1.7;
+        letter-spacing: 0.12em;
       }
       @keyframes tilt {
         0%,
@@ -705,7 +708,7 @@
             <span class="label">ENTER FULLSCREEN</span>
           </button>
           <div id="rotateFsHint" class="overlay-sub hidden">
-            THIS BROWSER CAN'T GO FULLSCREEN · ADD TO HOME SCREEN
+            ADD TO HOME SCREEN<br />FOR A FULL DISPLAY
           </div>
         </div>
       </div>

@@ -22,8 +22,8 @@ export function stickAxis(dx, deadzone = STICK_DEADZONE, range = STICK_RANGE) {
   return clamp(signed * ((abs - deadzone) / range), -1, 1)
 }
 
-function isCoarse() {
-  return window.matchMedia('(pointer: coarse)').matches
+function preferTouch() {
+  return window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0
 }
 
 function fromButton(el) {
@@ -41,7 +41,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
   let tapEdge = false
   let muteEdge = false
   let debugEdge = false
-  let mode = isCoarse() ? 'touch' : 'keys'
+  let mode = preferTouch() ? 'touch' : 'keys'
 
   function setMode(next) {
     if (mode === next) return

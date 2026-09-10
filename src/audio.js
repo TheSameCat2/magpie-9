@@ -23,7 +23,7 @@ export function createAudio() {
       ctx = new AudioContext()
       build()
     }
-    if (ctx.state === 'suspended') ctx.resume()
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') ctx.resume()
     return ctx
   }
 
@@ -193,6 +193,12 @@ export function createAudio() {
     // Call from a user gesture so the context is allowed to start.
     start() {
       ensure()
+    },
+    suspend() {
+      if (ctx && ctx.state === 'running') ctx.suspend()
+    },
+    resume() {
+      if (ctx && (ctx.state === 'suspended' || ctx.state === 'interrupted')) ctx.resume()
     },
     flap() {
       noise(0.14, 0.16, { from: 1400, to: 380, q: 1.1 })

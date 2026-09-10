@@ -1,3 +1,7 @@
+import { STICK_RANGE } from './input.js'
+
+const TAP_MS = 280
+
 export function createHud() {
   const scoreEl = document.getElementById('score')
   const bestEl = document.getElementById('best')
@@ -8,14 +12,39 @@ export function createHud() {
   const velEl = document.querySelector('#vel b')
   const velBar = document.querySelector('#velBar i')
   const toastEl = document.getElementById('toast')
+  const keysEl = document.getElementById('keys')
+  const zonesEl = document.getElementById('zones')
+  const sysEl = document.getElementById('sys')
+  const stickEl = document.querySelector('#touch .stick')
+  const nubEl = document.querySelector('#touch .stick-nub')
+  const tapEl = document.querySelector('#touch .tapring')
+  const rotateEl = document.getElementById('rotate')
+  const pausedEl = document.getElementById('paused')
+  const muteBtn = document.getElementById('btnMute')
+  const fsBtn = document.getElementById('btnFs')
 
   let toastTimer = 0
   let hotTimer = 0
+  let mode = 'keys'
+  let scene = 'title'
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   function retrigger(el, cls) {
     el.classList.remove(cls)
     void el.offsetWidth
     el.classList.add(cls)
+  }
+
+  function applyChrome() {
+    document.body.dataset.input = mode
+    keysEl.classList.toggle('hidden', mode === 'touch')
+    zonesEl.classList.toggle('hidden', mode !== 'touch' || scene !== 'title')
+    sysEl.classList.toggle('playing', scene === 'playing')
+    if (scene === 'title') {
+      sub.textContent = mode === 'touch' ? 'TAP RIGHT · FLAP   DRAG LEFT · STRAFE' : 'SPACE / CLICK · A D STRAFE'
+    } else if (scene === 'dead') {
+      sub.textContent = mode === 'touch' ? 'TAP TO RESET' : 'SPACE TO RESET'
+    }
   }
 
   function setScore(n, animate) {
@@ -49,27 +78,114 @@ export function createHud() {
   }
 
   function showTitle() {
+    scene = 'title'
     center.classList.remove('hidden')
     center.classList.remove('dead')
     retrigger(center, 'rise')
     title.innerHTML = 'MAGPIE<span>-9</span>'
     prompt.textContent = 'FLAP TO ARM'
-    sub.textContent = 'SPACE / CLICK · A D STRAFE'
+    applyChrome()
   }
 
   function showPlaying() {
+    scene = 'playing'
     center.classList.add('hidden')
     bestEl.classList.remove('beat')
+    applyChrome()
   }
 
   function showDead(score, newBest) {
+    scene = 'dead'
     center.classList.remove('hidden')
     center.classList.add('dead')
     retrigger(center, 'rise')
     title.innerHTML = 'REBOOT'
     prompt.textContent = newBest ? `NEW BEST ${score}` : `RUN ${score}`
-    sub.textContent = 'SPACE TO RESET'
+    applyChrome()
   }
 
-  return { setScore, setBest, setSpeed, toast, hot, showTitle, showPlaying, showDead }
+  function setInputMode(next) {
+    mode = next
+    applyChrome()
+  }
+
+  function updateTouch(input) {
+    const s = input.stick
+    if (mode === 'touch' && s.active) {
+      stickEl.classList.remove('hidden')
+      stickEl.style.transform = `translate(${s.originX}px, ${s.originY}px)`
+      const dx = Math.max(-STICK_RANGE, Math.min(STICK_RANGE, s.dx))
+      nubEl.style.transform = `translate(calc(-50% + ${dx}px), -50%)`
+    } else {
+      stickEl.classList.add('hidden')
+    }
+
+    const tap = input.lastTap
+    const age = tap.at ? performance.now() - tap.at : TAP_MS + 1
+    if (mode === 'touch' && age < TAP_MS) {
+      tapEl.classList.remove('hidden')
+      tapEl.style.transform = `translate(${tap.x}px, ${tap.y}px)`
+      tapEl.style.opacity = reduceMotion ? '1' : String(1 - age / TAP_MS)
+    } else {
+      tapEl.classList.add('hidden')
+    }
+  }
+
+  function setRotate(show) {
+    rotateEl.classList.toggle('hidden', !show)
+  }
+
+  function showPaused(reason) {
+    pausedEl.classList.toggle('hidden', reason !== 'resume')
+  }
+
+  function hidePaused() {
+    pausedEl.classList.add('hidden')
+  }
+
+  function setMuted(muted) {
+    muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false')
+    muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute')
+    muteBtn.classList.toggle('on', !!muted)
+    muteBtn.querySelector('.label').textContent = muted ? 'UNMUTE' : 'MUTE'
+  }
+
+  function setFullscreen(active, supported) {
+    fsBtn.classList.toggle('hidden', !supported)
+    fsBtn.setAttribute('aria-pressed', active ? 'true' : 'false')
+    fsBtn.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen')
+    fsBtn.classList.toggle('on', !!active)
+    fsBtn.querySelector('.label').textContent = active ? 'EXIT' : 'FULL'
+  }
+
+  function bindSys({ onMute, onFullscreen }) {
+    function wire(btn, fn) {
+      btn.addEventListener('pointerdown', (e) => {
+        e.stopPropagation()
+        e.preventDefault()
+        fn?.()
+      })
+    }
+    wire(muteBtn, onMute)
+    wire(fsBtn, onFullscreen)
+  }
+
+  return {
+    setScore,
+    setBest,
+    setSpeed,
+    toast,
+    hot,
+    showTitle,
+    showPlaying,
+    showDead,
+    setInputMode,
+    updateTouch,
+    setRotate,
+    showPaused,
+    hidePaused,
+    setMuted,
+    setFullscreen,
+    bindSys,
+  }
 }

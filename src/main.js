@@ -7,19 +7,22 @@ import { createObstacles } from './obstacles.js'
 import { createAudio } from './audio.js'
 import { createFx } from './fx.js'
 import { createPostFx, QUALITY } from './postfx.js'
+import { createScreen } from './screen.js'
 import { createGame } from './game.js'
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const coarse = window.matchMedia('(pointer: coarse)').matches
 const params = new URLSearchParams(location.search)
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-renderer.setSize(window.innerWidth, window.innerHeight)
+renderer.setSize(window.innerWidth, window.innerHeight, false)
 renderer.outputColorSpace = THREE.SRGBColorSpace
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.05
 renderer.setClearColor(THEME.void, 1)
 document.body.appendChild(renderer.domElement)
+renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault())
 
 const scene = new THREE.Scene()
 scene.fog = createFog()
@@ -46,20 +49,32 @@ shaft.position.set(0, 0, -14)
 scene.add(shaft)
 
 const materials = createMaterials()
-const input = createInput()
+const audio = createAudio()
+const screen = createScreen()
+let game
+const input = createInput({
+  onGesture() {
+    audio.start()
+    screen.maybeReenterFullscreen()
+  },
+  onModeChange(mode) {
+    game?.setInputMode(mode)
+  },
+})
 const bird = createBird(scene, materials)
 const tunnel = createTunnel(scene, materials)
 const obstacles = createObstacles(scene, materials)
 const fx = createFx(scene)
-const audio = createAudio()
 const postfx = createPostFx(renderer, scene, camera, { reduceMotion })
 
-// ?q=0|1|2 pins a quality level; otherwise start high and step down on long frames.
-let quality = params.has('q') ? Number(params.get('q')) : QUALITY.length - 1
+// ?q=0|1|2 pins a quality level; coarse pointers start one rung down.
+let quality = params.has('q') ? Number(params.get('q')) : coarse ? 1 : QUALITY.length - 1
+if (!Number.isFinite(quality)) quality = QUALITY.length - 1
+quality = THREE.MathUtils.clamp(quality, 0, QUALITY.length - 1)
 postfx.applyQuality(quality)
 SHARED.uPixelRatio.value = renderer.getPixelRatio()
 
-const game = createGame({
+game = createGame({
   bird,
   tunnel,
   obstacles,
@@ -68,18 +83,33 @@ const game = createGame({
   audio,
   fx,
   postfx,
+  screen,
   reduceMotion,
+  onResume() {
+    last = performance.now()
+  },
   god: params.get('god') === '1',
 })
+screen.onChange = () => game.syncScreen()
+game.syncScreen()
 
-if (params.has('god') || params.has('debug')) window.__magpie = { game, bird }
+if (params.has('god') || params.has('debug')) window.__magpie = { game, bird, input, screen }
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight
+function applySize() {
+  const canvas = renderer.domElement
+  const w = canvas.clientWidth || window.innerWidth
+  const h = canvas.clientHeight || window.innerHeight
+  if (w < 1 || h < 1) return
+  camera.aspect = w / h
   camera.updateProjectionMatrix()
-  renderer.setSize(window.innerWidth, window.innerHeight)
-  postfx.setSize(window.innerWidth, window.innerHeight)
-})
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[quality].dpr))
+  renderer.setSize(w, h, false)
+  postfx.setSize(w, h)
+  SHARED.uPixelRatio.value = renderer.getPixelRatio()
+}
+
+new ResizeObserver(applySize).observe(renderer.domElement)
+applySize()
 
 let last = performance.now()
 let frameAvg = 16
@@ -99,7 +129,7 @@ function adapt(frameMs, dt) {
     slowFor = 0
     warmup = 2
     postfx.applyQuality(quality)
-    SHARED.uPixelRatio.value = renderer.getPixelRatio()
+    applySize()
   }
 }
 

@@ -12,7 +12,7 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
 5. No powerups, lives, story, shop, or multiplayer.
 6. Gameplay before bloom. Silhouette, fog, lights first.
 7. Original art: conduit / magpie drone.
-8. Keyboard is the real scheme. Pointer flap is extra.
+8. Keyboard and touch are first-class. Mouse click flaps. Touch: left-half stick, right-half flap.
 9. 60 fps budget. Pool meshes. No per-frame allocs in the hot path.
 
 ## Stack
@@ -24,7 +24,7 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
   src/
     main.js             # renderer, resize, rAF
     theme.js            # palette, fog, materials
-    input.js            # keys + pointer; edge-triggered flap
+    input.js            # keys + zoned pointers; analog stick; edge flap
     bird.js             # mesh, flap impulse, strafe, bank/pitch
     tunnel.js           # pooled hexagonal segments + scroll
     obstacles.js        # pooled hazard types + spawn
@@ -99,6 +99,8 @@ Bloom optional: UnrealBloomPass threshold ≥ 0.8, strength ≤ 0.4. Drop if it 
 
 Space / click / tap / W / ↑ = flap (edge). A/← left. D/→ right. R or Space on dead = restart. M mute. B collider debug.
 
+Touch (coarse pointer, landscape): left-half drag is a floating analog stick (`strafe` in [-1, 1]); right-half tap flaps. Portrait on a phone shows a rotate overlay and pauses play. Fullscreen is opt-in. Visibility hidden auto-pauses.
+
 ## Difficulty
 
 One function `difficulty(score) → { speed, spacing, offset }`. Do not scatter tuning.
@@ -128,7 +130,7 @@ One function `difficulty(score) → { speed, spacing, offset }`. Do not scatter 
 
 ## Non-goals (v2+)
 
-Rotating fan OBB, branching tunnels, shader rain, soundtrack, WebXR, mobile stick, mid-run palette districts.
+Rotating fan OBB, branching tunnels, shader rain, soundtrack, WebXR, mid-run palette districts.
 
 ## Risks
 

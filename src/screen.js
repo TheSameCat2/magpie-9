@@ -29,6 +29,7 @@ export function rotateFsAction({ supportsFullscreen, standalone }) {
 export function createScreen() {
   const coarse = window.matchMedia('(pointer: coarse)')
   const portrait = window.matchMedia('(orientation: portrait)')
+  const forceRotate = new URLSearchParams(location.search).has('rotate')
   let onChange = () => {}
 
   function notify() {
@@ -121,7 +122,7 @@ export function createScreen() {
       return isFullscreen()
     },
     get needsRotate() {
-      return coarse.matches && portrait.matches
+      return forceRotate || (coarse.matches && portrait.matches)
     },
     get hidden() {
       return document.visibilityState === 'hidden'

@@ -11,7 +11,8 @@ import { createScreen } from './screen.js'
 import { createGame } from './game.js'
 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-const coarse = window.matchMedia('(pointer: coarse)').matches
+const coarse =
+  window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0
 const params = new URLSearchParams(location.search)
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })

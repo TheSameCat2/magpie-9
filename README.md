@@ -11,6 +11,17 @@ npm run dev
 Open the printed local URL. Space / click flaps. A D (or arrows) strafe.
 M mutes, B shows the collider sphere.
 
+## Touch
+
+Landscape only. Portrait shows a rotate overlay and pauses the run.
+
+- Left half: drag a floating stick to strafe
+- Right half: tap to flap, arm, or reset
+- Title / reboot: FULL enters fullscreen (Android / desktop; remembered across reloads until you exit). MUTE toggles audio.
+- Backgrounding the tab auto-pauses. Tap to resume once you are back in landscape.
+
+Installed Android PWAs open fullscreen and locked to landscape. iPhone Safari has no element fullscreen; add to Home Screen for a chrome-less page. A PNG `apple-touch-icon` is a follow-up.
+
 ## Rendering
 
 Bloom + a screen-space finishing pass (vignette, grain, chromatic kick on gate

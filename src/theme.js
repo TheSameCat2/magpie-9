@@ -28,6 +28,7 @@ export const BIRD_RADIUS = 0.5
 export const VERTEX_R = R / Math.cos(Math.PI / 6)
 export const BEST_KEY = 'magpie9.best'
 export const MUTE_KEY = 'magpie9.mute'
+export const FULLSCREEN_KEY = 'magpie9.fullscreen'
 export const FOG_DENSITY = 0.03
 
 // Uniform objects shared by reference across every shader material so a single

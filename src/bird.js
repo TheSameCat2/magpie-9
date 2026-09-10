@@ -275,9 +275,12 @@ export function createBird(scene, materials) {
   }
 
   function updatePlay(dt, input, dz) {
-    if (input.left) vx -= 55 * dt
-    if (input.right) vx += 55 * dt
-    if (!input.left && !input.right) {
+    const s = input.strafe
+    if (Math.abs(s) > 0.001) {
+      const target = 7 * s
+      const step = 55 * dt
+      vx = Math.abs(target - vx) <= step ? target : vx + Math.sign(target - vx) * step
+    } else {
       vx -= vx * Math.min(1, 10 * dt)
     }
     vx = THREE.MathUtils.clamp(vx, -7, 7)

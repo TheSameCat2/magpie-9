@@ -23,7 +23,20 @@ export function difficulty(score) {
   return { speed, spacing, offset }
 }
 
-export function createGame({ bird, tunnel, obstacles, input, camera, audio, fx, postfx, reduceMotion, god = false }) {
+export function createGame({
+  bird,
+  tunnel,
+  obstacles,
+  input,
+  camera,
+  audio,
+  fx,
+  postfx,
+  screen,
+  reduceMotion,
+  onResume,
+  god = false,
+}) {
   const hud = createHud()
   let state = 'title'
   let score = 0
@@ -33,6 +46,8 @@ export function createGame({ bird, tunnel, obstacles, input, camera, audio, fx, 
   let fovPunch = 0
   let hitStop = 0
   let roll = 0
+  let paused = false
+  let pauseReason = null
   const camBase = new THREE.Vector3(0, 0.55, 6.4)
   const look = new THREE.Vector3()
   const passed = []
@@ -41,7 +56,18 @@ export function createGame({ bird, tunnel, obstacles, input, camera, audio, fx, 
   hud.setBest(best)
   hud.setScore(0)
   hud.setSpeed(12)
+  hud.setMuted(audio.muted)
+  hud.setInputMode(input.mode)
   hud.showTitle()
+  hud.bindSys({
+    onMute() {
+      audio.toggleMute()
+      hud.setMuted(audio.muted)
+    },
+    onFullscreen() {
+      screen.toggleFullscreen()
+    },
+  })
 
   function scrollWorld(dz, dt) {
     tunnel.scroll(dz)
@@ -49,8 +75,47 @@ export function createGame({ bird, tunnel, obstacles, input, camera, audio, fx, 
     SHARED.uScroll.value += dz
   }
 
+  function pause(reason) {
+    pauseReason = reason
+    if (state !== 'playing') {
+      hud.showPaused(reason)
+      return
+    }
+    if (!paused) {
+      paused = true
+      audio.title()
+    }
+    hud.showPaused(reason)
+  }
+
+  function tryResume() {
+    if (!paused) return false
+    if (screen.needsRotate || screen.hidden) return false
+    paused = false
+    pauseReason = null
+    hud.hidePaused()
+    audio.setSpeed(speed)
+    onResume?.()
+    return true
+  }
+
+  function syncScreen() {
+    hud.setRotate(screen.needsRotate)
+    hud.setFullscreen(screen.isFullscreen, screen.supportsFullscreen)
+    if (state === 'playing' && (screen.needsRotate || screen.hidden)) {
+      pause(screen.needsRotate ? 'rotate' : 'hidden')
+    } else if (state === 'playing' && paused) {
+      hud.showPaused('resume')
+    }
+    if (screen.hidden) audio.suspend()
+    else audio.resume()
+  }
+
   function arm() {
     state = 'playing'
+    paused = false
+    pauseReason = null
+    hud.hidePaused()
     score = 0
     speed = 12
     bird.reset()
@@ -70,6 +135,9 @@ export function createGame({ bird, tunnel, obstacles, input, camera, audio, fx, 
   function die() {
     if (state !== 'playing') return
     state = 'dead'
+    paused = false
+    pauseReason = null
+    hud.hidePaused()
     bird.kill()
     audio.crash()
     fx.explode(bird.x, bird.y, 0)
@@ -88,6 +156,9 @@ export function createGame({ bird, tunnel, obstacles, input, camera, audio, fx, 
 
   function toTitle() {
     state = 'title'
+    paused = false
+    pauseReason = null
+    hud.hidePaused()
     bird.reset()
     obstacles.reset()
     tunnel.reset()
@@ -168,7 +239,10 @@ export function createGame({ bird, tunnel, obstacles, input, camera, audio, fx, 
   }
 
   function update(realDt) {
-    if (input.muteEdge) audio.toggleMute()
+    if (input.muteEdge) {
+      audio.toggleMute()
+      hud.setMuted(audio.muted)
+    }
     if (input.debugEdge) bird.toggleCollider()
 
     let dt = realDt
@@ -176,12 +250,15 @@ export function createGame({ bird, tunnel, obstacles, input, camera, audio, fx, 
       hitStop -= realDt
       dt = 0
     }
+    if (paused) dt = 0
 
     SHARED.uTime.value += dt
     SHARED.uKick.value = Math.max(0, SHARED.uKick.value - dt * 2.6)
 
+    const tapped = input.flapEdge || input.restartEdge || input.tapEdge
+
     if (state === 'title') {
-      if (input.flapEdge) {
+      if (tapped && !screen.needsRotate) {
         arm()
       } else {
         const dz = 2.2 * dt
@@ -189,35 +266,51 @@ export function createGame({ bird, tunnel, obstacles, input, camera, audio, fx, 
         scrollWorld(dz, dt)
       }
     } else if (state === 'playing') {
-      if (input.flapEdge) {
-        bird.flap()
-        audio.flap()
-        fx.puff(bird.x, bird.y, 0, 9)
-      }
-      const dz = speed * dt
-      bird.updatePlay(dt, input, dz)
-      scrollWorld(dz, dt)
-      if (obstacles.collectScores(passed)) {
-        for (const obs of passed) onGate(obs)
-      }
-      obstacles.ensureAhead(score, difficulty(score))
-      if (!god && (hitTunnel(bird.pos, BIRD_RADIUS) || obstacles.hits(bird.pos, BIRD_RADIUS))) {
-        die()
+      if (paused) {
+        if (tapped) tryResume()
+      } else {
+        if (input.flapEdge) {
+          bird.flap()
+          audio.flap()
+          fx.puff(bird.x, bird.y, 0, 9)
+        }
+        const dz = speed * dt
+        bird.updatePlay(dt, input, dz)
+        scrollWorld(dz, dt)
+        if (obstacles.collectScores(passed)) {
+          for (const obs of passed) onGate(obs)
+        }
+        obstacles.ensureAhead(score, difficulty(score))
+        if (!god && (hitTunnel(bird.pos, BIRD_RADIUS) || obstacles.hits(bird.pos, BIRD_RADIUS))) {
+          die()
+        }
       }
     } else if (state === 'dead') {
       bird.updateDead(dt)
-      if (input.flapEdge || input.restartEdge) toTitle()
+      if (tapped && !screen.needsRotate) toTitle()
     }
 
-    fx.update(dt, state === 'playing' ? speed : 2.2)
-    postfx.update(realDt)
-    updateCamera(realDt)
+    hud.updateTouch(input)
+    fx.update(dt, state === 'playing' && !paused ? speed : 2.2)
+    postfx.update(paused ? 0 : realDt)
+    updateCamera(paused ? 0 : realDt)
   }
 
   return {
     update,
+    hud,
+    syncScreen,
+    setInputMode(next) {
+      hud.setInputMode(next)
+    },
     get state() {
       return state
+    },
+    get paused() {
+      return paused
+    },
+    get pauseReason() {
+      return pauseReason
     },
     get score() {
       return score

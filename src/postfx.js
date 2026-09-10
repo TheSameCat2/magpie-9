@@ -63,7 +63,7 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     bloom.enabled = q.bloom && !reduceMotion
     bloomScale = q.bloomScale
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, q.dpr))
-    renderer.setSize(width, height)
+    renderer.setSize(width, height, false)
     setSize(width, height)
   }
 

@@ -23,14 +23,24 @@ test('isStandaloneDisplay reads display-mode and iOS navigator.standalone', () =
   const win = {
     matchMedia: (query) => ({ matches: modes.get(query) === true }),
   }
+  const doc = {}
 
-  assert.equal(isStandaloneDisplay(win, {}), false)
-  assert.equal(isStandaloneDisplay(win, { standalone: true }), true)
+  assert.equal(isStandaloneDisplay(win, {}, doc), false)
+  assert.equal(isStandaloneDisplay(win, { standalone: true }, doc), true)
 
   modes.set('(display-mode: standalone)', true)
-  assert.equal(isStandaloneDisplay(win, {}), true)
+  assert.equal(isStandaloneDisplay(win, {}, doc), true)
 
   modes.set('(display-mode: standalone)', false)
   modes.set('(display-mode: fullscreen)', true)
-  assert.equal(isStandaloneDisplay(win, {}), true)
+  assert.equal(isStandaloneDisplay(win, {}, doc), true)
+})
+
+test('isStandaloneDisplay does not treat element fullscreen as an installed PWA', () => {
+  const win = {
+    matchMedia: (query) => ({ matches: query === '(display-mode: fullscreen)' }),
+  }
+  assert.equal(isStandaloneDisplay(win, {}, { fullscreenElement: {} }), false)
+  assert.equal(isStandaloneDisplay(win, {}, { webkitFullscreenElement: {} }), false)
+  assert.equal(isStandaloneDisplay(win, {}, {}), true)
 })

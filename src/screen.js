@@ -10,12 +10,13 @@ function canRequestFullscreen() {
 }
 
 /** Installed PWA / Home Screen — already chrome-less, no extra FS button. */
-export function isStandaloneDisplay(win = window, nav = navigator) {
-  return (
-    win.matchMedia('(display-mode: standalone)').matches ||
-    win.matchMedia('(display-mode: fullscreen)').matches ||
-    nav.standalone === true
-  )
+export function isStandaloneDisplay(win = window, nav = navigator, doc = document) {
+  if (nav.standalone === true) return true
+  if (win.matchMedia('(display-mode: standalone)').matches) return true
+  // Manifest display:fullscreen is chrome-less. Element fullscreen also
+  // matches this query, so ignore it while the Fullscreen API is active.
+  const elementFs = !!(doc.fullscreenElement || doc.webkitFullscreenElement)
+  return win.matchMedia('(display-mode: fullscreen)').matches && !elementFs
 }
 
 /** What the portrait overlay should offer for going chrome-less. */

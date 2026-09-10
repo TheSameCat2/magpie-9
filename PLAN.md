@@ -9,7 +9,7 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
 2. Bird is fixed in Z relative to the camera. The world scrolls toward the camera.
 3. One play loop: Title → Playing → Dead → Title. Pause is optional.
 4. Procedural geometry only in v1. No GLTF, no texture CDNs. CanvasTexture / data-URI if needed.
-5. No powerups, lives, story, shop, or multiplayer.
+5. No lives, story, shop, or multiplayer. The damper orb is the one sanctioned powerup.
 6. Gameplay before bloom. Silhouette, fog, lights first.
 7. Original art: conduit / magpie drone.
 8. Keyboard and touch are first-class. Mouse click flaps. Touch: left-half stick, right-half flap.
@@ -28,7 +28,8 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
     bird.js             # mesh, flap impulse, strafe, bank/pitch
     tunnel.js           # pooled hexagonal segments + scroll
     obstacles.js        # pooled hazard types + spawn
-    collision.js        # sphere vs tunnel + descriptors
+    powerups.js         # pooled damper orbs
+    collision.js        # sphere vs tunnel + descriptors + orbs
     game.js             # state machine, score, difficulty, restart
     hud.js              # DOM overlay
     audio.js            # optional WebAudio beeps
@@ -87,7 +88,7 @@ Low-poly magpie drone: hull, head, beak, two wing planes, eye point-lights. Grap
 
 ## Theme
 
-void `#07080c` · metal `#161a22` · metal-hi `#2a3140` · sodium `#e8a030` · mag `#ff2a6d` · ice `#3de0ff` · ink `#dce8f0`
+void `#07080c` · metal `#161a22` · metal-hi `#2a3140` · sodium `#e8a030` · gold `#ffd166` · mag `#ff2a6d` · ice `#3de0ff` · ink `#dce8f0`
 
 Type: condensed techno sans, two weights max. Not Inter.
 
@@ -101,9 +102,13 @@ Space / click / tap / W / ↑ = flap (edge). A/← left. D/→ right. R or Space
 
 Touch (coarse pointer, landscape): left-half drag is a floating analog stick (`strafe` in [-1, 1]); right-half tap flaps. Portrait on a phone shows a rotate overlay and pauses play. Fullscreen is opt-in. Visibility hidden auto-pauses.
 
+## Powerups
+
+Golden damper orbs. 50% chance per spawned gate (`ORB_CHANCE = 0.5`). Sit midway to the next gate at a random X/Y in a disc of radius 2.2. Pickup is permanent for the run: subtract half of `stageDelta(score)` from scroll speed, floored at base 12. Pool of 6; recycle at `z > 14`.
+
 ## Difficulty
 
-One function `difficulty(score) → { speed, spacing, offset }`. Do not scatter tuning.
+One function `difficulty(score) → { speed, spacing, offset }`. Do not scatter tuning. `stageDelta(score)` is the speed added by that gate.
 
 ## Implementation order
 

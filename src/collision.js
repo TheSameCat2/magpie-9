@@ -52,3 +52,11 @@ export function passMargin(pos, radius, obs) {
   }
   return Infinity
 }
+
+export function hitOrb(pos, radius, orb) {
+  const dx = pos.x - orb.x
+  const dy = pos.y - orb.y
+  const dz = pos.z - orb.z
+  const r = radius + orb.r
+  return dx * dx + dy * dy + dz * dz <= r * r
+}

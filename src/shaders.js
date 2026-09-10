@@ -177,6 +177,60 @@ void main() {
 `
 
 // ---------------------------------------------------------------------------
+// Damper orb: additive gold shell with a fresnel rim and a slow shimmer.
+// ---------------------------------------------------------------------------
+export const ORB_VERT = /* glsl */ `
+varying vec3 vViewPos;
+varying vec3 vViewNormal;
+varying float vDepth;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vViewPos = mv.xyz;
+  vViewNormal = normalize(normalMatrix * normal);
+  vDepth = -mv.z;
+  gl_Position = projectionMatrix * mv;
+}
+`
+
+export const ORB_FRAG = /* glsl */ `
+precision highp float;
+${FOG}
+uniform float uTime;
+uniform vec3 uColor;
+varying vec3 vViewPos;
+varying vec3 vViewNormal;
+
+void main() {
+  vec3 n = normalize(vViewNormal);
+  vec3 v = normalize(-vViewPos);
+  float fresnel = pow(1.0 - max(dot(n, v), 0.0), 2.5);
+  float shimmer = 0.85 + 0.15 * sin(uTime * 3.4 + vViewPos.y * 8.0);
+  float core = 0.22 + fresnel * 1.35;
+  vec3 col = mix(uColor, vec3(1.0), fresnel * 0.55) * core * shimmer;
+  col *= fogAtten(vDepth);
+  gl_FragColor = vec4(col, 1.0);
+}
+`
+
+export const HALO_FRAG = /* glsl */ `
+precision highp float;
+${FOG}
+uniform float uTime;
+uniform vec3 uColor;
+varying vec2 vUv;
+
+void main() {
+  vec2 p = vUv - 0.5;
+  float d = length(p) * 2.0;
+  float intensity = exp(-d * 4.5);
+  float pulse = 0.82 + 0.18 * sin(uTime * 2.8);
+  vec3 col = mix(uColor, vec3(1.0), 0.35) * intensity * pulse * 1.6;
+  col *= fogAtten(vDepth);
+  gl_FragColor = vec4(col, 1.0);
+}
+`
+
+// ---------------------------------------------------------------------------
 // Shockwave: rounded-rect ring that expands from the opening as you thread it.
 // ---------------------------------------------------------------------------
 export const RING_FRAG = /* glsl */ `

@@ -270,6 +270,7 @@ export function createObstacles(scene, materials) {
     const offset = spawnIndex < 2 ? 0 : diff.offset
     configure(obs, type, z, offset)
     spawnIndex += 1
+    return obs
   }
 
   function minActiveZ() {
@@ -283,13 +284,15 @@ export function createObstacles(scene, materials) {
     return n ? m : null
   }
 
-  function ensureAhead(score, diff) {
+  function ensureAhead(score, diff, out) {
+    if (out) out.length = 0
     let guard = 0
     while (guard++ < 8) {
       const mz = minActiveZ()
       if (mz !== null && mz <= -48) break
       const z = mz === null ? -32 : mz - diff.spacing
-      spawn(score, diff, z)
+      const obs = spawn(score, diff, z)
+      if (obs && out) out.push(obs)
     }
   }
 

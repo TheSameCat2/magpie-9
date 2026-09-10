@@ -6,6 +6,8 @@ import { createHud } from './hud.js'
 const NEAR_MISS = 0.34
 const MILESTONE = 10
 const BASE_FOV = 68
+const BASE_SPEED = 12
+const ORB_CHANCE = 0.5
 
 export function loadBest() {
   const n = Number(localStorage.getItem(BEST_KEY) || '0')
@@ -17,16 +19,21 @@ export function saveBest(n) {
 }
 
 export function difficulty(score) {
-  const speed = Math.min(12 * Math.pow(1.03, score), 22)
+  const speed = Math.min(BASE_SPEED * Math.pow(1.03, score), 22)
   const spacing = Math.max(28 - score * 0.45, 18)
   const offset = Math.min(score * 0.14, 1.4)
   return { speed, spacing, offset }
+}
+
+export function stageDelta(score) {
+  return difficulty(score).speed - difficulty(Math.max(0, score - 1)).speed
 }
 
 export function createGame({
   bird,
   tunnel,
   obstacles,
+  powerups,
   input,
   camera,
   audio,
@@ -41,7 +48,8 @@ export function createGame({
   let state = 'title'
   let score = 0
   let best = loadBest()
-  let speed = 12
+  let speed = BASE_SPEED
+  let slow = 0
   let shake = 0
   let fovPunch = 0
   let hitStop = 0
@@ -51,11 +59,13 @@ export function createGame({
   const camBase = new THREE.Vector3(0, 0.55, 6.4)
   const look = new THREE.Vector3()
   const passed = []
+  const spawned = []
+  const collected = []
   const burst = { x: 0, y: 0, hw: 0, hh: 0, color: 0 }
 
   hud.setBest(best)
   hud.setScore(0)
-  hud.setSpeed(12)
+  hud.setSpeed(BASE_SPEED)
   hud.setMuted(audio.muted)
   hud.setInputMode(input.mode)
   hud.showTitle()
@@ -72,7 +82,20 @@ export function createGame({
   function scrollWorld(dz, dt) {
     tunnel.scroll(dz)
     obstacles.scroll(dz, dt)
+    powerups.scroll(dz, dt)
     SHARED.uScroll.value += dz
+  }
+
+  function applySpeed() {
+    speed = Math.max(BASE_SPEED, difficulty(score).speed - slow)
+    hud.setSpeed(speed)
+    audio.setSpeed(speed)
+  }
+
+  function maybeDropOrbs(gates, diff) {
+    for (const obs of gates) {
+      if (Math.random() < ORB_CHANCE) powerups.spawn(obs.z - diff.spacing * 0.5)
+    }
   }
 
   function pause(reason) {
@@ -117,12 +140,16 @@ export function createGame({
     pauseReason = null
     hud.hidePaused()
     score = 0
-    speed = 12
+    slow = 0
+    speed = BASE_SPEED
     bird.reset()
     obstacles.reset()
-    obstacles.ensureAhead(0, difficulty(0))
+    powerups.reset()
+    const startDiff = difficulty(0)
+    obstacles.ensureAhead(0, startDiff, spawned)
+    maybeDropOrbs(spawned, startDiff)
     hud.setScore(0)
-    hud.setSpeed(12)
+    hud.setSpeed(BASE_SPEED)
     hud.showPlaying()
     bird.flap()
     fx.puff(bird.x, bird.y, 0, 14)
@@ -161,12 +188,14 @@ export function createGame({
     hud.hidePaused()
     bird.reset()
     obstacles.reset()
+    powerups.reset()
     tunnel.reset()
-    speed = 12
+    slow = 0
+    speed = BASE_SPEED
     shake = 0
     fovPunch = 0
     hud.setScore(0)
-    hud.setSpeed(12)
+    hud.setSpeed(BASE_SPEED)
     hud.showTitle()
     audio.title()
   }
@@ -204,10 +233,18 @@ export function createGame({
     }
     if (score > best) hud.setBest(score, true)
 
-    const diff = difficulty(score)
-    speed = diff.speed
-    hud.setSpeed(speed)
-    audio.setSpeed(speed)
+    applySpeed()
+  }
+
+  function onOrb(orb) {
+    slow += 0.5 * stageDelta(score)
+    applySpeed()
+    hud.toast('DAMPERS', 'gold')
+    fx.orbBurst(orb.x, orb.y, orb.z)
+    audio.orb()
+    postfx.flash(THEME.gold, 0.1)
+    SHARED.uKick.value = Math.max(SHARED.uKick.value, 0.4)
+    fx.kick(0.4)
   }
 
   function updateCamera(dt) {
@@ -280,7 +317,12 @@ export function createGame({
         if (obstacles.collectScores(passed)) {
           for (const obs of passed) onGate(obs)
         }
-        obstacles.ensureAhead(score, difficulty(score))
+        const diff = difficulty(score)
+        obstacles.ensureAhead(score, diff, spawned)
+        maybeDropOrbs(spawned, diff)
+        if (powerups.collect(bird.pos, BIRD_RADIUS, collected)) {
+          for (const orb of collected) onOrb(orb)
+        }
         if (!god && (hitTunnel(bird.pos, BIRD_RADIUS) || obstacles.hits(bird.pos, BIRD_RADIUS))) {
           die()
         }

@@ -204,6 +204,7 @@ export function createFx(scene) {
   const white = new THREE.Color(0xffffff)
   const mag = new THREE.Color(THEME.mag)
   const sodium = new THREE.Color(THEME.sodium)
+  const gold = new THREE.Color(THEME.gold)
 
   let kick = 0
 
@@ -274,6 +275,28 @@ export function createFx(scene) {
     particles.flush()
   }
 
+  function orbBurst(x, y, z) {
+    for (let i = 0; i < 48; i++) {
+      const th = Math.random() * Math.PI * 2
+      const ph = Math.acos(Math.random() * 2 - 1)
+      const sp = 2 + Math.random() * 6
+      _c.copy(gold).lerp(white, Math.random() * 0.6)
+      particles.emit(
+        x,
+        y,
+        z,
+        Math.sin(ph) * Math.cos(th) * sp,
+        Math.sin(ph) * Math.sin(th) * sp,
+        Math.cos(ph) * sp + 4 + Math.random() * 6,
+        _c,
+        0.3 + Math.random() * 0.3,
+        0.07 + Math.random() * 0.1,
+        2,
+      )
+    }
+    particles.flush()
+  }
+
   function explode(x, y, z) {
     for (let i = 0; i < 160; i++) {
       const th = Math.random() * Math.PI * 2
@@ -305,6 +328,7 @@ export function createFx(scene) {
   return {
     gateBurst,
     puff,
+    orbBurst,
     explode,
     update,
     kick(v) {

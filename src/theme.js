@@ -7,6 +7,9 @@ import {
   LASER_VERT,
   LASER_FRAG,
   RING_FRAG,
+  ORB_VERT,
+  ORB_FRAG,
+  HALO_FRAG,
 } from './shaders.js'
 
 export const THEME = {
@@ -14,6 +17,7 @@ export const THEME = {
   metal: 0x161a22,
   metalHi: 0x2a3140,
   sodium: 0xe8a030,
+  gold: 0xffd166,
   mag: 0xff2a6d,
   ice: 0x3de0ff,
   ink: 0xdce8f0,
@@ -293,6 +297,75 @@ export function makeRingMaterial(color) {
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
   })
+}
+
+export function makeOrbMaterial(color) {
+  return new THREE.ShaderMaterial({
+    vertexShader: ORB_VERT,
+    fragmentShader: ORB_FRAG,
+    uniforms: {
+      uTime: SHARED.uTime,
+      uFogDensity: SHARED.uFogDensity,
+      uColor: { value: new THREE.Color(color) },
+    },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  })
+}
+
+export function makeHaloMaterial(color) {
+  return new THREE.ShaderMaterial({
+    vertexShader: FRAME_VERT,
+    fragmentShader: HALO_FRAG,
+    uniforms: {
+      uTime: SHARED.uTime,
+      uFogDensity: SHARED.uFogDensity,
+      uColor: { value: new THREE.Color(color) },
+    },
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+  })
+}
+
+export function chevronMap() {
+  const S = 128
+  const [c, g] = canvas(S, S)
+  g.clearRect(0, 0, S, S)
+  g.lineJoin = 'round'
+  g.lineCap = 'round'
+  g.shadowColor = 'rgba(255, 209, 102, 0.95)'
+  g.shadowBlur = 14
+
+  function chevron(ox) {
+    g.beginPath()
+    g.moveTo(ox - 18, 28)
+    g.lineTo(ox + 14, 64)
+    g.lineTo(ox - 18, 100)
+  }
+
+  g.strokeStyle = '#ffd166'
+  g.lineWidth = 14
+  chevron(52)
+  g.stroke()
+  chevron(84)
+  g.stroke()
+
+  g.shadowBlur = 0
+  g.strokeStyle = '#fff6d8'
+  g.lineWidth = 6
+  chevron(52)
+  g.stroke()
+  chevron(84)
+  g.stroke()
+
+  const tex = texture(c, true)
+  tex.wrapS = THREE.ClampToEdgeWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.needsUpdate = true
+  return tex
 }
 
 export function makeRibMaterial(color, base, pulseScale) {

@@ -4,6 +4,7 @@ import { createInput } from './input.js'
 import { createBird } from './bird.js'
 import { createTunnel } from './tunnel.js'
 import { createObstacles } from './obstacles.js'
+import { createPowerups } from './powerups.js'
 import { createAudio } from './audio.js'
 import { createFx } from './fx.js'
 import { createPostFx, QUALITY } from './postfx.js'
@@ -65,6 +66,7 @@ const input = createInput({
 const bird = createBird(scene, materials)
 const tunnel = createTunnel(scene, materials)
 const obstacles = createObstacles(scene, materials)
+const powerups = createPowerups(scene)
 const fx = createFx(scene)
 const postfx = createPostFx(renderer, scene, camera, { reduceMotion })
 
@@ -79,6 +81,7 @@ game = createGame({
   bird,
   tunnel,
   obstacles,
+  powerups,
   input,
   camera,
   audio,
@@ -94,7 +97,7 @@ game = createGame({
 screen.onChange = () => game.syncScreen()
 game.syncScreen()
 
-if (params.has('god') || params.has('debug')) window.__magpie = { game, bird, input, screen }
+if (params.has('god') || params.has('debug')) window.__magpie = { game, bird, input, screen, powerups }
 
 function applySize() {
   const canvas = renderer.domElement

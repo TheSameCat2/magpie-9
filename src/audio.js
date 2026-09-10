@@ -211,6 +211,11 @@ export function createAudio() {
       tone(f * 0.5, 0.2, 'square', 0.03)
       noise(0.09, 0.08, { type: 'highpass', from: 3000, to: 6000 })
     },
+    orb() {
+      tone(880, 0.18, 'sine', 0.12, { endFreq: 1320, toWet: 0.9 })
+      tone(1760, 0.3, 'triangle', 0.06, { toWet: 1, when: 0.06 })
+      noise(0.12, 0.08, { type: 'highpass', from: 4000, to: 8000 })
+    },
     nearMiss() {
       noise(0.32, 0.22, { from: 2600, to: 500, q: 2.5 })
       tone(1800, 0.22, 'sine', 0.07, { endFreq: 900, toWet: 0.8, when: 0.02 })

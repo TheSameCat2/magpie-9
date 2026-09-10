@@ -18,6 +18,7 @@ Landscape only. Portrait shows a rotate overlay and pauses the run.
 - Left half: drag a floating stick to strafe
 - Right half: tap to flap, arm, or reset
 - Title / reboot: FULL enters fullscreen (Android / desktop; remembered across reloads until you exit). MUTE toggles audio.
+- Portrait: ENTER FULLSCREEN on the rotate overlay does the same (and locks landscape on Android). Browsers without the Fullscreen API get an add-to-Home-Screen hint instead.
 - Backgrounding the tab auto-pauses. Tap to resume once you are back in landscape.
 
 Installed Android PWAs open fullscreen and locked to landscape. iPhone Safari has no element fullscreen; add to Home Screen for a chrome-less page. A PNG `apple-touch-icon` is a follow-up.

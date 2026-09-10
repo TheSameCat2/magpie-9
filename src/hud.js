@@ -1,4 +1,5 @@
 import { STICK_RANGE } from './input.js'
+import { rotateFsAction } from './screen.js'
 
 const TAP_MS = 280
 
@@ -22,6 +23,8 @@ export function createHud() {
   const pausedEl = document.getElementById('paused')
   const muteBtn = document.getElementById('btnMute')
   const fsBtn = document.getElementById('btnFs')
+  const rotateFsBtn = document.getElementById('btnRotateFs')
+  const rotateFsHint = document.getElementById('rotateFsHint')
 
   let toastTimer = 0
   let hotTimer = 0
@@ -150,12 +153,20 @@ export function createHud() {
     muteBtn.querySelector('.label').textContent = muted ? 'UNMUTE' : 'MUTE'
   }
 
-  function setFullscreen(active, supported) {
+  function setFullscreen(active, supported, standalone = false) {
     fsBtn.classList.toggle('hidden', !supported)
     fsBtn.setAttribute('aria-pressed', active ? 'true' : 'false')
     fsBtn.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen')
     fsBtn.classList.toggle('on', !!active)
     fsBtn.querySelector('.label').textContent = active ? 'EXIT' : 'FULL'
+
+    const action = rotateFsAction({ supportsFullscreen: supported, standalone })
+    rotateFsBtn.classList.toggle('hidden', action !== 'button')
+    rotateFsHint.classList.toggle('hidden', action !== 'hint')
+    rotateFsBtn.setAttribute('aria-pressed', active ? 'true' : 'false')
+    rotateFsBtn.setAttribute('aria-label', active ? 'Exit fullscreen' : 'Enter fullscreen')
+    rotateFsBtn.classList.toggle('on', !!active)
+    rotateFsBtn.querySelector('.label').textContent = active ? 'EXIT FULLSCREEN' : 'ENTER FULLSCREEN'
   }
 
   function bindSys({ onMute, onFullscreen }) {
@@ -168,6 +179,7 @@ export function createHud() {
     }
     wire(muteBtn, onMute)
     wire(fsBtn, onFullscreen)
+    wire(rotateFsBtn, onFullscreen)
   }
 
   return {

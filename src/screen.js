@@ -9,6 +9,22 @@ function canRequestFullscreen() {
   return !!(el.requestFullscreen || el.webkitRequestFullscreen)
 }
 
+/** Installed PWA / Home Screen — already chrome-less, no extra FS button. */
+export function isStandaloneDisplay(win = window, nav = navigator) {
+  return (
+    win.matchMedia('(display-mode: standalone)').matches ||
+    win.matchMedia('(display-mode: fullscreen)').matches ||
+    nav.standalone === true
+  )
+}
+
+/** What the portrait overlay should offer for going chrome-less. */
+export function rotateFsAction({ supportsFullscreen, standalone }) {
+  if (standalone) return 'none'
+  if (supportsFullscreen) return 'button'
+  return 'hint'
+}
+
 export function createScreen() {
   const coarse = window.matchMedia('(pointer: coarse)')
   const portrait = window.matchMedia('(orientation: portrait)')
@@ -96,6 +112,9 @@ export function createScreen() {
     },
     get supportsFullscreen() {
       return canRequestFullscreen()
+    },
+    get isStandalone() {
+      return isStandaloneDisplay()
     },
     get isFullscreen() {
       return isFullscreen()

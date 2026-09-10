@@ -101,7 +101,7 @@ export function createGame({
 
   function syncScreen() {
     hud.setRotate(screen.needsRotate)
-    hud.setFullscreen(screen.isFullscreen, screen.supportsFullscreen)
+    hud.setFullscreen(screen.isFullscreen, screen.supportsFullscreen, screen.isStandalone)
     if (state === 'playing' && (screen.needsRotate || screen.hidden)) {
       pause(screen.needsRotate ? 'rotate' : 'hidden')
     } else if (state === 'playing' && paused) {

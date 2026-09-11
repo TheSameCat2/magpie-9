@@ -33,7 +33,7 @@ export function saveBest(n) {
 export function difficulty(score) {
   const speed = Math.min(BASE_SPEED * Math.pow(1.03, score), 22)
   const spacing = Math.max(28 - score * 0.45, 18)
-  const offset = Math.min(score * 0.14, 1.4)
+  const offset = Math.min(0.8 + score * 0.12, 1.8)
   return { speed, spacing, offset }
 }
 

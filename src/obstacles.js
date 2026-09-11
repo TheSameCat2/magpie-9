@@ -3,13 +3,14 @@ import { R, VERTEX_R, THEME, makeFrameMaterial, makeRingMaterial } from './theme
 import { hitObstacle } from './collision.js'
 
 const POOL = 12
-const HOLE_W = 3.6
-const HOLE_H = 3.4
-const LASER_GAP = 3.0
+export const HOLE_W = 3.0
+export const HOLE_H = 2.8
+export const LASER_GAP = 3.0
 const DEPTH = 0.3
-const PYLON_W = 4.5
+export const PYLON_W = 4.5
 const PYLON_H = 8.2
 const PYLON_D = 0.42
+export const PYLON_PX = 2.2
 const RING_EXPAND = 3.2
 const PROX_RANGE = 38
 const PASS_FADE_Z = 4.2
@@ -62,6 +63,42 @@ function pickType(spawnIndex, score) {
   if (score >= 5 && Math.random() < 0.3) return 'pylon'
   if (score >= 3 && Math.random() < 0.38) return 'laser-bar'
   return 'bulkhead'
+}
+
+function clamp(v, lo, hi) {
+  return Math.min(hi, Math.max(lo, v))
+}
+
+// Pure X/Y placement for a gate. Injectable RNG so layout can be unit-tested
+// without constructing Three.js meshes.
+export function layoutGate(type, offset, rand = Math.random) {
+  if (type === 'bulkhead') {
+    const ang = rand() * Math.PI * 2
+    const mag = offset * (0.55 + rand() * 0.45)
+    return {
+      hole: {
+        x: Math.cos(ang) * mag,
+        y: Math.sin(ang) * mag,
+        w: HOLE_W,
+        h: HOLE_H,
+      },
+    }
+  }
+
+  if (type === 'laser-bar') {
+    return {
+      gapY: clamp((rand() * 2 - 1) * Math.max(0.4, offset), -1.7, 1.7),
+      gapH: LASER_GAP,
+    }
+  }
+
+  const side = rand() < 0.5 ? 'left' : 'right'
+  const px = side === 'left' ? -PYLON_PX : PYLON_PX
+  return {
+    side,
+    px,
+    edge: side === 'left' ? px + PYLON_W * 0.5 : px - PYLON_W * 0.5,
+  }
 }
 
 function makeSlot(materials) {
@@ -188,11 +225,11 @@ function configure(obs, type, z, offset, gap) {
   obs.group.visible = true
   obs.group.position.set(0, 0, z)
 
+  const layout = layoutGate(type, offset)
+
   if (type === 'bulkhead') {
-    const ang = Math.random() * Math.PI * 2
-    const mag = offset * (0.35 + Math.random() * 0.65)
-    const ox = Math.cos(ang) * mag
-    const oy = Math.sin(ang) * mag
+    const ox = layout.hole.x
+    const oy = layout.hole.y
     obs.hole.x = ox
     obs.hole.y = oy
     obs.depth = DEPTH
@@ -206,7 +243,7 @@ function configure(obs, type, z, offset, gap) {
   }
 
   if (type === 'laser-bar') {
-    const gapY = THREE.MathUtils.clamp((Math.random() * 2 - 1) * Math.max(0.4, offset), -1.7, 1.7)
+    const gapY = layout.gapY
     obs.gapY = gapY
     obs.gapH = LASER_GAP
     obs.depth = 0.16
@@ -222,21 +259,20 @@ function configure(obs, type, z, offset, gap) {
     return
   }
 
-  const side = Math.random() < 0.5 ? 'left' : 'right'
+  const { side, px, edge } = layout
   obs.side = side
+  obs.edge = edge
   obs.depth = PYLON_D
   obs.pylon.visible = true
   obs.pylonTrim.visible = true
   obs.pylonEdge.visible = true
   obs.pylon.scale.set(PYLON_W, PYLON_H, PYLON_D)
   obs.pylonTrim.scale.set(PYLON_W + 0.04, 0.1, PYLON_D + 0.04)
-  const px = side === 'left' ? -2.4 : 2.4
   obs.pylon.position.set(px, 0, 0)
-  obs.edge = side === 'left' ? px + PYLON_W * 0.5 : px - PYLON_W * 0.5
   obs.pylonTrim.position.set(px, 2.2, 0)
   obs.pylonEdge.scale.set(0.08, PYLON_H, PYLON_D + 0.06)
-  obs.pylonEdge.position.set(obs.edge, 0, 0)
-  setFrame(obs, 2, obs.edge, 0, 2.8, PYLON_H + 1.2, 0, 0, side === 'left' ? -1 : 1, COLOR.pylon)
+  obs.pylonEdge.position.set(edge, 0, 0)
+  setFrame(obs, 2, edge, 0, 2.8, PYLON_H + 1.2, 0, 0, side === 'left' ? -1 : 1, COLOR.pylon)
 }
 
 export function createObstacles(scene, materials) {

@@ -9,6 +9,7 @@ const DUST_NEAR = 8
 const DUST_SPAN = 78
 
 const _c = new THREE.Color()
+const _tint = new THREE.Color()
 
 function createParticles(scene) {
   const geo = new THREE.BufferGeometry()
@@ -204,7 +205,6 @@ export function createFx(scene) {
   const white = new THREE.Color(0xffffff)
   const mag = new THREE.Color(THEME.mag)
   const sodium = new THREE.Color(THEME.sodium)
-  const gold = new THREE.Color(THEME.gold)
 
   let kick = 0
 
@@ -275,12 +275,13 @@ export function createFx(scene) {
     particles.flush()
   }
 
-  function orbBurst(x, y, z) {
+  function orbBurst(x, y, z, color = THEME.gold) {
+    _tint.set(color)
     for (let i = 0; i < 48; i++) {
       const th = Math.random() * Math.PI * 2
       const ph = Math.acos(Math.random() * 2 - 1)
       const sp = 2 + Math.random() * 6
-      _c.copy(gold).lerp(white, Math.random() * 0.6)
+      _c.copy(_tint).lerp(white, Math.random() * 0.6)
       particles.emit(
         x,
         y,

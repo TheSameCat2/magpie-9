@@ -8,6 +8,18 @@ const MILESTONE = 10
 const BASE_FOV = 68
 const BASE_SPEED = 12
 const ORB_CHANCE = 0.5
+const REWIND_TIME = 0.45
+// How far past the last cleared gate the bird sits after a spare (z of that gate).
+// Must clear the plate + collider so resume does not instantly re-hit it.
+const RESPAWN_INSIDE = 1.2
+
+export function rewindDistance(anchorZ, gap) {
+  return Math.max(0, anchorZ + gap - RESPAWN_INSIDE)
+}
+
+export function pickLifeSlot(sectorStart, rand = Math.random) {
+  return sectorStart + Math.floor(rand() * MILESTONE)
+}
 
 export function loadBest() {
   const n = Number(localStorage.getItem(BEST_KEY) || '0')
@@ -43,6 +55,7 @@ export function createGame({
   reduceMotion,
   onResume,
   god = false,
+  startLives = 1,
 }) {
   const hud = createHud()
   let state = 'title'
@@ -50,6 +63,11 @@ export function createGame({
   let best = loadBest()
   let speed = BASE_SPEED
   let slow = 0
+  let lives = 1
+  let gatesSpawned = 0
+  let lifeSlot = -1
+  let rewindLeft = 0
+  let rewindTotal = 0
   let shake = 0
   let fovPunch = 0
   let hitStop = 0
@@ -65,6 +83,7 @@ export function createGame({
 
   hud.setBest(best)
   hud.setScore(0)
+  hud.setLives(1)
   hud.setSpeed(BASE_SPEED)
   hud.setMuted(audio.muted)
   hud.setInputMode(input.mode)
@@ -94,7 +113,11 @@ export function createGame({
 
   function maybeDropOrbs(gates, diff) {
     for (const obs of gates) {
-      if (Math.random() < ORB_CHANCE) powerups.spawn(obs.z - diff.spacing * 0.5)
+      const idx = gatesSpawned++
+      if (idx % MILESTONE === 0) lifeSlot = pickLifeSlot(idx)
+      const z = obs.z - diff.spacing * 0.5
+      if (idx === lifeSlot) powerups.spawn(z, 'life')
+      else if (Math.random() < ORB_CHANCE) powerups.spawn(z)
     }
   }
 
@@ -142,9 +165,16 @@ export function createGame({
     score = 0
     slow = 0
     speed = BASE_SPEED
+    lives = Math.max(1, startLives)
+    gatesSpawned = 0
+    lifeSlot = -1
+    rewindLeft = 0
+    rewindTotal = 0
     bird.reset()
     obstacles.reset()
     powerups.reset()
+    hud.setLives(lives)
+    hud.hideRespawn()
     const startDiff = difficulty(0)
     obstacles.ensureAhead(0, startDiff, spawned)
     maybeDropOrbs(spawned, startDiff)
@@ -165,6 +195,7 @@ export function createGame({
     paused = false
     pauseReason = null
     hud.hidePaused()
+    hud.hideRespawn()
     bird.kill()
     audio.crash()
     fx.explode(bird.x, bird.y, 0)
@@ -186,15 +217,22 @@ export function createGame({
     paused = false
     pauseReason = null
     hud.hidePaused()
+    hud.hideRespawn()
     bird.reset()
     obstacles.reset()
     powerups.reset()
     tunnel.reset()
     slow = 0
     speed = BASE_SPEED
+    lives = 1
+    gatesSpawned = 0
+    lifeSlot = -1
+    rewindLeft = 0
+    rewindTotal = 0
     shake = 0
     fovPunch = 0
     hud.setScore(0)
+    hud.setLives(1)
     hud.setSpeed(BASE_SPEED)
     hud.showTitle()
     audio.title()
@@ -237,6 +275,17 @@ export function createGame({
   }
 
   function onOrb(orb) {
+    if (orb.type === 'life') {
+      lives += 1
+      hud.setLives(lives, true)
+      hud.toast('SPARE +1', 'green')
+      fx.orbBurst(orb.x, orb.y, orb.z, THEME.green)
+      audio.life()
+      postfx.flash(THEME.green, 0.14)
+      SHARED.uKick.value = Math.max(SHARED.uKick.value, 0.4)
+      fx.kick(0.4)
+      return
+    }
     slow += 0.5 * stageDelta(score)
     applySpeed()
     hud.toast('DAMPERS', 'gold')
@@ -245,6 +294,38 @@ export function createGame({
     postfx.flash(THEME.gold, 0.1)
     SHARED.uKick.value = Math.max(SHARED.uKick.value, 0.4)
     fx.kick(0.4)
+  }
+
+  function spare(hitObs) {
+    lives -= 1
+    hud.setLives(lives)
+    const anchor = hitObs ?? obstacles.nearestAhead()
+    const back = anchor ? rewindDistance(anchor.z, anchor.gap) : 0
+    powerups.cullBehind(anchor ? anchor.z : 0)
+    bird.reset()
+    audio.crash()
+    fx.orbBurst(bird.x, bird.y, 0, THEME.green)
+    postfx.flash(THEME.green, 0.5)
+    postfx.glitch(0.5)
+    shake = reduceMotion ? 0 : 0.25
+    hitStop = 0.06
+    state = 'respawn'
+    rewindLeft = rewindTotal = back
+    if (reduceMotion && back > 0) {
+      scrollWorld(-back, 0)
+      rewindLeft = 0
+    }
+    if (rewindLeft === 0) hud.showRespawn()
+  }
+
+  function resumeFromSpare() {
+    state = 'playing'
+    hud.hideRespawn()
+    bird.flap()
+    audio.flap()
+    fx.puff(bird.x, bird.y, 0, 9)
+    audio.setSpeed(speed)
+    onResume?.()
   }
 
   function updateCamera(dt) {
@@ -314,18 +395,34 @@ export function createGame({
         const dz = speed * dt
         bird.updatePlay(dt, input, dz)
         scrollWorld(dz, dt)
-        if (obstacles.collectScores(passed)) {
-          for (const obs of passed) onGate(obs)
+        const hitObs = obstacles.hits(bird.pos, BIRD_RADIUS)
+        if (!god && (hitTunnel(bird.pos, BIRD_RADIUS) || hitObs)) {
+          if (lives > 1) spare(hitObs)
+          else die()
+        } else {
+          if (obstacles.collectScores(passed)) {
+            for (const obs of passed) onGate(obs)
+          }
+          const diff = difficulty(score)
+          obstacles.ensureAhead(score, diff, spawned)
+          maybeDropOrbs(spawned, diff)
+          if (powerups.collect(bird.pos, BIRD_RADIUS, collected)) {
+            for (const orb of collected) onOrb(orb)
+          }
         }
-        const diff = difficulty(score)
-        obstacles.ensureAhead(score, diff, spawned)
-        maybeDropOrbs(spawned, diff)
-        if (powerups.collect(bird.pos, BIRD_RADIUS, collected)) {
-          for (const orb of collected) onOrb(orb)
-        }
-        if (!god && (hitTunnel(bird.pos, BIRD_RADIUS) || obstacles.hits(bird.pos, BIRD_RADIUS))) {
-          die()
-        }
+      }
+    } else if (state === 'respawn') {
+      if (rewindLeft > 0) {
+        const rate = rewindTotal / REWIND_TIME
+        const step = Math.min(rewindLeft, rate * dt)
+        scrollWorld(-step, dt)
+        rewindLeft -= step
+        if (rewindLeft === 0) hud.showRespawn()
+        bird.updateIdle(dt, 0)
+      } else if (tapped && !screen.needsRotate) {
+        resumeFromSpare()
+      } else {
+        bird.updateIdle(dt, 0)
       }
     } else if (state === 'dead') {
       bird.updateDead(dt)
@@ -356,6 +453,9 @@ export function createGame({
     },
     get score() {
       return score
+    },
+    get lives() {
+      return lives
     },
     get speed() {
       return speed

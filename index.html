@@ -25,6 +25,7 @@
         --muted: #8a97a6;
         --sodium: #e8a030;
         --gold: #ffd166;
+        --green: #3dff8a;
         --sat: env(safe-area-inset-top, 0px);
         --sar: env(safe-area-inset-right, 0px);
         --sab: env(safe-area-inset-bottom, 0px);
@@ -161,6 +162,24 @@
       #best.beat {
         color: var(--sodium);
         text-shadow: 0 0 12px rgba(232, 160, 48, 0.6);
+      }
+      #lives {
+        position: absolute;
+        top: calc(56px + var(--sat));
+        right: calc(34px + var(--sar));
+        font-family: Orbitron, sans-serif;
+        font-size: 18px;
+        letter-spacing: 0.12em;
+        color: var(--green);
+        text-shadow: 0 0 12px rgba(61, 255, 138, 0.7);
+        text-align: right;
+        transform-origin: right center;
+      }
+      #lives.pop {
+        animation: pop 0.34s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+      }
+      #lives span {
+        margin-left: 0.12em;
       }
       #vel {
         position: absolute;
@@ -345,6 +364,10 @@
       #toast.gold {
         color: var(--gold);
         text-shadow: 0 0 18px rgba(255, 209, 102, 0.7);
+      }
+      #toast.green {
+        color: var(--green);
+        text-shadow: 0 0 18px rgba(61, 255, 138, 0.7);
       }
       @keyframes toast {
         0% {
@@ -598,6 +621,11 @@
           top: calc(16px + var(--sat));
           right: calc(20px + var(--sar));
         }
+        #lives {
+          font-size: 14px;
+          top: calc(36px + var(--sat));
+          right: calc(20px + var(--sar));
+        }
         #sys {
           top: calc(42px + var(--sat));
           right: calc(14px + var(--sar));
@@ -652,6 +680,7 @@
       <div id="score">0</div>
       <div id="scoreLabel">GATES</div>
       <div id="best">BEST 0</div>
+      <div id="lives" class="hidden"></div>
       <div id="vel">VEL <b>12.0</b></div>
       <div id="velBar"><i></i></div>
       <div id="keys">M MUTE · B COLLIDER</div>
@@ -695,6 +724,12 @@
       <div id="paused" class="overlay hidden">
         <div class="overlay-card">
           <div class="overlay-title">PAUSED</div>
+          <div class="overlay-sub">TAP TO RESUME</div>
+        </div>
+      </div>
+      <div id="respawn" class="overlay hidden">
+        <div class="overlay-card">
+          <div class="overlay-title">SPARE ENGAGED</div>
           <div class="overlay-sub">TAP TO RESUME</div>
         </div>
       </div>

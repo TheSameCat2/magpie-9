@@ -119,6 +119,8 @@ export function createTunnel(scene, materials) {
           panel.visible = Math.random() > 0.45
           panel.position.z = (Math.random() - 0.5) * 4
         }
+      } else if (seg.position.z <= 12 - poolLen) {
+        seg.position.z += poolLen
       }
     }
   }

@@ -216,6 +216,11 @@ export function createAudio() {
       tone(1760, 0.3, 'triangle', 0.06, { toWet: 1, when: 0.06 })
       noise(0.12, 0.08, { type: 'highpass', from: 4000, to: 8000 })
     },
+    life() {
+      tone(784, 0.16, 'sine', 0.13, { endFreq: 1176, toWet: 0.95 })
+      tone(1568, 0.32, 'triangle', 0.07, { toWet: 1, when: 0.08 })
+      noise(0.1, 0.06, { type: 'highpass', from: 3500, to: 7000 })
+    },
     nearMiss() {
       noise(0.32, 0.22, { from: 2600, to: 500, q: 2.5 })
       tone(1800, 0.22, 'sine', 0.07, { endFreq: 900, toWet: 0.8, when: 0.02 })

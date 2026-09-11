@@ -18,6 +18,7 @@ export const THEME = {
   metalHi: 0x2a3140,
   sodium: 0xe8a030,
   gold: 0xffd166,
+  green: 0x3dff8a,
   mag: 0xff2a6d,
   ice: 0x3de0ff,
   ink: 0xdce8f0,
@@ -359,6 +360,41 @@ export function chevronMap() {
   chevron(52)
   g.stroke()
   chevron(84)
+  g.stroke()
+
+  const tex = texture(c, true)
+  tex.wrapS = THREE.ClampToEdgeWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.needsUpdate = true
+  return tex
+}
+
+export function plusMap() {
+  const S = 128
+  const [c, g] = canvas(S, S)
+  g.clearRect(0, 0, S, S)
+  g.lineJoin = 'round'
+  g.lineCap = 'round'
+  g.shadowColor = 'rgba(61, 255, 138, 0.95)'
+  g.shadowBlur = 14
+
+  function plus() {
+    g.beginPath()
+    g.moveTo(64, 22)
+    g.lineTo(64, 106)
+    g.moveTo(22, 64)
+    g.lineTo(106, 64)
+  }
+
+  g.strokeStyle = '#3dff8a'
+  g.lineWidth = 18
+  plus()
+  g.stroke()
+
+  g.shadowBlur = 0
+  g.strokeStyle = '#e8fff0'
+  g.lineWidth = 8
+  plus()
   g.stroke()
 
   const tex = texture(c, true)

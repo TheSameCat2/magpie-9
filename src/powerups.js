@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { SHARED, THEME, makeOrbMaterial, makeHaloMaterial, chevronMap } from './theme.js'
+import { SHARED, THEME, makeOrbMaterial, makeHaloMaterial, chevronMap, plusMap } from './theme.js'
 import { hitOrb } from './collision.js'
 
 const POOL = 6
@@ -8,26 +8,37 @@ const ORB_SPREAD = 2.2
 const HALO_SCALE = 1.9
 const unitPlane = new THREE.PlaneGeometry(1, 1)
 const shellGeo = new THREE.SphereGeometry(ORB_R, 24, 16)
-const chevronGeo = new THREE.PlaneGeometry(0.5, 0.5)
+const iconGeo = new THREE.PlaneGeometry(0.5, 0.5)
 
-function makeSlot(materials) {
+function makeIconMaterial(map) {
+  return new THREE.MeshBasicMaterial({
+    map,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  })
+}
+
+function makeSlot(look) {
   const group = new THREE.Group()
   group.visible = false
 
-  const shell = new THREE.Mesh(shellGeo, materials.orb)
+  const shell = new THREE.Mesh(shellGeo, look.orb)
   group.add(shell)
 
-  const halo = new THREE.Mesh(unitPlane, materials.halo)
+  const halo = new THREE.Mesh(unitPlane, look.halo)
   halo.scale.setScalar(HALO_SCALE)
   halo.renderOrder = 7
   group.add(halo)
 
-  const chevron = new THREE.Mesh(chevronGeo, materials.chevron)
-  chevron.renderOrder = 8
-  group.add(chevron)
+  const icon = new THREE.Mesh(iconGeo, look.icon)
+  icon.renderOrder = 8
+  group.add(icon)
 
   return {
     active: false,
+    type: 'damper',
     x: 0,
     y: 0,
     z: 0,
@@ -36,7 +47,7 @@ function makeSlot(materials) {
     group,
     shell,
     halo,
-    chevron,
+    icon,
   }
 }
 
@@ -46,20 +57,21 @@ export function createPowerups(scene) {
   scene.add(root)
 
   const materials = {
-    orb: makeOrbMaterial(THEME.gold),
-    halo: makeHaloMaterial(THEME.gold),
-    chevron: new THREE.MeshBasicMaterial({
-      map: chevronMap(),
-      transparent: true,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    }),
+    damper: {
+      orb: makeOrbMaterial(THEME.gold),
+      halo: makeHaloMaterial(THEME.gold),
+      icon: makeIconMaterial(chevronMap()),
+    },
+    life: {
+      orb: makeOrbMaterial(THEME.green),
+      halo: makeHaloMaterial(THEME.green),
+      icon: makeIconMaterial(plusMap()),
+    },
   }
 
   const pool = []
   for (let i = 0; i < POOL; i++) {
-    const slot = makeSlot(materials)
+    const slot = makeSlot(materials.damper)
     root.add(slot.group)
     pool.push(slot)
   }
@@ -73,7 +85,15 @@ export function createPowerups(scene) {
     for (const orb of pool) deactivate(orb)
   }
 
-  function spawn(z) {
+  function applyLook(orb, type) {
+    const look = materials[type] || materials.damper
+    orb.type = type
+    orb.shell.material = look.orb
+    orb.halo.material = look.halo
+    orb.icon.material = look.icon
+  }
+
+  function spawn(z, type = 'damper') {
     const orb = pool.find((o) => !o.active)
     if (!orb) return
     const ang = Math.random() * Math.PI * 2
@@ -83,10 +103,11 @@ export function createPowerups(scene) {
     orb.z = z
     orb.seed = Math.random() * Math.PI * 2
     orb.active = true
+    applyLook(orb, type)
     orb.group.visible = true
     orb.group.position.set(orb.x, orb.y, orb.z)
     orb.group.scale.setScalar(1)
-    orb.chevron.rotation.y = 0
+    orb.icon.rotation.y = 0
     return orb
   }
 
@@ -103,7 +124,7 @@ export function createPowerups(scene) {
       const pulse = 1 + 0.06 * Math.sin(t * 3.1 + orb.seed)
       orb.group.position.set(orb.x, orb.y + bob, orb.z)
       orb.group.scale.setScalar(pulse)
-      orb.chevron.rotation.y += dt * 3.2
+      orb.icon.rotation.y += dt * 3.2
     }
   }
 
@@ -119,10 +140,17 @@ export function createPowerups(scene) {
     return out.length
   }
 
+  function cullBehind(zLimit) {
+    for (const orb of pool) {
+      if (orb.active && orb.z > zLimit) deactivate(orb)
+    }
+  }
+
   return {
     reset,
     spawn,
     scroll,
     collect,
+    cullBehind,
   }
 }

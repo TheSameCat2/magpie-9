@@ -108,6 +108,7 @@ function makeSlot(materials) {
     scored: false,
     type: 'bulkhead',
     z: 0,
+    gap: 0,
     depth: DEPTH,
     hole: { x: 0, y: 0, w: HOLE_W, h: HOLE_H },
     gapY: 0,
@@ -177,10 +178,11 @@ function setFrame(obs, mode, x, y, w, h, halfW, halfH, edgeSign, color) {
   obs.frame.visible = true
 }
 
-function configure(obs, type, z, offset) {
+function configure(obs, type, z, offset, gap) {
   hideAll(obs)
   obs.type = type
   obs.z = z
+  obs.gap = gap
   obs.scored = false
   obs.active = true
   obs.group.visible = true
@@ -263,12 +265,12 @@ export function createObstacles(scene, materials) {
     for (const obs of pool) deactivate(obs)
   }
 
-  function spawn(score, diff, z) {
+  function spawn(score, diff, z, gap) {
     const obs = pool.find((o) => !o.active)
     if (!obs) return
     const type = pickType(spawnIndex, score)
     const offset = spawnIndex < 2 ? 0 : diff.offset
-    configure(obs, type, z, offset)
+    configure(obs, type, z, offset, gap)
     spawnIndex += 1
     return obs
   }
@@ -290,8 +292,9 @@ export function createObstacles(scene, materials) {
     while (guard++ < 8) {
       const mz = minActiveZ()
       if (mz !== null && mz <= -48) break
+      const gap = mz === null ? 32 : diff.spacing
       const z = mz === null ? -32 : mz - diff.spacing
-      const obs = spawn(score, diff, z)
+      const obs = spawn(score, diff, z, gap)
       if (obs && out) out.push(obs)
     }
   }
@@ -373,9 +376,18 @@ export function createObstacles(scene, materials) {
   function hits(pos, radius) {
     for (const obs of pool) {
       if (!obs.active) continue
-      if (hitObstacle(pos, radius, obs)) return true
+      if (hitObstacle(pos, radius, obs)) return obs
     }
-    return false
+    return null
+  }
+
+  function nearestAhead() {
+    let best = null
+    for (const obs of pool) {
+      if (!obs.active || obs.scored) continue
+      if (!best || obs.z > best.z) best = obs
+    }
+    return best
   }
 
   // Where sparks should erupt from for a given gate.
@@ -408,5 +420,6 @@ export function createObstacles(scene, materials) {
     celebrate,
     burstShape,
     hits,
+    nearestAhead,
   }
 }

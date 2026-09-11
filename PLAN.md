@@ -7,9 +7,9 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
 
 1. Vanilla Three.js. No React/Vue. No Cannon/Rapier/Ammo. Sphere vs box/plane only.
 2. Bird is fixed in Z relative to the camera. The world scrolls toward the camera.
-3. One play loop: Title → Playing → Dead → Title. Pause is optional.
+3. One play loop: Title → Playing → (Respawn → Playing) → Dead → Title. Pause is optional.
 4. Procedural geometry only in v1. No GLTF, no texture CDNs. CanvasTexture / data-URI if needed.
-5. No lives, story, shop, or multiplayer. The damper orb is the one sanctioned powerup.
+5. No story, shop, or multiplayer. Two orbs: gold damper and green spare-life (`+`, one per 10-gate sector). A spare life rewinds to just inside the last passed gate and waits for a tap.
 6. Gameplay before bloom. Silhouette, fog, lights first.
 7. Original art: conduit / magpie drone.
 8. Keyboard and touch are first-class. Mouse click flaps. Touch: left-half stick, right-half flap.
@@ -28,7 +28,7 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
     bird.js             # mesh, flap impulse, strafe, bank/pitch
     tunnel.js           # pooled hexagonal segments + scroll
     obstacles.js        # pooled hazard types + spawn
-    powerups.js         # pooled damper orbs
+    powerups.js         # pooled damper + life orbs
     collision.js        # sphere vs tunnel + descriptors + orbs
     game.js             # state machine, score, difficulty, restart
     hud.js              # DOM overlay
@@ -60,7 +60,7 @@ Pin exact `three` version. `WebGLRenderer`, `SRGBColorSpace`, `ACESFilmicToneMap
 
 **Forward:** base scroll `12` u/s; after each gate `speed *= 1.03`, cap `22`. Bird does not move in Z.
 
-**Fail:** sphere vs tunnel wall or obstacle. On hit: freeze scroll, tumble, “REBOOT”, Space/click returns to title (consume that edge so it does not also arm).
+**Fail:** sphere vs tunnel wall or obstacle. With lives > 1, consume one spare, rewind the world to just inside the last passed gate (never forward), recenter the bird, and wait for a tap. Last life: freeze scroll, tumble, “REBOOT”, Space/click returns to title (consume that edge so it does not also arm).
 
 **Score:** +1 when obstacle Z passes the bird (once). Best: `localStorage['magpie9.best']`.
 
@@ -104,7 +104,10 @@ Touch (coarse pointer, landscape): left-half drag is a floating analog stick (`s
 
 ## Powerups
 
-Golden damper orbs. 50% chance per spawned gate (`ORB_CHANCE = 0.5`). Sit midway to the next gate at a random X/Y in a disc of radius 2.2. Pickup is permanent for the run: subtract half of `stageDelta(score)` from scroll speed, floored at base 12. Pool of 6; recycle at `z > 14`.
+Two orb types, pool of 6, recycle at `z > 14`. Both sit midway to the next gate at a random X/Y in a disc of radius 2.2.
+
+- **Damper** (gold chevron): 50% chance per spawned gate that is not the sector's life slot (`ORB_CHANCE = 0.5`). Pickup is permanent for the run: subtract half of `stageDelta(score)` from scroll speed, floored at base 12.
+- **Spare life** (green `+`): exactly one per 10-gate sector, at a random gate in that sector. Pickup adds one life. A hit with lives > 1 consumes a spare, rewinds to just inside the last passed gate, and waits for tap-to-resume.
 
 ## Difficulty
 

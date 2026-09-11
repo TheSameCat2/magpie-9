@@ -6,6 +6,7 @@ const TAP_MS = 280
 export function createHud() {
   const scoreEl = document.getElementById('score')
   const bestEl = document.getElementById('best')
+  const livesEl = document.getElementById('lives')
   const center = document.getElementById('center')
   const title = document.getElementById('title')
   const prompt = document.getElementById('prompt')
@@ -21,6 +22,7 @@ export function createHud() {
   const tapEl = document.querySelector('#touch .tapring')
   const rotateEl = document.getElementById('rotate')
   const pausedEl = document.getElementById('paused')
+  const respawnEl = document.getElementById('respawn')
   const muteBtn = document.getElementById('btnMute')
   const fsBtn = document.getElementById('btnFs')
   const rotateFsBtn = document.getElementById('btnRotateFs')
@@ -42,7 +44,7 @@ export function createHud() {
     document.body.dataset.input = mode
     keysEl.classList.toggle('hidden', mode === 'touch')
     zonesEl.classList.toggle('hidden', mode !== 'touch' || scene !== 'title')
-    sysEl.classList.toggle('playing', scene === 'playing')
+    sysEl.classList.toggle('playing', scene === 'playing' || scene === 'respawn')
     if (scene === 'title') {
       sub.textContent = mode === 'touch' ? 'TAP RIGHT · FLAP   DRAG LEFT · STRAFE' : 'SPACE / CLICK · A D STRAFE'
     } else if (scene === 'dead') {
@@ -58,6 +60,18 @@ export function createHud() {
   function setBest(n, beat) {
     bestEl.textContent = `BEST ${n}`
     bestEl.classList.toggle('beat', !!beat)
+  }
+
+  function setLives(n, animate) {
+    const extras = Math.max(0, n - 1)
+    livesEl.replaceChildren()
+    for (let i = 0; i < extras; i++) {
+      const glyph = document.createElement('span')
+      glyph.textContent = '+'
+      livesEl.appendChild(glyph)
+    }
+    livesEl.classList.toggle('hidden', extras <= 0)
+    if (animate && extras > 0) retrigger(livesEl, 'pop')
   }
 
   function setSpeed(speed) {
@@ -146,6 +160,20 @@ export function createHud() {
     pausedEl.classList.add('hidden')
   }
 
+  function showRespawn() {
+    scene = 'respawn'
+    respawnEl.classList.remove('hidden')
+    applyChrome()
+  }
+
+  function hideRespawn() {
+    respawnEl.classList.add('hidden')
+    if (scene === 'respawn') {
+      scene = 'playing'
+      applyChrome()
+    }
+  }
+
   function setMuted(muted) {
     muteBtn.setAttribute('aria-pressed', muted ? 'true' : 'false')
     muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute')
@@ -185,6 +213,7 @@ export function createHud() {
   return {
     setScore,
     setBest,
+    setLives,
     setSpeed,
     toast,
     hot,
@@ -196,6 +225,8 @@ export function createHud() {
     setRotate,
     showPaused,
     hidePaused,
+    showRespawn,
+    hideRespawn,
     setMuted,
     setFullscreen,
     bindSys,

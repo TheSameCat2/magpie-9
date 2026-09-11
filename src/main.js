@@ -93,6 +93,7 @@ game = createGame({
     last = performance.now()
   },
   god: params.get('god') === '1',
+  startLives: Math.max(1, Number(params.get('lives')) || 1),
 })
 screen.onChange = () => game.syncScreen()
 game.syncScreen()

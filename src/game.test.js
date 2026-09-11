@@ -6,6 +6,12 @@ test('difficulty at score 0 is the base speed', () => {
   assert.equal(difficulty(0).speed, 12)
 })
 
+test('difficulty offset floors after the tutorial and caps at 1.8', () => {
+  assert.equal(difficulty(0).offset, 0.8)
+  assert.ok(Math.abs(difficulty(2).offset - 1.04) < 1e-9)
+  assert.equal(difficulty(20).offset, 1.8)
+})
+
 test('stageDelta(0) is zero', () => {
   assert.equal(stageDelta(0), 0)
 })

@@ -11,13 +11,17 @@ npm run dev
 Open the printed local URL. Space / click flaps. A D (or arrows) strafe.
 M mutes, B shows the collider sphere.
 
+H (or the HELP button on the title / reboot screen) opens the field manual:
+controls for your input method and what the two orbs do. Esc, H, CLOSE or a
+tap on the backdrop closes it. Flaps are ignored while it is open.
+
 ## Touch
 
 Landscape only. Portrait shows a rotate overlay and pauses the run.
 
 - Left half: drag a floating stick to strafe
 - Right half: tap to flap, arm, or reset
-- Title / reboot: FULL enters fullscreen (Android / desktop; remembered across reloads until you exit). MUTE toggles audio.
+- Title / reboot: FULL enters fullscreen (Android / desktop; remembered across reloads until you exit). MUTE toggles audio. HELP opens the field manual.
 - Portrait: ENTER FULLSCREEN on the rotate overlay does the same (and locks landscape on Android). Browsers without the Fullscreen API get an add-to-Home-Screen hint instead.
 - Backgrounding the tab auto-pauses. Tap to resume once you are back in landscape.
 

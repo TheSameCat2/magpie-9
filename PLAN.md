@@ -64,9 +64,9 @@ Pin exact `three` version. `WebGLRenderer`, `SRGBColorSpace`, `ACESFilmicToneMap
 
 **Score:** +1 when obstacle Z passes the bird (once). Best: `localStorage['magpie9.best']`.
 
-**Start:** MENU, gravity off. NEW GAME (or TUTORIAL) arms PLAYING.
+**Start:** MENU, gravity off. NEW GAME (or TUTORIAL) drops into PLAYING held on jump-to-begin.
 
-**Tutorial:** fixed speed 9 (dampers trim 0.5 each, floor 7), spacing 34, offset 0, hazards in a fixed order, an orb after every gate alternating damper / life, no gate counter, no best, no sectors. First pickup of each orb type pauses under an explainer card until tapped.
+**Tutorial:** fixed speed 9 (dampers trim 0.5 each, floor 7), spacing 34, offset 0, hazards in a fixed order, an orb after every gate alternating damper / life, no gate counter, no best, no sectors. First pickup of each orb type pauses under an explainer card; closing it holds the run on jump-to-resume.
 
 ## Tunnel
 
@@ -130,7 +130,7 @@ One function `difficulty(score) → { speed, spacing, offset }`. Do not scatter 
 
 ## Acceptance
 
-- First flap starts the run
+- NEW GAME / TUTORIAL hold on jump-to-begin; first flap starts the run
 - Idle falls, tap rises, A/D moves, walls and gates kill
 - At least two visually distinct hazards in a real run
 - Score once per gate; best survives refresh

@@ -13,9 +13,24 @@ M mutes, B shows the collider sphere.
 
 ## Menu
 
-The game opens on a menu: **NEW GAME**, **TUTORIAL**, **HELP**, **CREDITS**.
+The game opens on a menu: **NEW GAME**, **TUTORIAL**, **SCORES**, **HELP**, **CREDITS**.
 Click / tap an entry, or use ↑ ↓ (W S) and Enter / Space. Esc (or a tap) backs
-out of Help and Credits; after a crash, a tap returns to the menu.
+out of Help, Credits, and Scores; after a crash, a tap returns to the menu.
+
+## Scores
+
+A global top 10, arcade-style: no accounts. Crash with a run that beats the
+tenth place and type three initials (`A–Z`, `0–9`). Tutorial runs never go on
+the board. Your personal best still lives in the browser (`BEST` in the HUD).
+
+The board is stored in Upstash Redis and served by `/api/scores`. Locally:
+
+```bash
+vercel env pull .env.local
+npm run dev:full
+```
+
+`npm run dev` is Vite only — the board API is missing unless you use `vercel dev`.
 
 HELP (menu entry, the HELP button, or the H key on the menu / reboot screen)
 opens the field manual: controls for your input method and what the two orbs

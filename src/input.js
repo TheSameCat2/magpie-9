@@ -49,6 +49,9 @@ export function createInput({ onGesture, onModeChange } = {}) {
   let backEdge = false
   let helpEdge = false
   let navEdge = 0
+  let hEdge = 0
+  let charEdge = ''
+  let eraseEdge = false
   let mode = preferTouch() ? 'touch' : 'keys'
 
   function setMode(next) {
@@ -71,8 +74,14 @@ export function createInput({ onGesture, onModeChange } = {}) {
       flapEdge = true
       restartEdge = true
     }
-    if (LEFT_KEYS.has(k)) held.left = true
-    if (RIGHT_KEYS.has(k)) held.right = true
+    if (LEFT_KEYS.has(k)) {
+      held.left = true
+      hEdge = -1
+    }
+    if (RIGHT_KEYS.has(k)) {
+      held.right = true
+      hEdge = 1
+    }
     if (UP_KEYS.has(k)) navEdge = -1
     if (DOWN_KEYS.has(k)) navEdge = 1
     if (SELECT_KEYS.has(k)) {
@@ -82,6 +91,11 @@ export function createInput({ onGesture, onModeChange } = {}) {
     if (BACK_KEYS.has(k)) {
       e.preventDefault()
       backEdge = true
+    }
+    if (k === 'backspace') eraseEdge = true
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+      const ch = e.key.toUpperCase()
+      if (/^[A-Z0-9]$/.test(ch)) charEdge = ch
     }
     if (k === 'r') restartEdge = true
     if (k === 'm') muteEdge = true
@@ -204,6 +218,15 @@ export function createInput({ onGesture, onModeChange } = {}) {
     get navEdge() {
       return navEdge
     },
+    get hEdge() {
+      return hEdge
+    },
+    get charEdge() {
+      return charEdge
+    },
+    get eraseEdge() {
+      return eraseEdge
+    },
     get mode() {
       return mode
     },
@@ -223,6 +246,9 @@ export function createInput({ onGesture, onModeChange } = {}) {
       backEdge = false
       helpEdge = false
       navEdge = 0
+      hEdge = 0
+      charEdge = ''
+      eraseEdge = false
     },
   }
 }

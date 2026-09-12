@@ -47,6 +47,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
   let debugEdge = false
   let selectEdge = false
   let backEdge = false
+  let helpEdge = false
   let navEdge = 0
   let mode = preferTouch() ? 'touch' : 'keys'
 
@@ -85,6 +86,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
     if (k === 'r') restartEdge = true
     if (k === 'm') muteEdge = true
     if (k === 'b') debugEdge = true
+    if (k === 'h') helpEdge = true
   }
 
   function onUp(e) {
@@ -193,6 +195,9 @@ export function createInput({ onGesture, onModeChange } = {}) {
     get selectEdge() {
       return selectEdge
     },
+    get helpEdge() {
+      return helpEdge
+    },
     get backEdge() {
       return backEdge
     },
@@ -216,6 +221,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
       debugEdge = false
       selectEdge = false
       backEdge = false
+      helpEdge = false
       navEdge = 0
     },
   }

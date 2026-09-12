@@ -41,7 +41,7 @@ export function saveBest(n) {
 export function difficulty(score) {
   const speed = Math.min(BASE_SPEED * Math.pow(1.03, score), 22)
   const spacing = Math.max(28 - score * 0.45, 18)
-  const offset = Math.min(score * 0.14, 1.4)
+  const offset = Math.min(0.8 + score * 0.12, 1.8)
   return { speed, spacing, offset }
 }
 
@@ -66,7 +66,7 @@ export function createGame({
   startLives = 1,
 }) {
   const hud = createHud()
-  // menu | help | credits | playing | respawn | dead
+  // menu | credits | playing | respawn | dead  (the help manual is a modal, not a state)
   let state = 'menu'
   // run | tutorial — which rules the current (or next) session uses.
   let mode = 'run'
@@ -109,13 +109,16 @@ export function createGame({
     onFullscreen() {
       screen.toggleFullscreen()
     },
+    onHelp() {
+      if (state === 'menu' || state === 'dead') hud.toggleHelp()
+    },
   })
   hud.bindMenu({
     onSelect(item) {
-      if (state === 'menu') choose(item)
+      if (state === 'menu' && !hud.helpOpen) choose(item)
     },
     onBack() {
-      if (state === 'help' || state === 'credits') toMenu()
+      if (state === 'credits') toMenu()
     },
     onExit() {
       if (mode === 'tutorial' && (state === 'playing' || state === 'respawn')) toMenu()
@@ -303,10 +306,8 @@ export function createGame({
     if (screen.needsRotate) return
     if (item === 'new') arm('run')
     else if (item === 'tutorial') arm('tutorial')
-    else if (item === 'help') {
-      state = 'help'
-      hud.showHelp()
-    } else if (item === 'credits') {
+    else if (item === 'help') hud.showHelp()
+    else if (item === 'credits') {
       state = 'credits'
       hud.showCredits()
     }
@@ -405,7 +406,7 @@ export function createGame({
   }
 
   function updateCamera(dt) {
-    const follow = state === 'menu' || state === 'help' || state === 'credits' ? 0 : 0.32
+    const follow = state === 'menu' || state === 'credits' ? 0 : 0.32
     const tx = bird.x * follow
     const ty = 0.6 + bird.y * follow
     camBase.x = THREE.MathUtils.damp(camBase.x, tx, 6, dt)
@@ -438,6 +439,10 @@ export function createGame({
       hud.setMuted(audio.muted)
     }
     if (input.debugEdge) bird.toggleCollider()
+    if (state === 'menu' || state === 'dead') {
+      if (input.helpEdge) hud.toggleHelp()
+      else if (input.backEdge && hud.helpOpen) hud.hideHelp()
+    }
 
     let dt = realDt
     if (hitStop > 0) {
@@ -450,14 +455,18 @@ export function createGame({
     SHARED.uKick.value = Math.max(0, SHARED.uKick.value - dt * 2.6)
 
     const tapped = input.flapEdge || input.restartEdge || input.tapEdge
+    // While the manual is open, flaps must not start or reset a run.
+    const blocked = screen.needsRotate || hud.helpOpen
 
-    if (state === 'menu' || state === 'help' || state === 'credits') {
+    if (state === 'menu' || state === 'credits') {
       const dz = 2.2 * dt
       bird.updateIdle(dt, dz)
       scrollWorld(dz, dt)
       if (state === 'menu') {
-        if (input.navEdge) hud.moveMenu(input.navEdge)
-        if (input.selectEdge) choose(hud.menuItem)
+        if (!blocked) {
+          if (input.navEdge) hud.moveMenu(input.navEdge)
+          if (input.selectEdge) choose(hud.menuItem)
+        }
       } else if (tapped || input.backEdge || input.selectEdge) {
         toMenu()
       }
@@ -506,7 +515,7 @@ export function createGame({
       }
     } else if (state === 'dead') {
       bird.updateDead(dt)
-      if (tapped && !screen.needsRotate) toMenu()
+      if (tapped && !blocked) toMenu()
     }
 
     hud.updateTouch(input)

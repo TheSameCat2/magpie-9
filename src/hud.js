@@ -38,6 +38,8 @@ export function createHud() {
   const menuEl = document.getElementById('menu')
   const menuBtns = Array.from(menuEl.querySelectorAll('button'))
   const helpEl = document.getElementById('help')
+  const helpBtn = document.getElementById('btnHelp')
+  const helpCloseBtn = document.getElementById('btnHelpClose')
   const creditsEl = document.getElementById('credits')
   const lessonEl = document.getElementById('lesson')
   const lessonBlocks = Array.from(lessonEl.querySelectorAll('.lesson'))
@@ -51,6 +53,7 @@ export function createHud() {
   let scene = 'menu'
   let gameMode = 'run'
   let menuIndex = 0
+  let helpOpen = false
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   function retrigger(el, cls) {
@@ -68,8 +71,9 @@ export function createHud() {
     sysEl.classList.toggle('playing', inRun)
     exitBtn.classList.toggle('hidden', !(inRun && gameMode === 'tutorial'))
     tutorialTag.classList.toggle('hidden', !(inRun && gameMode === 'tutorial'))
+    helpCloseBtn.querySelector('.label').textContent = mode === 'touch' ? 'CLOSE' : 'CLOSE · ESC'
     if (scene === 'menu') {
-      sub.textContent = mode === 'touch' ? 'TAP TO SELECT' : '↑ ↓ SELECT · ENTER'
+      sub.textContent = mode === 'touch' ? 'TAP TO SELECT' : '↑ ↓ SELECT · ENTER · H HELP'
     } else if (scene === 'dead') {
       sub.textContent = mode === 'touch' ? 'TAP FOR MENU' : 'SPACE FOR MENU'
     }
@@ -123,7 +127,7 @@ export function createHud() {
   }
 
   function hideScreens() {
-    helpEl.classList.add('hidden')
+    hideHelp()
     creditsEl.classList.add('hidden')
   }
 
@@ -141,20 +145,40 @@ export function createHud() {
     applyChrome()
   }
 
-  function showHelp() {
-    scene = 'help'
-    center.classList.add('hidden')
-    creditsEl.classList.add('hidden')
-    helpEl.classList.remove('hidden')
-    applyChrome()
-  }
-
   function showCredits() {
     scene = 'credits'
     center.classList.add('hidden')
-    helpEl.classList.add('hidden')
+    hideHelp()
     creditsEl.classList.remove('hidden')
     applyChrome()
+  }
+
+  // The field manual is a modal over whatever scene is showing (menu or reboot),
+  // not a scene of its own.
+  function showHelp() {
+    if (helpOpen) return
+    helpOpen = true
+    document.body.classList.add('help-open')
+    helpEl.classList.remove('hidden')
+    retrigger(helpEl, 'rise')
+    helpEl.scrollTop = 0
+    helpEl.querySelector('.help-card').scrollTop = 0
+    helpBtn.setAttribute('aria-expanded', 'true')
+    helpCloseBtn.focus({ preventScroll: true })
+  }
+
+  function hideHelp() {
+    if (!helpOpen) return
+    helpOpen = false
+    document.body.classList.remove('help-open')
+    helpEl.classList.add('hidden')
+    helpBtn.setAttribute('aria-expanded', 'false')
+    if (document.activeElement === helpCloseBtn) helpBtn.focus({ preventScroll: true })
+  }
+
+  function toggleHelp() {
+    if (helpOpen) hideHelp()
+    else showHelp()
   }
 
   function showPlaying() {
@@ -272,17 +296,30 @@ export function createHud() {
     rotateFsBtn.querySelector('.label').textContent = active ? 'EXIT FULLSCREEN' : 'ENTER FULLSCREEN'
   }
 
-  function bindSys({ onMute, onFullscreen }) {
+  function bindSys({ onMute, onFullscreen, onHelp }) {
     function wire(btn, fn) {
       btn.addEventListener('pointerdown', (e) => {
         e.stopPropagation()
         e.preventDefault()
         fn?.()
       })
+      // Keyboard activation (Enter on a focused button) arrives as a click with detail 0.
+      btn.addEventListener('click', (e) => {
+        if (e.detail === 0) fn?.()
+      })
     }
     wire(muteBtn, onMute)
     wire(fsBtn, onFullscreen)
     wire(rotateFsBtn, onFullscreen)
+    wire(helpBtn, onHelp)
+    wire(helpCloseBtn, onHelp)
+    // Pointers inside the manual must never reach the game's window listeners
+    // (a tap there would arm a run). A tap on the dimmed backdrop closes it;
+    // taps on the card are swallowed so the card can scroll.
+    helpEl.addEventListener('pointerdown', (e) => {
+      e.stopPropagation()
+      if (e.target === helpEl) onHelp?.()
+    })
   }
 
   // Menu / screen buttons do not stop propagation: input.js already ignores
@@ -315,7 +352,6 @@ export function createHud() {
     toast,
     hot,
     showMenu,
-    showHelp,
     showCredits,
     showPlaying,
     showDead,
@@ -336,8 +372,14 @@ export function createHud() {
     hidePaused,
     showRespawn,
     hideRespawn,
+    showHelp,
+    hideHelp,
+    toggleHelp,
     setMuted,
     setFullscreen,
     bindSys,
+    get helpOpen() {
+      return helpOpen
+    },
   }
 }

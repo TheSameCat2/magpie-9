@@ -7,7 +7,7 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
 
 1. Vanilla Three.js. No React/Vue. No Cannon/Rapier/Ammo. Sphere vs box/plane only.
 2. Bird is fixed in Z relative to the camera. The world scrolls toward the camera.
-3. One play loop: Menu → Playing → (Respawn → Playing) → Dead → Menu. Help and Credits are static screens off the menu. Tutorial is the same loop with `mode = 'tutorial'` rules (see `src/tutorial.js`). Pause is optional.
+3. One play loop: Menu → Playing → (Respawn → Playing) → Dead → Menu. Credits is a static screen off the menu; Help is the field-manual modal (also H / HELP button on menu and reboot). Tutorial is the same loop with `mode = 'tutorial'` rules (see `src/tutorial.js`). Pause is optional.
 4. Procedural geometry only in v1. No GLTF, no texture CDNs. CanvasTexture / data-URI if needed.
 5. No story, shop, or multiplayer. Two orbs: gold damper and green spare-life (`+`, one per 10-gate sector). A spare life rewinds to just inside the last passed gate and waits for a tap.
 6. Gameplay before bloom. Silhouette, fog, lights first.
@@ -76,17 +76,17 @@ Hexagonal conduit, 6 plates + emissive rib. Segment length `10`, pool **8**. Fog
 
 | Id | What | Hole |
 |----|------|------|
-| `bulkhead` | Hex plate, rectangular hatch offset in X/Y | 2.4 × 2.0 |
-| `laser-bar` | Horizontal energy slab, open band | band height 2.2, random Y |
-| `pylon` | Left **or** right blocked | forces strafe |
+| `bulkhead` | Hex plate, rectangular hatch offset in X/Y | 2.8 × 3.2 |
+| `laser-bar` | Horizontal energy slab, open band | band height 3.0, random Y |
+| `pylon` | Left **or** right blocked past centre | forces strafe |
 
-First gate `z = −40`. Spacing `28` shrinking toward `20`, never below `18`. Mostly bulkhead; laser-bar after score 3; pylon after score 5. Hatch offset grows with score, hole stays inside ~70% of R.
+First gate `z = −32`. Spacing `28` shrinking toward `18`. Mostly bulkhead; laser-bar after score 3; pylon after score 5. First two hatches are centred (warm-up; Tutorial mode keeps offset 0 throughout). After that, hatch offset is `min(0.8 + score * 0.12, 1.8)` so the conduit centre is not a safe lane. Hole stays inside the hex.
 
 Store collider descriptors (not `Box3` of a meshed hole).
 
 ## Bird
 
-Low-poly magpie drone: hull, head, beak, two wing planes, eye point-lights. Graphite + white belly + magenta leading edge. Collider sphere `r = 0.42`. `KeyB` toggles wireframe sphere.
+Low-poly magpie drone: hull, head, beak, two wing planes, eye point-lights. Graphite + white belly + magenta leading edge. Collider sphere `r = 0.5` (hit tests use `0.9r` so wing tips do not kill). `KeyB` toggles wireframe sphere.
 
 ## Theme
 

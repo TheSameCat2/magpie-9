@@ -7,7 +7,7 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
 
 1. Vanilla Three.js. No React/Vue. No Cannon/Rapier/Ammo. Sphere vs box/plane only.
 2. Bird is fixed in Z relative to the camera. The world scrolls toward the camera.
-3. One play loop: Title → Playing → (Respawn → Playing) → Dead → Title. Pause is optional.
+3. One play loop: Menu → Playing → (Respawn → Playing) → Dead → Menu. Help and Credits are static screens off the menu. Tutorial is the same loop with `mode = 'tutorial'` rules (see `src/tutorial.js`). Pause is optional.
 4. Procedural geometry only in v1. No GLTF, no texture CDNs. CanvasTexture / data-URI if needed.
 5. No story, shop, or multiplayer. Two orbs: gold damper and green spare-life (`+`, one per 10-gate sector). A spare life rewinds to just inside the last passed gate and waits for a tap.
 6. Gameplay before bloom. Silhouette, fog, lights first.
@@ -64,7 +64,9 @@ Pin exact `three` version. `WebGLRenderer`, `SRGBColorSpace`, `ACESFilmicToneMap
 
 **Score:** +1 when obstacle Z passes the bird (once). Best: `localStorage['magpie9.best']`.
 
-**Start:** TITLE, gravity off. First flap arms PLAYING.
+**Start:** MENU, gravity off. NEW GAME (or TUTORIAL) arms PLAYING.
+
+**Tutorial:** fixed speed 9 (dampers trim 0.5 each, floor 7), spacing 34, offset 0, hazards in a fixed order, an orb after every gate alternating damper / life, no gate counter, no best, no sectors. First pickup of each orb type pauses under an explainer card until tapped.
 
 ## Tunnel
 

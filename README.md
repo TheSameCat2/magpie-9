@@ -11,6 +11,21 @@ npm run dev
 Open the printed local URL. Space / click flaps. A D (or arrows) strafe.
 M mutes, B shows the collider sphere.
 
+## Menu
+
+The game opens on a menu: **NEW GAME**, **TUTORIAL**, **HELP**, **CREDITS**.
+Click / tap an entry, or use ↑ ↓ (W S) and Enter / Space. Esc (or a tap) backs
+out of Help and Credits; after a crash, a tap returns to the menu.
+
+## Tutorial
+
+A slower practice run (fixed 9 u/s, wider spacing, no ramp, no sectors). There
+is no gate counter or best score. Hazards arrive centred and in a fixed order
+(bulkhead ×3, laser-bar ×2, pylon ×2, repeat) and every gate drops an orb,
+alternating damper and spare life, within half a unit of the conduit's centre. The first
+damper and the first spare you collect pause the run under an explainer card;
+tap to continue. MENU (bottom right) or Esc leaves the tutorial at any time.
+
 ## Touch
 
 Landscape only. Portrait shows a rotate overlay and pauses the run.

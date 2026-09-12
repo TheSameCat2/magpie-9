@@ -4,7 +4,7 @@ export const TUTORIAL_SPEED = 9
 export const TUTORIAL_FLOOR = 7
 export const TUTORIAL_SPACING = 34
 export const TUTORIAL_DAMPER = 0.5
-export const TUTORIAL_ORB_SPREAD = 0.8
+export const TUTORIAL_ORB_SPREAD = 0.5
 
 // Hazards arrive in a fixed sequence so each type is met a few times before the
 // next one shows up; after one lap the sequence simply repeats.

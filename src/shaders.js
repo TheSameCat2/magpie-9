@@ -177,6 +177,130 @@ void main() {
 `
 
 // ---------------------------------------------------------------------------
+// Pylon slab: dark substrate with sparse PCB traces. Each horizontal lane may
+// carry one routed trace (pad, run, 45-degree dogleg, run, pad) so the result
+// reads as parallel copper rather than a grid. Local +X is the open-edge rim
+// (the mesh flips scale.x on right-side pylons); current packets run toward it
+// so the gap reads at distance without a per-slot uniform.
+// ---------------------------------------------------------------------------
+export const PYLON_VERT = /* glsl */ `
+varying vec3 vLocal;
+varying float vDepth;
+varying vec3 vScale;
+void main() {
+  vLocal = position;
+  vScale = vec3(
+    length(modelMatrix[0].xyz),
+    length(modelMatrix[1].xyz),
+    length(modelMatrix[2].xyz)
+  );
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vDepth = -mv.z;
+  gl_Position = projectionMatrix * mv;
+}
+`
+
+export const PYLON_FRAG = /* glsl */ `
+precision highp float;
+${FOG}
+${HASH}
+uniform float uTime;
+uniform vec3 uColor;
+varying vec3 vLocal;
+varying vec3 vScale;
+
+float sdSeg(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+
+// Annular pad: bright ring with a dark drill hole.
+float pad(vec2 p, vec2 c, float r) {
+  float d = length(p - c);
+  return smoothstep(r, r * 0.8, d) * smoothstep(r * 0.32, r * 0.48, d);
+}
+
+void main() {
+  vec3 an = abs(vLocal);
+  vec2 st;
+  vec2 ext;
+  if (an.z >= an.x && an.z >= an.y) {
+    st = vec2((vLocal.x + 0.5) * vScale.x, (vLocal.y + 0.5) * vScale.y);
+    ext = vScale.xy;
+  } else if (an.y >= an.x) {
+    st = vec2((vLocal.x + 0.5) * vScale.x, (vLocal.z + 0.5) * vScale.z);
+    ext = vScale.xz;
+  } else {
+    st = vec2((vLocal.z + 0.5) * vScale.z, (vLocal.y + 0.5) * vScale.y);
+    ext = vScale.zy;
+  }
+
+  float laneH = 0.4;
+  float ly = st.y / laneH;
+  float lane = floor(ly);
+  vec2 p = vec2(st.x, (fract(ly) - 0.5) * laneH);
+
+  float r1 = hash21(vec2(lane, 3.1));
+  float r2 = hash21(vec2(lane, 7.7));
+  float r3 = hash21(vec2(lane, 11.3));
+  float r4 = hash21(vec2(lane, 19.9));
+  // "active" is reserved in GLSL ES 3.00, hence "routed".
+  float routed = step(0.52, r1);
+
+  // Route: pad at x0, run, dogleg at xj, run to x1 (or off the open edge).
+  float x0 = r2 * ext.x * 0.42 + 0.12;
+  float toEdge = step(0.55, r4);
+  float x1 = mix(ext.x - r3 * ext.x * 0.3, ext.x + 0.5, toEdge);
+  float xj = mix(x0 + 0.35, x1 - 0.45, fract(r3 * 5.3));
+  float straight = step(0.78, r2);
+  float lift = laneH * 0.2 * (1.0 - straight);
+  float yA = mix(-lift, lift, step(0.5, r4));
+  float yB = -yA;
+  float dj = abs(yB - yA);
+
+  float d = sdSeg(p, vec2(x0, yA), vec2(xj, yA));
+  d = min(d, sdSeg(p, vec2(xj, yA), vec2(xj + dj, yB)));
+  d = min(d, sdSeg(p, vec2(xj + dj, yB), vec2(x1, yB)));
+  float tw = 0.028 + step(0.9, r1) * 0.016;
+  float trace = smoothstep(tw, tw * 0.45, d) * routed;
+
+  float padR = 0.07;
+  float pads = pad(p, vec2(x0, yA), padR);
+  pads += pad(p, vec2(x1, yB), padR) * (1.0 - toEdge);
+  pads *= routed;
+
+  // Sparse standalone vias on lanes that carry no trace.
+  float vx = fract(r3 * 9.7) * ext.x;
+  float via = pad(p, vec2(vx, 0.0), padR * 0.8) * (1.0 - routed) * step(0.7, r2);
+
+  float packet = pow(0.5 + 0.5 * sin(st.x * 2.6 - uTime * 5.2 + lane * 1.9), 12.0);
+  float packet2 = pow(0.5 + 0.5 * sin(st.x * 1.1 - uTime * 2.1 + r1 * 6.2831), 5.0) * 0.4;
+  float current = packet + packet2;
+
+  float openBus = exp(-(0.5 - vLocal.x) * 15.0);
+  float openFace = smoothstep(0.42, 0.5, vLocal.x);
+  float breathe = 0.9 + 0.1 * sin(uTime * 2.1 + r1 * 3.0);
+
+  float prox = clamp(1.0 - vDepth / 38.0, 0.0, 1.0);
+  float boost = 0.72 + prox * prox * 0.9;
+
+  // Substrate stays dim so the board reads as a lit panel, not a laser field.
+  float body = 0.085;
+  body += trace * (0.7 + current * 1.7) * breathe;
+  body += (pads + via) * (0.85 + current * 0.5);
+  body += openBus * (1.9 + current * 0.8);
+  body += openFace * 0.95;
+
+  vec3 col = uColor * body * boost;
+  col = mix(col, vec3(1.0), clamp(trace * current * 0.5 + openBus * 0.32, 0.0, 0.75));
+  col *= fogAtten(vDepth);
+  gl_FragColor = vec4(col, 1.0);
+}
+`
+
+// ---------------------------------------------------------------------------
 // Damper orb: additive gold shell with a fresnel rim and a slow shimmer.
 // ---------------------------------------------------------------------------
 export const ORB_VERT = /* glsl */ `

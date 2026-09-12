@@ -123,13 +123,11 @@ function makeSlot(materials) {
   laserBot.visible = false
   group.add(laserTop, laserBot)
 
-  const pylon = new THREE.Mesh(unitBox, materials.plate)
-  const pylonTrim = new THREE.Mesh(unitBox, materials.laser)
-  const pylonEdge = new THREE.Mesh(unitBox, materials.hatch)
+  const pylon = new THREE.Mesh(unitBox, materials.pylon)
+  const pylonEdge = new THREE.Mesh(unitBox, materials.pylonEdge)
   pylon.visible = false
-  pylonTrim.visible = false
   pylonEdge.visible = false
-  group.add(pylon, pylonTrim, pylonEdge)
+  group.add(pylon, pylonEdge)
 
   const frame = new THREE.Mesh(unitPlane, makeFrameMaterial(THEME.ice))
   frame.visible = false
@@ -161,7 +159,6 @@ function makeSlot(materials) {
     laserTop,
     laserBot,
     pylon,
-    pylonTrim,
     pylonEdge,
     frame,
     ring,
@@ -175,7 +172,6 @@ function hideAll(obs) {
   obs.laserTop.visible = false
   obs.laserBot.visible = false
   obs.pylon.visible = false
-  obs.pylonTrim.visible = false
   obs.pylonEdge.visible = false
   obs.frame.visible = false
   obs.ring.visible = false
@@ -265,13 +261,12 @@ function configure(obs, type, z, offset, gap) {
   obs.edge = edge
   obs.depth = PYLON_D
   obs.pylon.visible = true
-  obs.pylonTrim.visible = true
   obs.pylonEdge.visible = true
-  obs.pylon.scale.set(PYLON_W, PYLON_H, PYLON_D)
-  obs.pylonTrim.scale.set(PYLON_W + 0.04, 0.1, PYLON_D + 0.04)
+  // Negative X scale points local +X at the gap so the shared shader
+  // can heat the open-edge bus without a per-slot uniform.
+  obs.pylon.scale.set(side === 'left' ? PYLON_W : -PYLON_W, PYLON_H, PYLON_D)
   obs.pylon.position.set(px, 0, 0)
-  obs.pylonTrim.position.set(px, 2.2, 0)
-  obs.pylonEdge.scale.set(0.08, PYLON_H, PYLON_D + 0.06)
+  obs.pylonEdge.scale.set(0.14, PYLON_H, PYLON_D + 0.1)
   obs.pylonEdge.position.set(edge, 0, 0)
   setFrame(obs, 2, edge, 0, 2.8, PYLON_H + 1.2, 0, 0, side === 'left' ? -1 : 1, COLOR.pylon)
 }

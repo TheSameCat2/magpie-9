@@ -93,11 +93,11 @@ export function createPowerups(scene) {
     orb.icon.material = look.icon
   }
 
-  function spawn(z, type = 'damper') {
+  function spawn(z, type = 'damper', spread = ORB_SPREAD) {
     const orb = pool.find((o) => !o.active)
     if (!orb) return
     const ang = Math.random() * Math.PI * 2
-    const r = Math.sqrt(Math.random()) * ORB_SPREAD
+    const r = Math.sqrt(Math.random()) * spread
     orb.x = Math.cos(ang) * r
     orb.y = Math.sin(ang) * r
     orb.z = z

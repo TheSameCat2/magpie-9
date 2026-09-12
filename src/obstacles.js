@@ -206,7 +206,8 @@ function configure(obs, type, z, offset, gap) {
   }
 
   if (type === 'laser-bar') {
-    const gapY = THREE.MathUtils.clamp((Math.random() * 2 - 1) * Math.max(0.4, offset), -1.7, 1.7)
+    // Zero offset means a dead-centre band (tutorial); runs never reach lasers below 0.42.
+    const gapY = offset > 0 ? THREE.MathUtils.clamp((Math.random() * 2 - 1) * Math.max(0.4, offset), -1.7, 1.7) : 0
     obs.gapY = gapY
     obs.gapH = LASER_GAP
     obs.depth = 0.16
@@ -265,10 +266,10 @@ export function createObstacles(scene, materials) {
     for (const obs of pool) deactivate(obs)
   }
 
-  function spawn(score, diff, z, gap) {
+  function spawn(score, diff, z, gap, typeFor) {
     const obs = pool.find((o) => !o.active)
     if (!obs) return
-    const type = pickType(spawnIndex, score)
+    const type = typeFor ? typeFor(spawnIndex) : pickType(spawnIndex, score)
     const offset = spawnIndex < 2 ? 0 : diff.offset
     configure(obs, type, z, offset, gap)
     spawnIndex += 1
@@ -286,7 +287,8 @@ export function createObstacles(scene, materials) {
     return n ? m : null
   }
 
-  function ensureAhead(score, diff, out) {
+  // `typeFor(spawnIndex)` overrides the random hazard pick (tutorial's fixed order).
+  function ensureAhead(score, diff, out, typeFor) {
     if (out) out.length = 0
     let guard = 0
     while (guard++ < 8) {
@@ -294,7 +296,7 @@ export function createObstacles(scene, materials) {
       if (mz !== null && mz <= -48) break
       const gap = mz === null ? 32 : diff.spacing
       const z = mz === null ? -32 : mz - diff.spacing
-      const obs = spawn(score, diff, z, gap)
+      const obs = spawn(score, diff, z, gap, typeFor)
       if (obs && out) out.push(obs)
     }
   }

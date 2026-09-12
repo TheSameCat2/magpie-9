@@ -389,6 +389,231 @@
         }
       }
 
+      #menu {
+        margin-top: 22px;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        min-width: 15em;
+      }
+      #menu button {
+        pointer-events: auto;
+        position: relative;
+        min-height: 44px;
+        padding: 8px 26px;
+        border: 1px solid rgba(61, 224, 255, 0.22);
+        background: rgba(7, 8, 12, 0.5);
+        color: var(--muted);
+        font-family: inherit;
+        font-size: 13px;
+        letter-spacing: 0.34em;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+      }
+      #menu button::before {
+        content: "";
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        width: 6px;
+        height: 6px;
+        transform: translateY(-50%) rotate(45deg);
+        background: var(--ice);
+        box-shadow: 0 0 8px var(--ice);
+        opacity: 0;
+      }
+      #menu button:focus-visible {
+        outline: 1px solid var(--ice);
+        outline-offset: 2px;
+      }
+      #menu button.sel,
+      body[data-input="keys"] #menu button:hover {
+        color: var(--ice);
+        border-color: rgba(61, 224, 255, 0.7);
+        background: rgba(61, 224, 255, 0.07);
+        text-shadow: 0 0 12px rgba(61, 224, 255, 0.55);
+      }
+      #menu button.sel::before {
+        opacity: 1;
+        animation: blink 1.6s ease-in-out infinite;
+      }
+
+      .screen .overlay-card {
+        max-width: min(34em, calc(100vw - 56px));
+        text-align: left;
+      }
+      .screen .overlay-title {
+        text-align: center;
+      }
+      .screen dl {
+        margin: 22px 0 0;
+        display: grid;
+        grid-template-columns: max-content 1fr;
+        column-gap: 22px;
+        row-gap: 9px;
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        line-height: 1.55;
+      }
+      .screen dt {
+        color: var(--ice);
+        letter-spacing: 0.24em;
+        text-shadow: 0 0 10px rgba(61, 224, 255, 0.35);
+        white-space: nowrap;
+      }
+      .screen dd {
+        margin: 0;
+        color: var(--ink);
+      }
+      .screen dd small {
+        display: block;
+        font-size: 10px;
+        color: var(--muted);
+      }
+      .screen .overlay-sub {
+        text-align: center;
+        margin-top: 24px;
+        animation: blink 1.6s ease-in-out infinite;
+      }
+      .screen .back {
+        pointer-events: auto;
+        display: block;
+        margin: 18px auto 0;
+        min-width: 160px;
+        min-height: 44px;
+        border: 1px solid rgba(61, 224, 255, 0.45);
+        background: rgba(7, 8, 12, 0.7);
+        color: var(--ice);
+        font-family: inherit;
+        font-size: 11px;
+        letter-spacing: 0.3em;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .screen .back:focus-visible {
+        outline: 1px solid var(--ice);
+        outline-offset: 2px;
+      }
+      #credits .overlay-card {
+        text-align: center;
+      }
+      #credits dl {
+        grid-template-columns: 1fr;
+        row-gap: 4px;
+        text-align: center;
+      }
+      #credits dt {
+        margin-top: 14px;
+        font-size: 10px;
+      }
+      #credits dd {
+        font-family: Orbitron, sans-serif;
+        font-size: clamp(14px, 2.4vw, 20px);
+        letter-spacing: 0.14em;
+      }
+
+      #lesson {
+        z-index: 4;
+      }
+      #lesson .overlay-card {
+        max-width: min(30em, calc(100vw - 56px));
+      }
+      #lesson .lesson {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      #lesson .lesson.hidden {
+        display: none;
+      }
+      #lesson svg {
+        width: 110px;
+        height: 110px;
+        margin-bottom: 14px;
+        overflow: visible;
+      }
+      #lesson .lesson.damper .overlay-title {
+        color: var(--gold);
+        text-shadow: 0 0 18px rgba(255, 209, 102, 0.55);
+      }
+      #lesson .lesson.life .overlay-title {
+        color: var(--green);
+        text-shadow: 0 0 18px rgba(61, 255, 138, 0.55);
+      }
+      #lesson .lesson.damper svg {
+        filter: drop-shadow(0 0 16px rgba(255, 209, 102, 0.6));
+      }
+      #lesson .lesson.life svg {
+        filter: drop-shadow(0 0 16px rgba(61, 255, 138, 0.6));
+      }
+      #lesson .lesson p {
+        margin: 14px 0 0;
+        font-size: 12px;
+        line-height: 1.75;
+        letter-spacing: 0.1em;
+        color: var(--ink);
+      }
+      #lesson .lesson p b {
+        font-weight: normal;
+        color: var(--ice);
+      }
+      #lesson .tap {
+        margin-top: 20px;
+        font-size: 11px;
+        letter-spacing: 0.34em;
+        color: var(--ice);
+        animation: blink 1.6s ease-in-out infinite;
+      }
+      @keyframes orbit {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      #lesson .ring {
+        transform-origin: 60px 60px;
+        animation: orbit 6s linear infinite;
+      }
+
+      #exit {
+        position: absolute;
+        bottom: calc(22px + var(--sab));
+        right: calc(30px + var(--sar));
+        pointer-events: auto;
+        z-index: 3;
+        min-width: 48px;
+        min-height: 44px;
+        padding: 6px 14px;
+        border: 1px solid rgba(61, 224, 255, 0.35);
+        background: rgba(7, 8, 12, 0.55);
+        color: var(--ice);
+        font-family: inherit;
+        font-size: 10px;
+        letter-spacing: 0.26em;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #exit:focus-visible {
+        outline: 1px solid var(--ice);
+        outline-offset: 2px;
+      }
+      #tutorialTag {
+        position: absolute;
+        top: calc(30px + var(--sat));
+        left: calc(36px + var(--sal));
+        font-size: 11px;
+        letter-spacing: 0.34em;
+        color: var(--sodium);
+        text-shadow: 0 0 12px rgba(232, 160, 48, 0.55);
+      }
+      body[data-mode="tutorial"] #score,
+      body[data-mode="tutorial"] #scoreLabel,
+      body[data-mode="tutorial"] #best,
+      body[data-mode="tutorial"] #keys {
+        display: none;
+      }
+
       .hidden {
         display: none !important;
       }
@@ -657,6 +882,41 @@
           padding-bottom: calc(42px + var(--sab));
           font-size: 10px;
         }
+        #menu {
+          margin-top: 12px;
+          gap: 4px;
+        }
+        #menu button {
+          min-height: 38px;
+          padding: 4px 22px;
+          font-size: 11px;
+        }
+        .screen dl {
+          margin-top: 12px;
+          row-gap: 5px;
+          font-size: 11px;
+        }
+        .screen .overlay-sub {
+          margin-top: 12px;
+        }
+        #lesson svg {
+          width: 72px;
+          height: 72px;
+          margin-bottom: 8px;
+        }
+        #lesson .lesson p {
+          margin-top: 8px;
+          font-size: 11px;
+          line-height: 1.55;
+        }
+        #exit {
+          bottom: calc(10px + var(--sab));
+          right: calc(20px + var(--sar));
+        }
+        #tutorialTag {
+          top: calc(16px + var(--sat));
+          left: calc(22px + var(--sal));
+        }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -684,6 +944,8 @@
       <div id="vel">VEL <b>12.0</b></div>
       <div id="velBar"><i></i></div>
       <div id="keys">M MUTE · B COLLIDER</div>
+      <div id="tutorialTag" class="hidden">TUTORIAL</div>
+      <button type="button" id="exit" class="hidden" aria-label="Exit tutorial to menu">MENU</button>
       <div id="sys">
         <button type="button" id="btnMute" aria-label="Mute" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -717,10 +979,100 @@
       <div id="center">
         <div id="title">MAGPIE<span>-9</span></div>
         <div id="rule"></div>
-        <div id="prompt">FLAP TO ARM</div>
+        <nav id="menu" aria-label="Main menu">
+          <button type="button" data-item="new" class="sel">NEW GAME</button>
+          <button type="button" data-item="tutorial">TUTORIAL</button>
+          <button type="button" data-item="help">HELP</button>
+          <button type="button" data-item="credits">CREDITS</button>
+        </nav>
+        <div id="prompt" class="hidden">FLAP TO ARM</div>
         <div id="sub">SPACE / CLICK · A D STRAFE</div>
       </div>
       <div id="toast"></div>
+      <div id="help" class="overlay screen hidden">
+        <div class="overlay-card">
+          <div class="overlay-title">HELP</div>
+          <dl>
+            <dt>GOAL</dt>
+            <dd>Thread the conduit. Every gate you clear scores one and speeds the run up.</dd>
+            <dt>FLAP</dt>
+            <dd>Space, W, up arrow, or click. Touch: tap the right half.<small>Gravity is always on. Tap in pulses, never hold.</small></dd>
+            <dt>STRAFE</dt>
+            <dd>A / D or left / right arrows. Touch: drag a stick on the left half.</dd>
+            <dt>HAZARDS</dt>
+            <dd>Bulkhead hatch, laser band, and side pylon. The glowing frame marks the safe opening.</dd>
+            <dt>DAMPER</dt>
+            <dd>Gold orb. Permanently trims scroll speed for the rest of the run.</dd>
+            <dt>SPARE</dt>
+            <dd>Green orb. Adds one spare life; a crash rewinds you to the last cleared gate instead of ending the run.</dd>
+            <dt>KEYS</dt>
+            <dd>M mute · B collider · ESC back / leave tutorial</dd>
+          </dl>
+          <div class="overlay-sub">TAP OR ESC TO RETURN</div>
+          <button type="button" class="back" data-back>BACK</button>
+        </div>
+      </div>
+      <div id="credits" class="overlay screen hidden">
+        <div class="overlay-card">
+          <div class="overlay-title">CREDITS</div>
+          <dl>
+            <dt>DESIGN</dt>
+            <dd>TheSameCat</dd>
+            <dt>CODING ASSISTANCE</dt>
+            <dd>Cursor</dd>
+            <dt>TESTING</dt>
+            <dd>TitanVern</dd>
+            <dd>Rinzler</dd>
+          </dl>
+          <div class="overlay-sub">TAP OR ESC TO RETURN</div>
+          <button type="button" class="back" data-back>BACK</button>
+        </div>
+      </div>
+      <div id="lesson" class="overlay hidden">
+        <div class="overlay-card">
+          <div class="lesson damper hidden" data-lesson="damper">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <defs>
+                <radialGradient id="gDamper" cx="50%" cy="45%" r="55%">
+                  <stop offset="0%" stop-color="#fff6d8" />
+                  <stop offset="45%" stop-color="#ffd166" />
+                  <stop offset="100%" stop-color="#7a5a10" stop-opacity="0.9" />
+                </radialGradient>
+              </defs>
+              <circle class="ring" cx="60" cy="60" r="54" fill="none" stroke="#ffd166" stroke-opacity="0.45" stroke-width="1.5" stroke-dasharray="14 10" />
+              <circle cx="60" cy="60" r="38" fill="url(#gDamper)" />
+              <path d="M44 36 L64 60 L44 84 M62 36 L82 60 L62 84" fill="none" stroke="#fff6d8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            <div class="overlay-title">DAMPER</div>
+            <p>
+              The <b>gold orb</b> trims your scroll speed and the trim sticks for the rest of the run.
+              Every gate you clear pushes the conduit faster, so a damper buys you back some
+              reaction time. Steer through as many as you can.
+            </p>
+          </div>
+          <div class="lesson life hidden" data-lesson="life">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <defs>
+                <radialGradient id="gLife" cx="50%" cy="45%" r="55%">
+                  <stop offset="0%" stop-color="#e8fff0" />
+                  <stop offset="45%" stop-color="#3dff8a" />
+                  <stop offset="100%" stop-color="#0f5a2c" stop-opacity="0.9" />
+                </radialGradient>
+              </defs>
+              <circle class="ring" cx="60" cy="60" r="54" fill="none" stroke="#3dff8a" stroke-opacity="0.45" stroke-width="1.5" stroke-dasharray="14 10" />
+              <circle cx="60" cy="60" r="38" fill="url(#gLife)" />
+              <path d="M60 34 V86 M34 60 H86" fill="none" stroke="#e8fff0" stroke-width="8" stroke-linecap="round" />
+            </svg>
+            <div class="overlay-title">SPARE LIFE</div>
+            <p>
+              The <b>green orb</b> adds a spare, shown as a <b>+</b> at the top right. Crash with a
+              spare and the run rewinds to just inside the last gate you cleared, then waits for your
+              tap. In a real run one spare appears somewhere in every ten-gate sector.
+            </p>
+          </div>
+          <div class="tap">TAP TO CONTINUE</div>
+        </div>
+      </div>
       <div id="paused" class="overlay hidden">
         <div class="overlay-card">
           <div class="overlay-title">PAUSED</div>

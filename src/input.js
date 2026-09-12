@@ -4,6 +4,10 @@ export const STICK_RANGE = 48
 const FLAP_KEYS = new Set(['space', ' ', 'w', 'arrowup'])
 const LEFT_KEYS = new Set(['a', 'arrowleft'])
 const RIGHT_KEYS = new Set(['d', 'arrowright'])
+const UP_KEYS = new Set(['w', 'arrowup'])
+const DOWN_KEYS = new Set(['s', 'arrowdown'])
+const SELECT_KEYS = new Set(['space', 'enter'])
+const BACK_KEYS = new Set(['escape', 'backspace'])
 
 function norm(key) {
   if (key === ' ') return 'space'
@@ -41,6 +45,9 @@ export function createInput({ onGesture, onModeChange } = {}) {
   let tapEdge = false
   let muteEdge = false
   let debugEdge = false
+  let selectEdge = false
+  let backEdge = false
+  let navEdge = 0
   let mode = preferTouch() ? 'touch' : 'keys'
 
   function setMode(next) {
@@ -65,6 +72,16 @@ export function createInput({ onGesture, onModeChange } = {}) {
     }
     if (LEFT_KEYS.has(k)) held.left = true
     if (RIGHT_KEYS.has(k)) held.right = true
+    if (UP_KEYS.has(k)) navEdge = -1
+    if (DOWN_KEYS.has(k)) navEdge = 1
+    if (SELECT_KEYS.has(k)) {
+      e.preventDefault()
+      selectEdge = true
+    }
+    if (BACK_KEYS.has(k)) {
+      e.preventDefault()
+      backEdge = true
+    }
     if (k === 'r') restartEdge = true
     if (k === 'm') muteEdge = true
     if (k === 'b') debugEdge = true
@@ -84,9 +101,11 @@ export function createInput({ onGesture, onModeChange } = {}) {
   }
 
   function onPointerDown(e) {
+    // Buttons handle themselves, but they still count as the gesture that is
+    // allowed to start audio (a menu click may be the very first interaction).
+    gesture()
     if (fromButton(e.target)) return
     if (e.pointerType !== 'mouse') e.preventDefault()
-    gesture()
     if (e.pointerType !== 'mouse') setMode('touch')
 
     restartEdge = true
@@ -171,6 +190,15 @@ export function createInput({ onGesture, onModeChange } = {}) {
     get debugEdge() {
       return debugEdge
     },
+    get selectEdge() {
+      return selectEdge
+    },
+    get backEdge() {
+      return backEdge
+    },
+    get navEdge() {
+      return navEdge
+    },
     get mode() {
       return mode
     },
@@ -186,6 +214,9 @@ export function createInput({ onGesture, onModeChange } = {}) {
       tapEdge = false
       muteEdge = false
       debugEdge = false
+      selectEdge = false
+      backEdge = false
+      navEdge = 0
     },
   }
 }

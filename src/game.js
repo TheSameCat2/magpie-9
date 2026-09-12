@@ -2,6 +2,14 @@ import * as THREE from 'three'
 import { BIRD_RADIUS, BEST_KEY, SHARED, THEME } from './theme.js'
 import { hitTunnel, passMargin } from './collision.js'
 import { createHud } from './hud.js'
+import {
+  TUTORIAL_DAMPER,
+  TUTORIAL_ORB_SPREAD,
+  tutorialDifficulty,
+  tutorialGateType,
+  tutorialOrbType,
+  tutorialSpeed,
+} from './tutorial.js'
 
 const NEAR_MISS = 0.34
 const MILESTONE = 10
@@ -58,7 +66,12 @@ export function createGame({
   startLives = 1,
 }) {
   const hud = createHud()
-  let state = 'title'
+  // menu | credits | playing | respawn | dead  (the help manual is a modal, not a state)
+  let state = 'menu'
+  // run | tutorial — which rules the current (or next) session uses.
+  let mode = 'run'
+  const lessonsSeen = new Set()
+  let lesson = null
   let score = 0
   let best = loadBest()
   let speed = BASE_SPEED
@@ -87,7 +100,7 @@ export function createGame({
   hud.setSpeed(BASE_SPEED)
   hud.setMuted(audio.muted)
   hud.setInputMode(input.mode)
-  hud.showTitle()
+  hud.showMenu()
   hud.bindSys({
     onMute() {
       audio.toggleMute()
@@ -97,9 +110,32 @@ export function createGame({
       screen.toggleFullscreen()
     },
     onHelp() {
-      if (state === 'title' || state === 'dead') hud.toggleHelp()
+      if (state === 'menu' || state === 'dead') hud.toggleHelp()
     },
   })
+  hud.bindMenu({
+    onSelect(item) {
+      if (state === 'menu' && !hud.helpOpen) choose(item)
+    },
+    onBack() {
+      if (state === 'credits') toMenu()
+    },
+    onExit() {
+      if (mode === 'tutorial' && (state === 'playing' || state === 'respawn')) toMenu()
+    },
+  })
+
+  const tutorial = () => mode === 'tutorial'
+
+  function currentDifficulty() {
+    return tutorial() ? tutorialDifficulty() : difficulty(score)
+  }
+
+  function spawnAhead() {
+    const diff = currentDifficulty()
+    obstacles.ensureAhead(score, diff, spawned, tutorial() ? tutorialGateType : undefined)
+    maybeDropOrbs(spawned, diff)
+  }
 
   function scrollWorld(dz, dt) {
     tunnel.scroll(dz)
@@ -109,7 +145,7 @@ export function createGame({
   }
 
   function applySpeed() {
-    speed = Math.max(BASE_SPEED, difficulty(score).speed - slow)
+    speed = tutorial() ? tutorialSpeed(slow) : Math.max(BASE_SPEED, difficulty(score).speed - slow)
     hud.setSpeed(speed)
     audio.setSpeed(speed)
   }
@@ -117,8 +153,12 @@ export function createGame({
   function maybeDropOrbs(gates, diff) {
     for (const obs of gates) {
       const idx = gatesSpawned++
-      if (idx % MILESTONE === 0) lifeSlot = pickLifeSlot(idx)
       const z = obs.z - diff.spacing * 0.5
+      if (tutorial()) {
+        powerups.spawn(z, tutorialOrbType(idx), TUTORIAL_ORB_SPREAD)
+        continue
+      }
+      if (idx % MILESTONE === 0) lifeSlot = pickLifeSlot(idx)
       if (idx === lifeSlot) powerups.spawn(z, 'life')
       else if (Math.random() < ORB_CHANCE) powerups.spawn(z)
     }
@@ -137,12 +177,23 @@ export function createGame({
     hud.showPaused(reason)
   }
 
+  // Tutorial: freeze the run under an explainer card the first time each orb type is collected.
+  function teach(type) {
+    if (!tutorial() || lessonsSeen.has(type)) return
+    lessonsSeen.add(type)
+    lesson = type
+    pause('lesson')
+    hud.showLesson(type)
+  }
+
   function tryResume() {
     if (!paused) return false
     if (screen.needsRotate || screen.hidden) return false
     paused = false
     pauseReason = null
+    lesson = null
     hud.hidePaused()
+    hud.hideLesson()
     audio.setSpeed(speed)
     onResume?.()
     return true
@@ -154,20 +205,25 @@ export function createGame({
     if (state === 'playing' && (screen.needsRotate || screen.hidden)) {
       pause(screen.needsRotate ? 'rotate' : 'hidden')
     } else if (state === 'playing' && paused) {
-      hud.showPaused('resume')
+      // A lesson card is already asking for the tap; do not stack PAUSED on top of it.
+      hud.showPaused(lesson ? 'lesson' : 'resume')
     }
     if (screen.hidden) audio.suspend()
     else audio.resume()
   }
 
-  function arm() {
+  function arm(nextMode = 'run') {
+    mode = nextMode
+    hud.setGameMode(mode)
+    lessonsSeen.clear()
+    lesson = null
     state = 'playing'
     paused = false
     pauseReason = null
     hud.hidePaused()
+    hud.hideLesson()
     score = 0
     slow = 0
-    speed = BASE_SPEED
     lives = Math.max(1, startLives)
     gatesSpawned = 0
     lifeSlot = -1
@@ -178,11 +234,9 @@ export function createGame({
     powerups.reset()
     hud.setLives(lives)
     hud.hideRespawn()
-    const startDiff = difficulty(0)
-    obstacles.ensureAhead(0, startDiff, spawned)
-    maybeDropOrbs(spawned, startDiff)
+    spawnAhead()
     hud.setScore(0)
-    hud.setSpeed(BASE_SPEED)
+    applySpeed()
     hud.showPlaying()
     bird.flap()
     fx.puff(bird.x, bird.y, 0, 14)
@@ -197,7 +251,9 @@ export function createGame({
     state = 'dead'
     paused = false
     pauseReason = null
+    lesson = null
     hud.hidePaused()
+    hud.hideLesson()
     hud.hideRespawn()
     bird.kill()
     audio.crash()
@@ -206,7 +262,8 @@ export function createGame({
     postfx.glitch(1)
     shake = reduceMotion ? 0 : 0.5
     hitStop = 0.09
-    const newBest = score > best
+    // Tutorial sessions never touch the best score.
+    const newBest = !tutorial() && score > best
     if (newBest) {
       best = score
       saveBest(best)
@@ -215,11 +272,15 @@ export function createGame({
     hud.showDead(score, newBest && score > 0)
   }
 
-  function toTitle() {
-    state = 'title'
+  function toMenu() {
+    state = 'menu'
+    mode = 'run'
     paused = false
     pauseReason = null
+    lesson = null
+    hud.setGameMode(mode)
     hud.hidePaused()
+    hud.hideLesson()
     hud.hideRespawn()
     bird.reset()
     obstacles.reset()
@@ -237,15 +298,26 @@ export function createGame({
     hud.setScore(0)
     hud.setLives(1)
     hud.setSpeed(BASE_SPEED)
-    hud.showTitle()
+    hud.showMenu()
     audio.title()
+  }
+
+  function choose(item) {
+    if (screen.needsRotate) return
+    if (item === 'new') arm('run')
+    else if (item === 'tutorial') arm('tutorial')
+    else if (item === 'help') hud.showHelp()
+    else if (item === 'credits') {
+      state = 'credits'
+      hud.showCredits()
+    }
   }
 
   function onGate(obs) {
     score += 1
     const margin = passMargin(bird.pos, BIRD_RADIUS, obs)
     const close = margin < NEAR_MISS
-    const milestone = score % MILESTONE === 0
+    const milestone = !tutorial() && score % MILESTONE === 0
 
     hud.setScore(score, true)
     obstacles.celebrate(obs, bird.x, bird.y)
@@ -268,11 +340,11 @@ export function createGame({
       audio.milestone()
       postfx.flash(THEME.sodium, 0.22)
       SHARED.uKick.value = 1.4
-    } else if (score === best + 1 && best > 0) {
+    } else if (!tutorial() && score === best + 1 && best > 0) {
       hud.toast('NEW BEST', 'ice')
       hud.setBest(score, true)
     }
-    if (score > best) hud.setBest(score, true)
+    if (!tutorial() && score > best) hud.setBest(score, true)
 
     applySpeed()
   }
@@ -287,9 +359,10 @@ export function createGame({
       postfx.flash(THEME.green, 0.14)
       SHARED.uKick.value = Math.max(SHARED.uKick.value, 0.4)
       fx.kick(0.4)
+      teach('life')
       return
     }
-    slow += 0.5 * stageDelta(score)
+    slow += tutorial() ? TUTORIAL_DAMPER : 0.5 * stageDelta(score)
     applySpeed()
     hud.toast('DAMPERS', 'gold')
     fx.orbBurst(orb.x, orb.y, orb.z)
@@ -297,6 +370,7 @@ export function createGame({
     postfx.flash(THEME.gold, 0.1)
     SHARED.uKick.value = Math.max(SHARED.uKick.value, 0.4)
     fx.kick(0.4)
+    teach('damper')
   }
 
   function spare(hitObs) {
@@ -332,7 +406,7 @@ export function createGame({
   }
 
   function updateCamera(dt) {
-    const follow = state === 'title' ? 0 : 0.32
+    const follow = state === 'menu' || state === 'credits' ? 0 : 0.32
     const tx = bird.x * follow
     const ty = 0.6 + bird.y * follow
     camBase.x = THREE.MathUtils.damp(camBase.x, tx, 6, dt)
@@ -365,7 +439,7 @@ export function createGame({
       hud.setMuted(audio.muted)
     }
     if (input.debugEdge) bird.toggleCollider()
-    if (state === 'title' || state === 'dead') {
+    if (state === 'menu' || state === 'dead') {
       if (input.helpEdge) hud.toggleHelp()
       else if (input.backEdge && hud.helpOpen) hud.hideHelp()
     }
@@ -384,16 +458,22 @@ export function createGame({
     // While the manual is open, flaps must not start or reset a run.
     const blocked = screen.needsRotate || hud.helpOpen
 
-    if (state === 'title') {
-      if (tapped && !blocked) {
-        arm()
-      } else {
-        const dz = 2.2 * dt
-        bird.updateIdle(dt, dz)
-        scrollWorld(dz, dt)
+    if (state === 'menu' || state === 'credits') {
+      const dz = 2.2 * dt
+      bird.updateIdle(dt, dz)
+      scrollWorld(dz, dt)
+      if (state === 'menu') {
+        if (!blocked) {
+          if (input.navEdge) hud.moveMenu(input.navEdge)
+          if (input.selectEdge) choose(hud.menuItem)
+        }
+      } else if (tapped || input.backEdge || input.selectEdge) {
+        toMenu()
       }
     } else if (state === 'playing') {
-      if (paused) {
+      if (tutorial() && input.backEdge) {
+        toMenu()
+      } else if (paused) {
         if (tapped) tryResume()
       } else {
         if (input.flapEdge) {
@@ -412,16 +492,16 @@ export function createGame({
           if (obstacles.collectScores(passed)) {
             for (const obs of passed) onGate(obs)
           }
-          const diff = difficulty(score)
-          obstacles.ensureAhead(score, diff, spawned)
-          maybeDropOrbs(spawned, diff)
+          spawnAhead()
           if (powerups.collect(bird.pos, BIRD_RADIUS, collected)) {
             for (const orb of collected) onOrb(orb)
           }
         }
       }
     } else if (state === 'respawn') {
-      if (rewindLeft > 0) {
+      if (tutorial() && input.backEdge) {
+        toMenu()
+      } else if (rewindLeft > 0) {
         const rate = rewindTotal / REWIND_TIME
         const step = Math.min(rewindLeft, rate * dt)
         scrollWorld(-step, dt)
@@ -435,7 +515,7 @@ export function createGame({
       }
     } else if (state === 'dead') {
       bird.updateDead(dt)
-      if (tapped && !blocked) toTitle()
+      if (tapped && !blocked) toMenu()
     }
 
     hud.updateTouch(input)
@@ -453,6 +533,12 @@ export function createGame({
     },
     get state() {
       return state
+    },
+    get mode() {
+      return mode
+    },
+    get lesson() {
+      return lesson
     },
     get paused() {
       return paused

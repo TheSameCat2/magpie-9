@@ -69,3 +69,10 @@ test('tutorial offset 0 leaves the centre lane open', () => {
   const obs = { type: 'bulkhead', z: 0, depth: 0.3, hole: layout.hole }
   assert.equal(hitObstacle(centred(), BIRD_RADIUS, obs), false)
 })
+
+test('tutorial offset 0 centres the laser band; runs still scatter it', () => {
+  for (const r of [0, 0.25, 0.75, 0.99]) {
+    assert.equal(layoutGate('laser-bar', 0, () => r).gapY, 0)
+  }
+  assert.notEqual(layoutGate('laser-bar', difficulty(3).offset, () => 0.99).gapY, 0)
+})

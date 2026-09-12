@@ -3,6 +3,14 @@ import { rotateFsAction } from './screen.js'
 
 const TAP_MS = 280
 
+export const MENU_ITEMS = ['new', 'tutorial', 'help', 'credits']
+
+/** Move a menu highlight by `dir` rows, wrapping at both ends. */
+export function stepMenu(index, dir, n = MENU_ITEMS.length) {
+  if (n <= 0) return 0
+  return (((index + dir) % n) + n) % n
+}
+
 export function createHud() {
   const scoreEl = document.getElementById('score')
   const bestEl = document.getElementById('best')
@@ -27,14 +35,24 @@ export function createHud() {
   const fsBtn = document.getElementById('btnFs')
   const rotateFsBtn = document.getElementById('btnRotateFs')
   const rotateFsHint = document.getElementById('rotateFsHint')
+  const menuEl = document.getElementById('menu')
+  const menuBtns = Array.from(menuEl.querySelectorAll('button'))
   const helpEl = document.getElementById('help')
   const helpBtn = document.getElementById('btnHelp')
   const helpCloseBtn = document.getElementById('btnHelpClose')
+  const creditsEl = document.getElementById('credits')
+  const lessonEl = document.getElementById('lesson')
+  const lessonBlocks = Array.from(lessonEl.querySelectorAll('.lesson'))
+  const backBtns = Array.from(document.querySelectorAll('.screen .back'))
+  const exitBtn = document.getElementById('exit')
+  const tutorialTag = document.getElementById('tutorialTag')
 
   let toastTimer = 0
   let hotTimer = 0
   let mode = 'keys'
-  let scene = 'title'
+  let scene = 'menu'
+  let gameMode = 'run'
+  let menuIndex = 0
   let helpOpen = false
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -46,16 +64,24 @@ export function createHud() {
 
   function applyChrome() {
     document.body.dataset.input = mode
+    document.body.dataset.mode = gameMode
+    const inRun = scene === 'playing' || scene === 'respawn'
     keysEl.classList.toggle('hidden', mode === 'touch')
-    zonesEl.classList.toggle('hidden', mode !== 'touch' || scene !== 'title')
-    sysEl.classList.toggle('playing', scene === 'playing' || scene === 'respawn')
+    zonesEl.classList.toggle('hidden', mode !== 'touch' || scene !== 'menu')
+    sysEl.classList.toggle('playing', inRun)
+    exitBtn.classList.toggle('hidden', !(inRun && gameMode === 'tutorial'))
+    tutorialTag.classList.toggle('hidden', !(inRun && gameMode === 'tutorial'))
     helpCloseBtn.querySelector('.label').textContent = mode === 'touch' ? 'CLOSE' : 'CLOSE · ESC'
-    if (scene === 'title') {
-      sub.textContent =
-        mode === 'touch' ? 'TAP RIGHT · FLAP   DRAG LEFT · STRAFE' : 'SPACE / CLICK · A D STRAFE · H HELP'
+    if (scene === 'menu') {
+      sub.textContent = mode === 'touch' ? 'TAP TO SELECT' : '↑ ↓ SELECT · ENTER · H HELP'
     } else if (scene === 'dead') {
-      sub.textContent = mode === 'touch' ? 'TAP TO RESET' : 'SPACE TO RESET'
+      sub.textContent = mode === 'touch' ? 'TAP FOR MENU' : 'SPACE FOR MENU'
     }
+  }
+
+  function setMenuIndex(i) {
+    menuIndex = stepMenu(i, 0, menuBtns.length)
+    menuBtns.forEach((b, k) => b.classList.toggle('sel', k === menuIndex))
   }
 
   function setScore(n, animate) {
@@ -82,7 +108,7 @@ export function createHud() {
 
   function setSpeed(speed) {
     velEl.textContent = speed.toFixed(1)
-    velBar.style.width = `${Math.round(((speed - 12) / 10) * 100)}%`
+    velBar.style.width = `${Math.max(0, Math.round(((speed - 12) / 10) * 100))}%`
   }
 
   function toast(text, tone) {
@@ -100,16 +126,35 @@ export function createHud() {
     hotTimer = setTimeout(() => scoreEl.classList.remove('hot'), 450)
   }
 
-  function showTitle() {
-    scene = 'title'
+  function hideScreens() {
+    hideHelp()
+    creditsEl.classList.add('hidden')
+  }
+
+  function showMenu() {
+    scene = 'menu'
+    hideScreens()
+    hideLesson()
     center.classList.remove('hidden')
     center.classList.remove('dead')
     retrigger(center, 'rise')
     title.innerHTML = 'MAGPIE<span>-9</span>'
-    prompt.textContent = 'FLAP TO ARM'
+    menuEl.classList.remove('hidden')
+    prompt.classList.add('hidden')
+    setMenuIndex(menuIndex)
     applyChrome()
   }
 
+  function showCredits() {
+    scene = 'credits'
+    center.classList.add('hidden')
+    hideHelp()
+    creditsEl.classList.remove('hidden')
+    applyChrome()
+  }
+
+  // The field manual is a modal over whatever scene is showing (menu or reboot),
+  // not a scene of its own.
   function showHelp() {
     if (helpOpen) return
     helpOpen = true
@@ -138,8 +183,8 @@ export function createHud() {
 
   function showPlaying() {
     scene = 'playing'
-    hideHelp()
     center.classList.add('hidden')
+    hideScreens()
     bestEl.classList.remove('beat')
     applyChrome()
   }
@@ -149,8 +194,29 @@ export function createHud() {
     center.classList.remove('hidden')
     center.classList.add('dead')
     retrigger(center, 'rise')
-    title.innerHTML = 'REBOOT'
-    prompt.textContent = newBest ? `NEW BEST ${score}` : `RUN ${score}`
+    menuEl.classList.add('hidden')
+    prompt.classList.remove('hidden')
+    if (gameMode === 'tutorial') {
+      title.innerHTML = 'TUTORIAL'
+      prompt.textContent = 'SESSION ENDED'
+    } else {
+      title.innerHTML = 'REBOOT'
+      prompt.textContent = newBest ? `NEW BEST ${score}` : `RUN ${score}`
+    }
+    applyChrome()
+  }
+
+  function showLesson(type) {
+    for (const block of lessonBlocks) block.classList.toggle('hidden', block.dataset.lesson !== type)
+    lessonEl.classList.remove('hidden')
+  }
+
+  function hideLesson() {
+    lessonEl.classList.add('hidden')
+  }
+
+  function setGameMode(next) {
+    gameMode = next
     applyChrome()
   }
 
@@ -256,6 +322,28 @@ export function createHud() {
     })
   }
 
+  // Menu / screen buttons do not stop propagation: input.js already ignores
+  // pointerdown on buttons, and letting it through unlocks audio on the gesture.
+  function bindMenu({ onSelect, onBack, onExit }) {
+    menuBtns.forEach((btn, i) => {
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault()
+        setMenuIndex(i)
+        onSelect?.(btn.dataset.item)
+      })
+    })
+    for (const btn of backBtns) {
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault()
+        onBack?.()
+      })
+    }
+    exitBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault()
+      onExit?.()
+    })
+  }
+
   return {
     setScore,
     setBest,
@@ -263,9 +351,20 @@ export function createHud() {
     setSpeed,
     toast,
     hot,
-    showTitle,
+    showMenu,
+    showCredits,
     showPlaying,
     showDead,
+    showLesson,
+    hideLesson,
+    setGameMode,
+    bindMenu,
+    moveMenu(dir) {
+      setMenuIndex(stepMenu(menuIndex, dir, menuBtns.length))
+    },
+    get menuItem() {
+      return menuBtns[menuIndex]?.dataset.item ?? MENU_ITEMS[0]
+    },
     setInputMode,
     updateTouch,
     setRotate,

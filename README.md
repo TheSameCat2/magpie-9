@@ -11,9 +11,25 @@ npm run dev
 Open the printed local URL. Space / click flaps. A D (or arrows) strafe.
 M mutes, B shows the collider sphere.
 
-H (or the HELP button on the title / reboot screen) opens the field manual:
-controls for your input method and what the two orbs do. Esc, H, CLOSE or a
-tap on the backdrop closes it. Flaps are ignored while it is open.
+## Menu
+
+The game opens on a menu: **NEW GAME**, **TUTORIAL**, **HELP**, **CREDITS**.
+Click / tap an entry, or use ↑ ↓ (W S) and Enter / Space. Esc (or a tap) backs
+out of Help and Credits; after a crash, a tap returns to the menu.
+
+HELP (menu entry, the HELP button, or the H key on the menu / reboot screen)
+opens the field manual: controls for your input method and what the two orbs
+do. Esc, H, CLOSE or a tap on the backdrop closes it. Flaps are ignored while
+it is open.
+
+## Tutorial
+
+A slower practice run (fixed 9 u/s, wider spacing, no ramp, no sectors). There
+is no gate counter or best score. Hazards arrive centred and in a fixed order
+(bulkhead ×3, laser-bar ×2, pylon ×2, repeat) and every gate drops an orb,
+alternating damper and spare life, within half a unit of the conduit's centre. The first
+damper and the first spare you collect pause the run under an explainer card;
+tap to continue. MENU (bottom right) or Esc leaves the tutorial at any time.
 
 ## Touch
 
@@ -21,7 +37,7 @@ Landscape only. Portrait shows a rotate overlay and pauses the run.
 
 - Left half: drag a floating stick to strafe
 - Right half: tap to flap, arm, or reset
-- Title / reboot: FULL enters fullscreen (Android / desktop; remembered across reloads until you exit). MUTE toggles audio. HELP opens the field manual.
+- Menu / reboot: FULL enters fullscreen (Android / desktop; remembered across reloads until you exit). MUTE toggles audio. HELP opens the field manual.
 - Portrait: ENTER FULLSCREEN on the rotate overlay does the same (and locks landscape on Android). Browsers without the Fullscreen API get an add-to-Home-Screen hint instead.
 - Backgrounding the tab auto-pauses. Tap to resume once you are back in landscape.
 

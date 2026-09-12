@@ -509,6 +509,110 @@
         letter-spacing: 0.14em;
       }
 
+      #entry {
+        margin-top: 18px;
+      }
+      .entry-slots {
+        display: flex;
+        justify-content: center;
+        gap: 14px;
+      }
+      .slot {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+      }
+      .slot button {
+        pointer-events: auto;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .slot b {
+        font-family: Orbitron, sans-serif;
+        font-weight: 700;
+        font-size: clamp(28px, 6vw, 42px);
+        letter-spacing: 0.08em;
+        color: var(--ink);
+        min-width: 1.1em;
+        text-align: center;
+        border-bottom: 2px solid transparent;
+      }
+      .slot.sel b {
+        color: var(--ice);
+        text-shadow: 0 0 14px rgba(61, 224, 255, 0.55);
+        border-bottom-color: var(--ice);
+        animation: blink 1.6s ease-in-out infinite;
+      }
+      #btnEnter {
+        pointer-events: auto;
+        display: block;
+        margin: 16px auto 0;
+        min-width: 160px;
+        min-height: 44px;
+        border: 1px solid rgba(61, 224, 255, 0.45);
+        background: rgba(7, 8, 12, 0.7);
+        color: var(--ice);
+        font-family: inherit;
+        font-size: 11px;
+        letter-spacing: 0.3em;
+        cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #btnEnter:focus-visible,
+      .slot button:focus-visible {
+        outline: 1px solid var(--ice);
+        outline-offset: 2px;
+      }
+
+      #scores .overlay-card {
+        min-width: min(22em, calc(100vw - 56px));
+      }
+      #scoresList {
+        list-style: none;
+        margin: 18px 0 0;
+        padding: 0;
+        display: grid;
+        gap: 6px;
+        font-family: Orbitron, sans-serif;
+        font-size: clamp(12px, 2.2vw, 16px);
+        letter-spacing: 0.16em;
+      }
+      #scoresList li {
+        display: grid;
+        grid-template-columns: 2.2em 4em 1fr;
+        column-gap: 16px;
+        color: var(--ink);
+      }
+      #scoresList .rank {
+        color: var(--ice);
+        text-align: right;
+      }
+      #scoresList .pts {
+        text-align: right;
+        color: var(--muted);
+      }
+      #scoresList li.you {
+        color: var(--mag);
+        text-shadow: 0 0 12px rgba(255, 42, 109, 0.55);
+      }
+      #scoresList li.you .rank,
+      #scoresList li.you .pts {
+        color: var(--mag);
+      }
+      #scoresStatus {
+        margin-top: 12px;
+        animation: blink 1.6s ease-in-out infinite;
+      }
+
       #lesson {
         z-index: 4;
       }
@@ -1351,6 +1455,25 @@
           padding: 4px 22px;
           font-size: 11px;
         }
+        #entry {
+          margin-top: 10px;
+        }
+        .slot button {
+          width: 38px;
+          height: 32px;
+        }
+        .slot b {
+          font-size: 24px;
+        }
+        #btnEnter {
+          min-height: 38px;
+          margin-top: 10px;
+        }
+        #scoresList {
+          margin-top: 10px;
+          font-size: 12px;
+          gap: 3px;
+        }
         .screen dl {
           margin-top: 12px;
           row-gap: 5px;
@@ -1482,10 +1605,31 @@
         <nav id="menu" aria-label="Main menu">
           <button type="button" data-item="new" class="sel">NEW GAME</button>
           <button type="button" data-item="tutorial">TUTORIAL</button>
+          <button type="button" data-item="scores">SCORES</button>
           <button type="button" data-item="help">HELP</button>
           <button type="button" data-item="credits">CREDITS</button>
         </nav>
         <div id="prompt" class="hidden">FLAP TO ARM</div>
+        <div id="entry" class="hidden">
+          <div class="entry-slots">
+            <div class="slot" data-slot="0">
+              <button type="button" data-entry data-slot="0" data-dir="1" aria-label="Letter 1 up">▲</button>
+              <b>A</b>
+              <button type="button" data-entry data-slot="0" data-dir="-1" aria-label="Letter 1 down">▼</button>
+            </div>
+            <div class="slot" data-slot="1">
+              <button type="button" data-entry data-slot="1" data-dir="1" aria-label="Letter 2 up">▲</button>
+              <b>A</b>
+              <button type="button" data-entry data-slot="1" data-dir="-1" aria-label="Letter 2 down">▼</button>
+            </div>
+            <div class="slot" data-slot="2">
+              <button type="button" data-entry data-slot="2" data-dir="1" aria-label="Letter 3 up">▲</button>
+              <b>A</b>
+              <button type="button" data-entry data-slot="2" data-dir="-1" aria-label="Letter 3 down">▼</button>
+            </div>
+          </div>
+          <button type="button" id="btnEnter" data-entry="select">ENTER</button>
+        </div>
         <div id="sub">SPACE / CLICK · A D STRAFE</div>
       </div>
       <div id="toast"></div>
@@ -1501,6 +1645,15 @@
             <dd>TitanVern</dd>
             <dd>Rinzler</dd>
           </dl>
+          <div class="overlay-sub">TAP OR ESC TO RETURN</div>
+          <button type="button" class="back" data-back>BACK</button>
+        </div>
+      </div>
+      <div id="scores" class="overlay screen hidden">
+        <div class="overlay-card">
+          <div class="overlay-title">TOP 10</div>
+          <div id="scoresStatus" class="overlay-sub hidden"></div>
+          <ol id="scoresList"></ol>
           <div class="overlay-sub">TAP OR ESC TO RETURN</div>
           <button type="button" class="back" data-back>BACK</button>
         </div>

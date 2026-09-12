@@ -3,7 +3,7 @@ import { rotateFsAction } from './screen.js'
 
 const TAP_MS = 280
 
-export const MENU_ITEMS = ['new', 'tutorial', 'help', 'credits']
+export const MENU_ITEMS = ['new', 'tutorial', 'scores', 'help', 'credits']
 
 /** Copy for the hold overlay. `begin` is a fresh run; `resume` is after an interrupt. */
 export function pauseCopy(reason) {
@@ -50,6 +50,11 @@ export function createHud() {
   const helpBtn = document.getElementById('btnHelp')
   const helpCloseBtn = document.getElementById('btnHelpClose')
   const creditsEl = document.getElementById('credits')
+  const scoresEl = document.getElementById('scores')
+  const scoresList = document.getElementById('scoresList')
+  const scoresStatus = document.getElementById('scoresStatus')
+  const entryEl = document.getElementById('entry')
+  const entrySlots = Array.from(entryEl.querySelectorAll('.slot'))
   const lessonEl = document.getElementById('lesson')
   const lessonBlocks = Array.from(lessonEl.querySelectorAll('.lesson'))
   const backBtns = Array.from(document.querySelectorAll('.screen .back'))
@@ -85,6 +90,8 @@ export function createHud() {
       sub.textContent = mode === 'touch' ? 'TAP TO SELECT' : '↑ ↓ SELECT · ENTER · H HELP'
     } else if (scene === 'dead') {
       sub.textContent = mode === 'touch' ? 'TAP FOR MENU' : 'SPACE FOR MENU'
+    } else if (scene === 'entry') {
+      sub.textContent = mode === 'touch' ? 'TAP ARROWS · ENTER' : 'TYPE OR ↑ ↓ · ENTER'
     }
   }
 
@@ -138,12 +145,73 @@ export function createHud() {
   function hideScreens() {
     hideHelp()
     creditsEl.classList.add('hidden')
+    scoresEl.classList.add('hidden')
+  }
+
+  function hideEntry() {
+    entryEl.classList.add('hidden')
+  }
+
+  function renderEntry(entry) {
+    entrySlots.forEach((slot, i) => {
+      slot.classList.toggle('sel', i === entry.cursor)
+      slot.querySelector('b').textContent = entry.chars[i]
+    })
+  }
+
+  function showEntry(score, rank, entry) {
+    scene = 'entry'
+    hideScreens()
+    center.classList.remove('hidden')
+    center.classList.add('dead')
+    retrigger(center, 'rise')
+    menuEl.classList.add('hidden')
+    prompt.classList.remove('hidden')
+    title.innerHTML = 'REBOOT'
+    prompt.textContent = `RUN ${score} · RANK #${rank}`
+    entryEl.classList.remove('hidden')
+    renderEntry(entry)
+    applyChrome()
+  }
+
+  function renderScores(board, rank) {
+    scoresList.replaceChildren()
+    for (let i = 0; i < 10; i++) {
+      const row = document.createElement('li')
+      const item = board?.[i]
+      row.classList.toggle('you', rank === i + 1)
+      const place = document.createElement('span')
+      place.className = 'rank'
+      place.textContent = String(i + 1).padStart(2, '0')
+      const name = document.createElement('span')
+      name.className = 'initials'
+      name.textContent = item ? item.initials : '---'
+      const pts = document.createElement('span')
+      pts.className = 'pts'
+      pts.textContent = item ? String(item.score) : '---'
+      row.append(place, name, pts)
+      scoresList.appendChild(row)
+    }
+  }
+
+  function showScores(board, rank, status) {
+    scene = 'scores'
+    hideScreens()
+    hideEntry()
+    center.classList.add('hidden')
+    scoresEl.classList.remove('hidden')
+    const label = status || ''
+    scoresStatus.textContent = label
+    scoresStatus.classList.toggle('hidden', !label)
+    renderScores(board, rank)
+    applyChrome()
   }
 
   function showMenu() {
     scene = 'menu'
     hideScreens()
     hideLesson()
+    hideEntry()
     center.classList.remove('hidden')
     center.classList.remove('dead')
     retrigger(center, 'rise')
@@ -156,8 +224,9 @@ export function createHud() {
 
   function showCredits() {
     scene = 'credits'
+    hideScreens()
+    hideEntry()
     center.classList.add('hidden')
-    hideHelp()
     creditsEl.classList.remove('hidden')
     applyChrome()
   }
@@ -194,6 +263,7 @@ export function createHud() {
     scene = 'playing'
     center.classList.add('hidden')
     hideScreens()
+    hideEntry()
     bestEl.classList.remove('beat')
     applyChrome()
   }
@@ -203,6 +273,7 @@ export function createHud() {
     center.classList.remove('hidden')
     center.classList.add('dead')
     retrigger(center, 'rise')
+    hideEntry()
     menuEl.classList.add('hidden')
     prompt.classList.remove('hidden')
     if (gameMode === 'tutorial') {
@@ -361,6 +432,17 @@ export function createHud() {
     })
   }
 
+  function bindEntry({ onAction }) {
+    entryEl.addEventListener('pointerdown', (e) => {
+      const btn = e.target.closest('[data-entry]')
+      if (!btn) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (btn.dataset.entry === 'select') onAction?.('select')
+      else onAction?.({ slot: Number(btn.dataset.slot), dir: Number(btn.dataset.dir) })
+    })
+  }
+
   return {
     setScore,
     setBest,
@@ -372,6 +454,11 @@ export function createHud() {
     showCredits,
     showPlaying,
     showDead,
+    showEntry,
+    hideEntry,
+    renderEntry,
+    showScores,
+    bindEntry,
     showLesson,
     hideLesson,
     setGameMode,

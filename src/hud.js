@@ -113,6 +113,7 @@ export function createHud() {
   function showHelp() {
     if (helpOpen) return
     helpOpen = true
+    document.body.classList.add('help-open')
     helpEl.classList.remove('hidden')
     retrigger(helpEl, 'rise')
     helpEl.scrollTop = 0
@@ -124,6 +125,7 @@ export function createHud() {
   function hideHelp() {
     if (!helpOpen) return
     helpOpen = false
+    document.body.classList.remove('help-open')
     helpEl.classList.add('hidden')
     helpBtn.setAttribute('aria-expanded', 'false')
     if (document.activeElement === helpCloseBtn) helpBtn.focus({ preventScroll: true })

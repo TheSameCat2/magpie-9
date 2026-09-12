@@ -74,7 +74,7 @@ Hexagonal conduit, 6 plates + emissive rib. Segment length `10`, pool **8**. Fog
 
 | Id | What | Hole |
 |----|------|------|
-| `bulkhead` | Hex plate, rectangular hatch offset in X/Y | 3.0 × 2.8 |
+| `bulkhead` | Hex plate, rectangular hatch offset in X/Y | 2.8 × 3.2 |
 | `laser-bar` | Horizontal energy slab, open band | band height 3.0, random Y |
 | `pylon` | Left **or** right blocked past centre | forces strafe |
 

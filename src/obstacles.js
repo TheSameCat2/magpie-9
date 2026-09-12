@@ -3,8 +3,8 @@ import { R, VERTEX_R, THEME, makeFrameMaterial, makeRingMaterial } from './theme
 import { hitObstacle } from './collision.js'
 
 const POOL = 12
-export const HOLE_W = 3.0
-export const HOLE_H = 2.8
+export const HOLE_W = 2.8
+export const HOLE_H = 3.2
 export const LASER_GAP = 3.0
 const DEPTH = 0.3
 export const PYLON_W = 4.5

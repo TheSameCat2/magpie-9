@@ -34,13 +34,13 @@ function pylon(side, edge, z = 0, depth = 0.42) {
 }
 
 test('bulkhead: sphere fully inside the hole survives', () => {
-  const obs = bulkhead({ x: 0, y: 0, w: 3, h: 2.8 })
+  const obs = bulkhead({ x: 0, y: 0, w: 2.8, h: 3.2 })
   assert.equal(hitObstacle({ x: 0, y: 0, z: 0 }, RADIUS, obs), false)
 })
 
 test('bulkhead: sphere just touching a hole edge kills', () => {
-  const obs = bulkhead({ x: 0, y: 0, w: 3, h: 2.8 })
-  const xTouch = 1.5 - R
+  const obs = bulkhead({ x: 0, y: 0, w: 2.8, h: 3.2 })
+  const xTouch = 1.4 - R
   assert.equal(hitObstacle({ x: xTouch - 1e-6, y: 0, z: 0 }, RADIUS, obs), false)
   assert.equal(hitObstacle({ x: xTouch, y: 0, z: 0 }, RADIUS, obs), true)
 })
@@ -60,8 +60,8 @@ test('laser-bar kills at the sphere edge of the gap', () => {
 
 test('passMargin is non-positive exactly when hitObstacle is true', () => {
   const cases = [
-    { pos: { x: 0, y: 0, z: 0 }, obs: bulkhead({ x: 0, y: 0, w: 3, h: 2.8 }) },
-    { pos: { x: 1.5 - R + 0.01, y: 0, z: 0 }, obs: bulkhead({ x: 0, y: 0, w: 3, h: 2.8 }) },
+    { pos: { x: 0, y: 0, z: 0 }, obs: bulkhead({ x: 0, y: 0, w: 2.8, h: 3.2 }) },
+    { pos: { x: 1.4 - R + 0.01, y: 0, z: 0 }, obs: bulkhead({ x: 0, y: 0, w: 2.8, h: 3.2 }) },
     { pos: { x: 0, y: 0, z: 0 }, obs: pylon('left', 0.05) },
     { pos: { x: 0, y: 1.5 - R - 0.01, z: 0 }, obs: laser(0, 3) },
     { pos: { x: 0, y: 1.5 - R + 0.01, z: 0 }, obs: laser(0, 3) },

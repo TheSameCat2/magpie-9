@@ -6,6 +6,8 @@ import {
   RIB_FRAG,
   LASER_VERT,
   LASER_FRAG,
+  PYLON_VERT,
+  PYLON_FRAG,
   RING_FRAG,
   ORB_VERT,
   ORB_FRAG,
@@ -432,6 +434,20 @@ export function makeLaserMaterial(color, edgeSign) {
   })
 }
 
+export function makePylonMaterial(color) {
+  return new THREE.ShaderMaterial({
+    vertexShader: PYLON_VERT,
+    fragmentShader: PYLON_FRAG,
+    uniforms: {
+      uTime: SHARED.uTime,
+      uFogDensity: SHARED.uFogDensity,
+      uColor: { value: new THREE.Color(color) },
+    },
+    depthWrite: true,
+    side: THREE.DoubleSide,
+  })
+}
+
 export function createMaterials() {
   const wall = conduitMaps()
   const plate = plateMap()
@@ -481,6 +497,14 @@ export function createMaterials() {
     roughness: 0.35,
     metalness: 0.15,
   })
+  const pylon = makePylonMaterial(THEME.sodium)
+  const pylonEdge = new THREE.MeshStandardMaterial({
+    color: THEME.sodium,
+    emissive: THEME.sodium,
+    emissiveIntensity: 1.8,
+    roughness: 0.28,
+    metalness: 0.12,
+  })
   const birdBody = new THREE.MeshStandardMaterial({
     color: THEME.graphite,
     roughness: 0.5,
@@ -514,6 +538,8 @@ export function createMaterials() {
     laserTop,
     laserBot,
     hatch,
+    pylon,
+    pylonEdge,
     birdBody,
     birdBelly,
     birdTrim,

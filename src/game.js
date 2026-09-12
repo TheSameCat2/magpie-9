@@ -96,6 +96,9 @@ export function createGame({
     onFullscreen() {
       screen.toggleFullscreen()
     },
+    onHelp() {
+      if (state === 'title' || state === 'dead') hud.toggleHelp()
+    },
   })
 
   function scrollWorld(dz, dt) {
@@ -362,6 +365,10 @@ export function createGame({
       hud.setMuted(audio.muted)
     }
     if (input.debugEdge) bird.toggleCollider()
+    if (state === 'title' || state === 'dead') {
+      if (input.helpEdge) hud.toggleHelp()
+      else if (input.backEdge && hud.helpOpen) hud.hideHelp()
+    }
 
     let dt = realDt
     if (hitStop > 0) {
@@ -374,9 +381,11 @@ export function createGame({
     SHARED.uKick.value = Math.max(0, SHARED.uKick.value - dt * 2.6)
 
     const tapped = input.flapEdge || input.restartEdge || input.tapEdge
+    // While the manual is open, flaps must not start or reset a run.
+    const blocked = screen.needsRotate || hud.helpOpen
 
     if (state === 'title') {
-      if (tapped && !screen.needsRotate) {
+      if (tapped && !blocked) {
         arm()
       } else {
         const dz = 2.2 * dt
@@ -426,7 +435,7 @@ export function createGame({
       }
     } else if (state === 'dead') {
       bird.updateDead(dt)
-      if (tapped && !screen.needsRotate) toTitle()
+      if (tapped && !blocked) toTitle()
     }
 
     hud.updateTouch(input)

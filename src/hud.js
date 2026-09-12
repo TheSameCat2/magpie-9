@@ -27,11 +27,15 @@ export function createHud() {
   const fsBtn = document.getElementById('btnFs')
   const rotateFsBtn = document.getElementById('btnRotateFs')
   const rotateFsHint = document.getElementById('rotateFsHint')
+  const helpEl = document.getElementById('help')
+  const helpBtn = document.getElementById('btnHelp')
+  const helpCloseBtn = document.getElementById('btnHelpClose')
 
   let toastTimer = 0
   let hotTimer = 0
   let mode = 'keys'
   let scene = 'title'
+  let helpOpen = false
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   function retrigger(el, cls) {
@@ -45,8 +49,10 @@ export function createHud() {
     keysEl.classList.toggle('hidden', mode === 'touch')
     zonesEl.classList.toggle('hidden', mode !== 'touch' || scene !== 'title')
     sysEl.classList.toggle('playing', scene === 'playing' || scene === 'respawn')
+    helpCloseBtn.querySelector('.label').textContent = mode === 'touch' ? 'CLOSE' : 'CLOSE · ESC'
     if (scene === 'title') {
-      sub.textContent = mode === 'touch' ? 'TAP RIGHT · FLAP   DRAG LEFT · STRAFE' : 'SPACE / CLICK · A D STRAFE'
+      sub.textContent =
+        mode === 'touch' ? 'TAP RIGHT · FLAP   DRAG LEFT · STRAFE' : 'SPACE / CLICK · A D STRAFE · H HELP'
     } else if (scene === 'dead') {
       sub.textContent = mode === 'touch' ? 'TAP TO RESET' : 'SPACE TO RESET'
     }
@@ -104,8 +110,33 @@ export function createHud() {
     applyChrome()
   }
 
+  function showHelp() {
+    if (helpOpen) return
+    helpOpen = true
+    helpEl.classList.remove('hidden')
+    retrigger(helpEl, 'rise')
+    helpEl.scrollTop = 0
+    helpEl.querySelector('.help-card').scrollTop = 0
+    helpBtn.setAttribute('aria-expanded', 'true')
+    helpCloseBtn.focus({ preventScroll: true })
+  }
+
+  function hideHelp() {
+    if (!helpOpen) return
+    helpOpen = false
+    helpEl.classList.add('hidden')
+    helpBtn.setAttribute('aria-expanded', 'false')
+    if (document.activeElement === helpCloseBtn) helpBtn.focus({ preventScroll: true })
+  }
+
+  function toggleHelp() {
+    if (helpOpen) hideHelp()
+    else showHelp()
+  }
+
   function showPlaying() {
     scene = 'playing'
+    hideHelp()
     center.classList.add('hidden')
     bestEl.classList.remove('beat')
     applyChrome()
@@ -197,17 +228,30 @@ export function createHud() {
     rotateFsBtn.querySelector('.label').textContent = active ? 'EXIT FULLSCREEN' : 'ENTER FULLSCREEN'
   }
 
-  function bindSys({ onMute, onFullscreen }) {
+  function bindSys({ onMute, onFullscreen, onHelp }) {
     function wire(btn, fn) {
       btn.addEventListener('pointerdown', (e) => {
         e.stopPropagation()
         e.preventDefault()
         fn?.()
       })
+      // Keyboard activation (Enter on a focused button) arrives as a click with detail 0.
+      btn.addEventListener('click', (e) => {
+        if (e.detail === 0) fn?.()
+      })
     }
     wire(muteBtn, onMute)
     wire(fsBtn, onFullscreen)
     wire(rotateFsBtn, onFullscreen)
+    wire(helpBtn, onHelp)
+    wire(helpCloseBtn, onHelp)
+    // Pointers inside the manual must never reach the game's window listeners
+    // (a tap there would arm a run). A tap on the dimmed backdrop closes it;
+    // taps on the card are swallowed so the card can scroll.
+    helpEl.addEventListener('pointerdown', (e) => {
+      e.stopPropagation()
+      if (e.target === helpEl) onHelp?.()
+    })
   }
 
   return {
@@ -227,8 +271,14 @@ export function createHud() {
     hidePaused,
     showRespawn,
     hideRespawn,
+    showHelp,
+    hideHelp,
+    toggleHelp,
     setMuted,
     setFullscreen,
     bindSys,
+    get helpOpen() {
+      return helpOpen
+    },
   }
 }

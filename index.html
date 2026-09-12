@@ -554,7 +554,7 @@
         box-shadow: 0 0 14px rgba(61, 224, 255, 0.35);
         animation: tilt 1.8s ease-in-out infinite;
       }
-      #rotate .fs-btn {
+      .fs-btn {
         pointer-events: auto;
         margin: 22px auto 0;
         min-width: 220px;
@@ -573,15 +573,15 @@
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
       }
-      #rotate .fs-btn:focus-visible {
+      .fs-btn:focus-visible {
         outline: 1px solid var(--ice);
         outline-offset: 2px;
       }
-      #rotate .fs-btn.on {
+      .fs-btn.on {
         border-color: var(--sodium);
         color: var(--sodium);
       }
-      #rotate .fs-btn svg {
+      .fs-btn svg {
         width: 16px;
         height: 16px;
         fill: none;
@@ -602,6 +602,467 @@
         40%,
         60% {
           transform: rotate(0deg);
+        }
+      }
+
+      /* ---- Help / field manual ---- */
+      #help {
+        pointer-events: auto;
+        box-sizing: border-box;
+        padding: calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+        background: rgba(7, 8, 12, 0.84);
+      }
+      .help-card {
+        position: relative;
+        box-sizing: border-box;
+        width: min(780px, 100%);
+        max-height: 100%;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        touch-action: pan-y;
+        padding: 26px 32px 30px;
+        border: 1px solid rgba(61, 224, 255, 0.28);
+        background: rgba(7, 8, 12, 0.82);
+        box-shadow: 0 0 48px rgba(61, 224, 255, 0.08), inset 0 0 60px rgba(7, 8, 12, 0.7);
+        text-align: left;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(61, 224, 255, 0.35) transparent;
+      }
+      #help.rise .help-card {
+        animation: helpIn 0.36s ease-out both;
+      }
+      @keyframes helpIn {
+        from {
+          opacity: 0;
+          transform: translateY(14px) scale(0.985);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .help-card::before,
+      .help-card::after {
+        content: "";
+        position: absolute;
+        width: 18px;
+        height: 18px;
+        border: 1px solid rgba(61, 224, 255, 0.7);
+        pointer-events: none;
+      }
+      .help-card::before {
+        top: 6px;
+        left: 6px;
+        border-right: 0;
+        border-bottom: 0;
+      }
+      .help-card::after {
+        top: 6px;
+        right: 6px;
+        border-left: 0;
+        border-bottom: 0;
+      }
+      .help-head {
+        text-align: center;
+      }
+      .help-rule {
+        width: 100%;
+        height: 1px;
+        margin: 16px auto 0;
+        background: linear-gradient(90deg, transparent, var(--ice), transparent);
+        opacity: 0.6;
+      }
+      .help-sec {
+        margin-top: 22px;
+      }
+      .help-h {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 12px;
+        font-family: inherit;
+        font-weight: normal;
+        font-size: 10px;
+        letter-spacing: 0.34em;
+        color: var(--muted);
+      }
+      .help-h::before {
+        content: "";
+        width: 14px;
+        height: 1px;
+        background: var(--ice);
+        box-shadow: 0 0 8px rgba(61, 224, 255, 0.7);
+      }
+      .help-h::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: rgba(138, 151, 166, 0.18);
+      }
+      .help-row {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px 26px;
+        align-items: center;
+      }
+      .help-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 12px;
+        line-height: 1.75;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+      }
+      .help-list li {
+        position: relative;
+        padding-left: 16px;
+      }
+      .help-list li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.7em;
+        width: 6px;
+        height: 6px;
+        border: 1px solid var(--ice);
+        transform: rotate(45deg);
+        opacity: 0.8;
+      }
+      .help-list b {
+        font-weight: normal;
+        color: var(--ink);
+        letter-spacing: 0.14em;
+      }
+
+      .help-fig {
+        display: block;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .help-fig-flight {
+        width: 176px;
+        height: 124px;
+      }
+      .fig-hex {
+        stroke: rgba(61, 224, 255, 0.7);
+        stroke-width: 1.5;
+        fill: rgba(22, 26, 34, 0.7);
+      }
+      .fig-hex.faint {
+        stroke: rgba(61, 224, 255, 0.25);
+        fill: rgba(7, 8, 12, 0.6);
+        stroke-dasharray: 3 4;
+      }
+      .fig-hatch {
+        stroke: var(--sodium);
+        stroke-width: 1.5;
+        fill: rgba(232, 160, 48, 0.12);
+        filter: drop-shadow(0 0 4px rgba(232, 160, 48, 0.6));
+      }
+      .fig-path {
+        stroke: rgba(220, 232, 240, 0.7);
+        stroke-width: 1.4;
+        stroke-dasharray: 4 4;
+      }
+      .fig-grav {
+        stroke: var(--mag);
+        stroke-width: 1.6;
+      }
+      .fig-flap {
+        stroke: var(--ice);
+        stroke-width: 1.6;
+      }
+      .fig-bird {
+        fill: var(--ink);
+        filter: drop-shadow(0 0 4px rgba(61, 224, 255, 0.9));
+      }
+      .fig-wing {
+        stroke: var(--mag);
+        stroke-width: 1.8;
+      }
+      .fig-text {
+        font-family: "Share Tech Mono", ui-monospace, monospace;
+        font-size: 9px;
+        letter-spacing: 0.24em;
+        text-anchor: middle;
+        stroke: none;
+      }
+      .fig-text.ice {
+        fill: var(--ice);
+      }
+      .fig-text.mag {
+        fill: var(--mag);
+      }
+      .fig-text.gold {
+        fill: var(--gold);
+        font-size: 11px;
+      }
+
+      .help-touch {
+        display: none;
+      }
+      body[data-input="touch"] .help-touch {
+        display: block;
+      }
+      body[data-input="touch"] .help-keys {
+        display: none;
+      }
+
+      .help-binds {
+        display: grid;
+        grid-template-columns: repeat(3, auto);
+        justify-content: space-between;
+        gap: 14px 24px;
+      }
+      .help-bind {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .help-kbds {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 44px;
+      }
+      .help-or {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 0 2px;
+      }
+      .help-act {
+        font-size: 11px;
+        letter-spacing: 0.3em;
+        color: var(--ink);
+      }
+      .help-card kbd {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 30px;
+        height: 30px;
+        padding: 0 9px;
+        box-sizing: border-box;
+        border: 1px solid rgba(61, 224, 255, 0.55);
+        border-bottom-width: 3px;
+        background: rgba(7, 8, 12, 0.7);
+        color: var(--ice);
+        font-family: inherit;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        box-shadow: 0 0 10px rgba(61, 224, 255, 0.14);
+      }
+      .help-minor {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 10px 26px;
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top: 1px solid rgba(138, 151, 166, 0.18);
+        font-size: 10px;
+        letter-spacing: 0.26em;
+        color: var(--muted);
+      }
+      .help-minor span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .help-minor kbd {
+        min-width: 24px;
+        height: 24px;
+        padding: 0 6px;
+        font-size: 10px;
+        border-bottom-width: 2px;
+      }
+      .help-mouse {
+        width: 30px;
+        height: 42px;
+        fill: none;
+        stroke: rgba(61, 224, 255, 0.7);
+        stroke-width: 1.5;
+        stroke-linejoin: round;
+      }
+      .help-mouse .lit {
+        fill: rgba(61, 224, 255, 0.55);
+        stroke: none;
+        filter: drop-shadow(0 0 4px rgba(61, 224, 255, 0.8));
+      }
+
+      .help-fig-phone {
+        width: 260px;
+        height: 138px;
+      }
+      .phone-body {
+        stroke: rgba(138, 151, 166, 0.55);
+        stroke-width: 1.5;
+        fill: rgba(22, 26, 34, 0.8);
+      }
+      .phone-screen {
+        stroke: rgba(61, 224, 255, 0.25);
+        stroke-width: 1;
+        fill: rgba(7, 8, 12, 0.9);
+      }
+      .phone-split {
+        stroke: rgba(61, 224, 255, 0.35);
+        stroke-width: 1;
+        stroke-dasharray: 4 4;
+      }
+      .fig-stick-ring {
+        stroke: rgba(61, 224, 255, 0.6);
+        stroke-width: 1.5;
+        fill: rgba(61, 224, 255, 0.05);
+      }
+      .fig-stick-nub {
+        fill: var(--ice);
+        filter: drop-shadow(0 0 5px rgba(61, 224, 255, 0.8));
+      }
+      .fig-arrows {
+        stroke: var(--ice);
+        stroke-width: 1.6;
+      }
+      .fig-tap-ring {
+        stroke: rgba(255, 42, 109, 0.8);
+        stroke-width: 1.5;
+        fill: none;
+      }
+      .fig-tap-ring.faint {
+        stroke: rgba(255, 42, 109, 0.3);
+        stroke-dasharray: 3 5;
+      }
+      .fig-tap-dot {
+        fill: var(--mag);
+        filter: drop-shadow(0 0 5px rgba(255, 42, 109, 0.8));
+      }
+      .help-fig-phone .fig-text {
+        font-size: 11px;
+      }
+
+      .help-orbs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+      .help-orb {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 14px;
+        align-items: center;
+        padding: 12px 16px 12px 8px;
+        border: 1px solid rgba(138, 151, 166, 0.18);
+        background: rgba(7, 8, 12, 0.5);
+      }
+      .help-orb.gold {
+        border-color: rgba(255, 209, 102, 0.3);
+      }
+      .help-orb.green {
+        border-color: rgba(61, 255, 138, 0.3);
+      }
+      .help-orb-fig {
+        width: 96px;
+        height: 96px;
+        display: block;
+        animation: orbBob 2.8s ease-in-out infinite;
+      }
+      .help-orb.green .help-orb-fig {
+        animation-delay: -1.4s;
+      }
+      @keyframes orbBob {
+        0%,
+        100% {
+          transform: translateY(0) scale(1);
+        }
+        50% {
+          transform: translateY(-4px) scale(1.04);
+        }
+      }
+      .orb-shell {
+        stroke-width: 1.4;
+      }
+      .help-orb.gold .orb-shell {
+        stroke: rgba(255, 209, 102, 0.85);
+      }
+      .help-orb.green .orb-shell {
+        stroke: rgba(61, 255, 138, 0.85);
+      }
+      .orb-icon path {
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .orb-stroke {
+        stroke-width: 8;
+      }
+      .orb-core {
+        stroke-width: 3;
+      }
+      .help-orb.gold .orb-stroke {
+        stroke: var(--gold);
+      }
+      .help-orb.gold .orb-core {
+        stroke: #fff6d8;
+      }
+      .help-orb.green .orb-stroke {
+        stroke: var(--green);
+      }
+      .help-orb.green .orb-core {
+        stroke: #e8fff0;
+      }
+      .help-orb-name {
+        font-family: Orbitron, sans-serif;
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 0.26em;
+      }
+      .help-orb.gold .help-orb-name {
+        color: var(--gold);
+        text-shadow: 0 0 14px rgba(255, 209, 102, 0.55);
+      }
+      .help-orb.green .help-orb-name {
+        color: var(--green);
+        text-shadow: 0 0 14px rgba(61, 255, 138, 0.55);
+      }
+      .help-orb-text p {
+        margin: 8px 0 0;
+        font-size: 12px;
+        line-height: 1.6;
+        letter-spacing: 0.05em;
+        color: var(--ink);
+      }
+      .help-orb-text p b {
+        font-weight: normal;
+      }
+      .help-orb.green .help-orb-text p b {
+        color: var(--green);
+      }
+      .help-orb-sub {
+        margin-top: 8px;
+        font-size: 9px;
+        letter-spacing: 0.26em;
+        color: var(--muted);
+      }
+      #help .fs-btn {
+        margin-top: 26px;
+      }
+
+      @media (max-width: 640px) {
+        .help-card {
+          padding: 22px 18px 24px;
+        }
+        .help-row,
+        .help-orbs {
+          grid-template-columns: 1fr;
+        }
+        .help-row .help-fig {
+          margin: 0 auto;
+        }
+        .help-binds {
+          grid-template-columns: 1fr;
+          justify-items: center;
         }
       }
 
@@ -657,6 +1118,38 @@
           padding-bottom: calc(42px + var(--sab));
           font-size: 10px;
         }
+        #help {
+          padding: calc(8px + var(--sat)) calc(10px + var(--sar)) calc(8px + var(--sab)) calc(10px + var(--sal));
+        }
+        .help-card {
+          padding: 16px 22px 20px;
+        }
+        .help-sec {
+          margin-top: 14px;
+        }
+        .help-h {
+          margin-bottom: 8px;
+        }
+        .help-fig-flight {
+          width: 132px;
+          height: 93px;
+        }
+        .help-fig-phone {
+          width: 200px;
+          height: 106px;
+        }
+        .help-orb-fig {
+          width: 72px;
+          height: 72px;
+        }
+        .help-list,
+        .help-orb-text p {
+          font-size: 11px;
+        }
+        #help .fs-btn {
+          margin-top: 16px;
+          min-height: 40px;
+        }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -683,7 +1176,7 @@
       <div id="lives" class="hidden"></div>
       <div id="vel">VEL <b>12.0</b></div>
       <div id="velBar"><i></i></div>
-      <div id="keys">M MUTE · B COLLIDER</div>
+      <div id="keys">H HELP · M MUTE · B COLLIDER</div>
       <div id="sys">
         <button type="button" id="btnMute" aria-label="Mute" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -701,6 +1194,14 @@
             <path d="M16 20h4v-4" />
           </svg>
           <span class="label">FULL</span>
+        </button>
+        <button type="button" id="btnHelp" aria-label="Help" aria-haspopup="dialog" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9.4 9.6a2.7 2.7 0 1 1 3.9 2.4c-.9.5-1.3 1-1.3 1.9" />
+            <path d="M12 17.2h.01" />
+          </svg>
+          <span class="label">HELP</span>
         </button>
       </div>
       <div id="zones" class="hidden" aria-hidden="true">
@@ -750,6 +1251,170 @@
           <div id="rotateFsHint" class="overlay-sub hidden">
             ADD TO HOME SCREEN<br />FOR A FULL DISPLAY
           </div>
+        </div>
+      </div>
+      <div id="help" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+        <div class="help-card">
+          <header class="help-head">
+            <div id="helpTitle" class="overlay-title">FIELD MANUAL</div>
+            <div class="overlay-sub">MAGPIE-9 · SERVICE CONDUIT</div>
+            <div class="help-rule"></div>
+          </header>
+
+          <section class="help-sec">
+            <h3 class="help-h">FLIGHT</h3>
+            <div class="help-row">
+              <svg class="help-fig help-fig-flight" viewBox="0 0 176 124" aria-hidden="true">
+                <polygon class="fig-hex" points="88,6 158,44 158,80 88,118 18,80 18,44" />
+                <polygon class="fig-hex faint" points="88,24 142,53 142,71 88,100 34,71 34,53" />
+                <rect class="fig-hatch" x="92" y="40" width="40" height="34" />
+                <path class="fig-path" d="M8 96 C 40 96, 44 46, 66 56 S 100 44, 112 57" />
+                <path class="fig-grav" d="M32 60v20M27 75l5 5 5-5" />
+                <text class="fig-text mag" x="32" y="93">FALL</text>
+                <path class="fig-flap" d="M58 84V64M53 69l5-5 5 5" />
+                <text class="fig-text ice" x="58" y="96">FLAP</text>
+                <path class="fig-wing" d="M104 54l8 3 8-3" />
+                <circle class="fig-bird" cx="112" cy="57" r="4" />
+                <text class="fig-text gold" x="112" y="30">+1</text>
+              </svg>
+              <ul class="help-list">
+                <li><b>GRAVITY PULLS.</b> Idle and the drone drops.</li>
+                <li><b>FLAP CLIMBS.</b> Each flap is a pulse, not a hover.</li>
+                <li><b>THREAD THE HATCH.</b> +1 gate per bulkhead. Walls, plates and beams kill.</li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="help-sec">
+            <h3 class="help-h">CONTROLS</h3>
+            <div class="help-keys">
+              <div class="help-binds">
+                <div class="help-bind">
+                  <div class="help-kbds"><kbd>SPACE</kbd><kbd>W</kbd><kbd>↑</kbd></div>
+                  <div class="help-act">FLAP</div>
+                </div>
+                <div class="help-bind">
+                  <div class="help-kbds">
+                    <kbd>A</kbd><kbd>D</kbd><span class="help-or">/</span><kbd>←</kbd><kbd>→</kbd>
+                  </div>
+                  <div class="help-act">STRAFE</div>
+                </div>
+                <div class="help-bind">
+                  <div class="help-kbds">
+                    <svg class="help-mouse" viewBox="0 0 28 40" aria-hidden="true">
+                      <path class="lit" d="M13 3A11 11 0 0 0 3 14v3h10z" />
+                      <rect x="3" y="3" width="22" height="34" rx="11" />
+                      <path d="M14 3v14M3 17h22" />
+                    </svg>
+                  </div>
+                  <div class="help-act">CLICK · FLAP</div>
+                </div>
+              </div>
+              <div class="help-minor">
+                <span><kbd>R</kbd> RESET</span>
+                <span><kbd>M</kbd> MUTE</span>
+                <span><kbd>H</kbd> HELP</span>
+                <span><kbd>B</kbd> COLLIDER</span>
+              </div>
+            </div>
+            <div class="help-touch">
+              <div class="help-row">
+                <svg class="help-fig help-fig-phone" viewBox="0 0 320 170" aria-hidden="true">
+                  <rect class="phone-body" x="4" y="4" width="312" height="162" rx="18" />
+                  <rect class="phone-screen" x="16" y="14" width="288" height="142" rx="8" />
+                  <line class="phone-split" x1="160" y1="20" x2="160" y2="150" />
+                  <circle class="fig-stick-ring" cx="88" cy="80" r="34" />
+                  <circle class="fig-stick-nub" cx="100" cy="80" r="9" />
+                  <path class="fig-arrows" d="M42 80H26M32 74l-6 6 6 6M134 80h16M144 74l6 6-6 6" />
+                  <text class="fig-text ice" x="88" y="140">DRAG · STRAFE</text>
+                  <circle class="fig-tap-ring faint" cx="232" cy="80" r="36" />
+                  <circle class="fig-tap-ring" cx="232" cy="80" r="22" />
+                  <circle class="fig-tap-dot" cx="232" cy="80" r="5" />
+                  <text class="fig-text mag" x="232" y="140">TAP · FLAP</text>
+                </svg>
+                <ul class="help-list">
+                  <li><b>LEFT HALF.</b> Touch and drag sideways. A floating stick strafes the drone.</li>
+                  <li><b>RIGHT HALF.</b> Tap to flap. Tap again to arm a run or resume.</li>
+                  <li><b>LANDSCAPE ONLY.</b> Portrait pauses. FULL goes fullscreen.</li>
+                </ul>
+              </div>
+            </div>
+          </section>
+
+          <section class="help-sec">
+            <h3 class="help-h">ORBS</h3>
+            <div class="help-orbs">
+              <div class="help-orb gold">
+                <svg class="help-orb-fig" viewBox="0 0 120 120" aria-hidden="true">
+                  <defs>
+                    <radialGradient id="haloGold" cx="50%" cy="50%" r="50%">
+                      <stop offset="0" stop-color="#ffd166" stop-opacity="0.55" />
+                      <stop offset="0.55" stop-color="#ffd166" stop-opacity="0.14" />
+                      <stop offset="1" stop-color="#ffd166" stop-opacity="0" />
+                    </radialGradient>
+                    <radialGradient id="shellGold" cx="38%" cy="34%" r="70%">
+                      <stop offset="0" stop-color="#fff6d8" stop-opacity="0.55" />
+                      <stop offset="0.45" stop-color="#ffd166" stop-opacity="0.22" />
+                      <stop offset="1" stop-color="#e8a030" stop-opacity="0.08" />
+                    </radialGradient>
+                    <filter id="glowGold" x="-30%" y="-30%" width="160%" height="160%">
+                      <feGaussianBlur stdDeviation="2.4" result="b" />
+                      <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+                    </filter>
+                  </defs>
+                  <circle cx="60" cy="60" r="58" fill="url(#haloGold)" />
+                  <circle class="orb-shell" cx="60" cy="60" r="34" fill="url(#shellGold)" />
+                  <g class="orb-icon" filter="url(#glowGold)">
+                    <path class="orb-stroke" d="M43 42l16 18-16 18M63 42l16 18-16 18" />
+                    <path class="orb-core" d="M43 42l16 18-16 18M63 42l16 18-16 18" />
+                  </g>
+                </svg>
+                <div class="help-orb-text">
+                  <div class="help-orb-name">DAMPERS</div>
+                  <p>Slows the conduit for the rest of the run. Every pickup stacks.</p>
+                  <div class="help-orb-sub">COMMON · MIDWAY TO THE NEXT GATE</div>
+                </div>
+              </div>
+              <div class="help-orb green">
+                <svg class="help-orb-fig" viewBox="0 0 120 120" aria-hidden="true">
+                  <defs>
+                    <radialGradient id="haloGreen" cx="50%" cy="50%" r="50%">
+                      <stop offset="0" stop-color="#3dff8a" stop-opacity="0.55" />
+                      <stop offset="0.55" stop-color="#3dff8a" stop-opacity="0.14" />
+                      <stop offset="1" stop-color="#3dff8a" stop-opacity="0" />
+                    </radialGradient>
+                    <radialGradient id="shellGreen" cx="38%" cy="34%" r="70%">
+                      <stop offset="0" stop-color="#e8fff0" stop-opacity="0.55" />
+                      <stop offset="0.45" stop-color="#3dff8a" stop-opacity="0.22" />
+                      <stop offset="1" stop-color="#1a9a52" stop-opacity="0.08" />
+                    </radialGradient>
+                    <filter id="glowGreen" x="-30%" y="-30%" width="160%" height="160%">
+                      <feGaussianBlur stdDeviation="2.4" result="b" />
+                      <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+                    </filter>
+                  </defs>
+                  <circle cx="60" cy="60" r="58" fill="url(#haloGreen)" />
+                  <circle class="orb-shell" cx="60" cy="60" r="34" fill="url(#shellGreen)" />
+                  <g class="orb-icon" filter="url(#glowGreen)">
+                    <path class="orb-stroke" d="M60 40v40M40 60h40" />
+                    <path class="orb-core" d="M60 40v40M40 60h40" />
+                  </g>
+                </svg>
+                <div class="help-orb-text">
+                  <div class="help-orb-name">SPARE</div>
+                  <p>+1 life, shown as <b>+</b> top right. A hit rewinds you to the last gate. Tap to resume.</p>
+                  <div class="help-orb-sub">ONE PER 10-GATE SECTOR</div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <button type="button" id="btnHelpClose" class="fs-btn" aria-label="Close help">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+            <span class="label">CLOSE · ESC</span>
+          </button>
         </div>
       </div>
     </div>

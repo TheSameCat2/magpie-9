@@ -29,6 +29,19 @@ export function pickLifeSlot(sectorStart, rand = Math.random) {
   return sectorStart + Math.floor(rand() * MILESTONE)
 }
 
+/** What a flap/tap does while the run is held. A lesson dismiss stays paused. */
+export function pauseTapAction({ paused, lesson, blocked }) {
+  if (!paused || blocked) return 'ignore'
+  if (lesson) return 'hold'
+  return 'resume'
+}
+
+/** Keep "jump to begin" through rotate/hide; a lesson still takes the overlay. */
+export function heldPauseReason(current, next) {
+  if (current === 'begin' && next !== 'lesson' && next !== 'begin') return 'begin'
+  return next
+}
+
 export function loadBest() {
   const n = Number(localStorage.getItem(BEST_KEY) || '0')
   return Number.isFinite(n) ? n : 0
@@ -64,8 +77,9 @@ export function createGame({
   onResume,
   god = false,
   startLives = 1,
-}) {
-  const hud = createHud()
+  hud: hudOverride,
+} = {}) {
+  const hud = hudOverride ?? createHud()
   // menu | credits | playing | respawn | dead  (the help manual is a modal, not a state)
   let state = 'menu'
   // run | tutorial — which rules the current (or next) session uses.
@@ -165,16 +179,16 @@ export function createGame({
   }
 
   function pause(reason) {
-    pauseReason = reason
+    pauseReason = heldPauseReason(pauseReason, reason)
     if (state !== 'playing') {
-      hud.showPaused(reason)
+      hud.showPaused(pauseReason)
       return
     }
     if (!paused) {
       paused = true
       audio.title()
     }
-    hud.showPaused(reason)
+    hud.showPaused(pauseReason)
   }
 
   // Tutorial: freeze the run under an explainer card the first time each orb type is collected.
@@ -186,14 +200,37 @@ export function createGame({
     hud.showLesson(type)
   }
 
+  function launchBird(strength = 9) {
+    bird.flap()
+    audio.flap()
+    fx.puff(bird.x, bird.y, 0, strength)
+  }
+
   function tryResume() {
-    if (!paused) return false
-    if (screen.needsRotate || screen.hidden) return false
+    const action = pauseTapAction({
+      paused,
+      lesson,
+      blocked: screen.needsRotate || screen.hidden,
+    })
+    if (action === 'ignore') return false
+    if (action === 'hold') {
+      lesson = null
+      hud.hideLesson()
+      pause('resume')
+      return true
+    }
+    const begin = pauseReason === 'begin'
     paused = false
     pauseReason = null
     lesson = null
     hud.hidePaused()
     hud.hideLesson()
+    if (begin) {
+      audio.arm()
+      postfx.kick(0.5)
+      SHARED.uKick.value = 0.6
+    }
+    launchBird(begin ? 14 : 9)
     audio.setSpeed(speed)
     onResume?.()
     return true
@@ -205,8 +242,8 @@ export function createGame({
     if (state === 'playing' && (screen.needsRotate || screen.hidden)) {
       pause(screen.needsRotate ? 'rotate' : 'hidden')
     } else if (state === 'playing' && paused) {
-      // A lesson card is already asking for the tap; do not stack PAUSED on top of it.
-      hud.showPaused(lesson ? 'lesson' : 'resume')
+      // A lesson card is already asking for the tap; do not stack JUMP TO RESUME on top of it.
+      hud.showPaused(lesson ? 'lesson' : pauseReason === 'begin' ? 'begin' : 'resume')
     }
     if (screen.hidden) audio.suspend()
     else audio.resume()
@@ -220,8 +257,6 @@ export function createGame({
     state = 'playing'
     paused = false
     pauseReason = null
-    hud.hidePaused()
-    hud.hideLesson()
     score = 0
     slow = 0
     lives = Math.max(1, startLives)
@@ -238,12 +273,8 @@ export function createGame({
     hud.setScore(0)
     applySpeed()
     hud.showPlaying()
-    bird.flap()
-    fx.puff(bird.x, bird.y, 0, 14)
-    audio.arm()
-    audio.flap()
-    postfx.kick(0.5)
-    SHARED.uKick.value = 0.6
+    hud.hideLesson()
+    pause('begin')
   }
 
   function die() {
@@ -398,9 +429,7 @@ export function createGame({
   function resumeFromSpare() {
     state = 'playing'
     hud.hideRespawn()
-    bird.flap()
-    audio.flap()
-    fx.puff(bird.x, bird.y, 0, 9)
+    launchBird()
     audio.setSpeed(speed)
     onResume?.()
   }

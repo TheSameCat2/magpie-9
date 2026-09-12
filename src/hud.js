@@ -5,6 +5,13 @@ const TAP_MS = 280
 
 export const MENU_ITEMS = ['new', 'tutorial', 'help', 'credits']
 
+/** Copy for the hold overlay. `begin` is a fresh run; `resume` is after an interrupt. */
+export function pauseCopy(reason) {
+  if (reason === 'begin') return { title: 'JUMP TO BEGIN', sub: '' }
+  if (reason === 'resume') return { title: 'PAUSED', sub: 'JUMP TO RESUME' }
+  return null
+}
+
 /** Move a menu highlight by `dir` rows, wrapping at both ends. */
 export function stepMenu(index, dir, n = MENU_ITEMS.length) {
   if (n <= 0) return 0
@@ -30,6 +37,8 @@ export function createHud() {
   const tapEl = document.querySelector('#touch .tapring')
   const rotateEl = document.getElementById('rotate')
   const pausedEl = document.getElementById('paused')
+  const pausedTitle = pausedEl.querySelector('.overlay-title')
+  const pausedSub = pausedEl.querySelector('.overlay-sub')
   const respawnEl = document.getElementById('respawn')
   const muteBtn = document.getElementById('btnMute')
   const fsBtn = document.getElementById('btnFs')
@@ -252,7 +261,15 @@ export function createHud() {
   }
 
   function showPaused(reason) {
-    pausedEl.classList.toggle('hidden', reason !== 'resume')
+    const copy = pauseCopy(reason)
+    if (!copy) {
+      pausedEl.classList.add('hidden')
+      return
+    }
+    pausedTitle.textContent = copy.title
+    pausedSub.textContent = copy.sub
+    pausedSub.classList.toggle('hidden', !copy.sub)
+    pausedEl.classList.remove('hidden')
   }
 
   function hidePaused() {

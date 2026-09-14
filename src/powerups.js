@@ -1,10 +1,10 @@
 import * as THREE from 'three'
 import { SHARED, THEME, makeOrbMaterial, makeHaloMaterial, chevronMap, plusMap, boltMap } from './theme.js'
 import { hitOrb } from './collision.js'
+import { ORB_SPREAD } from './rules.js'
 
 const POOL = 6
 const ORB_R = 0.42
-const ORB_SPREAD = 2.2
 const HALO_SCALE = 1.9
 const unitPlane = new THREE.PlaneGeometry(1, 1)
 const shellGeo = new THREE.SphereGeometry(ORB_R, 24, 16)
@@ -98,13 +98,18 @@ export function createPowerups(scene) {
     orb.icon.material = look.icon
   }
 
-  function spawn(z, type = 'damper', spread = ORB_SPREAD) {
+  function spawn(z, type = 'damper', spread = ORB_SPREAD, at) {
     const orb = pool.find((o) => !o.active)
     if (!orb) return
-    const ang = Math.random() * Math.PI * 2
-    const r = Math.sqrt(Math.random()) * spread
-    orb.x = Math.cos(ang) * r
-    orb.y = Math.sin(ang) * r
+    if (at) {
+      orb.x = at.x
+      orb.y = at.y
+    } else {
+      const ang = Math.random() * Math.PI * 2
+      const r = Math.sqrt(Math.random()) * spread
+      orb.x = Math.cos(ang) * r
+      orb.y = Math.sin(ang) * r
+    }
     orb.z = z
     orb.seed = Math.random() * Math.PI * 2
     orb.active = true

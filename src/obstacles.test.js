@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { BIRD_RADIUS, R } from './theme.js'
 import { hexOutside, hitObstacle } from './collision.js'
 import { difficulty } from './game.js'
-import { HOLE_W, HOLE_H, layoutGate, pickType, resolveType, SLED_MAX_AMP, SLED_MIN_PERIOD } from './obstacles.js'
+import { HOLE_W, HOLE_H, layoutGate, pickType, SLED_MAX_AMP, SLED_MIN_PERIOD } from './obstacles.js'
 
 function mulberry32(seed) {
   return function rand() {
@@ -124,9 +124,7 @@ test('every sled swing position stays inside the hex', () => {
   }
 })
 
-test('resolveType stills sleds under reduced motion only', () => {
-  assert.equal(resolveType('sled', true), 'bulkhead')
-  assert.equal(resolveType('sled', false), 'sled')
-  assert.equal(resolveType('pylon', true), 'pylon')
-  assert.equal(resolveType('bulkhead', true), 'bulkhead')
+test('pickType still returns sleds regardless of score once unlocked', () => {
+  assert.equal(pickType(8, 8, () => 0), 'sled')
+  assert.equal(pickType(20, 20, () => 0), 'sled')
 })

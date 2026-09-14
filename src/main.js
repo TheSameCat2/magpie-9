@@ -65,7 +65,7 @@ const input = createInput({
 })
 const bird = createBird(scene, materials)
 const tunnel = createTunnel(scene, materials)
-const obstacles = createObstacles(scene, materials, { reduceMotion })
+const obstacles = createObstacles(scene, materials)
 const powerups = createPowerups(scene)
 const fx = createFx(scene)
 const postfx = createPostFx(renderer, scene, camera, { reduceMotion })

@@ -110,7 +110,23 @@ function stub() {
   )
 }
 
-function harness(menuItem = 'new', god = true) {
+function mockApi(overrides = {}) {
+  const filled = Array.from({ length: 10 }, () => ({ initials: 'AAA', score: 1 }))
+  return {
+    startRun: async (mode = 'run') =>
+      mode === 'challenge'
+        ? { token: 'challenge-token', seed: 42, day: '2026-09-14', target: 3, now: 1_000 }
+        : { token: 'run-token' },
+    fetchBoard: async (mode = 'run') =>
+      mode === 'challenge'
+        ? { board: filled, day: '2026-09-14', now: 1_000 }
+        : { board: [] },
+    submitScore: async () => ({ board: [], rank: 1 }),
+    ...overrides,
+  }
+}
+
+function harness(menuItem = 'new', god = true, api) {
   if (typeof globalThis.localStorage === 'undefined') {
     globalThis.localStorage = memoryStore()
   }
@@ -178,6 +194,7 @@ function harness(menuItem = 'new', god = true) {
     reduceMotion: true,
     god,
     hud,
+    api: api ?? mockApi(),
   })
   function tap() {
     input.flapEdge = true
@@ -193,7 +210,7 @@ function harness(menuItem = 'new', god = true) {
     game.update(1 / 60)
     input.selectEdge = false
   }
-  return { game, bird, input, powerups, obstacles, shown, tap, select }
+  return { game, bird, input, powerups, obstacles, shown, tap, select, hud }
 }
 
 test('NEW GAME drops into a held run until the first jump', () => {
@@ -315,4 +332,47 @@ test('tutorial shunts are ignored without an explainer card', () => {
   game.update(1 / 60)
   assert.equal(game.shuntLeft, 0)
   assert.equal(game.lesson, null)
+})
+
+test('CHALLENGE waits for the daily course then holds', async () => {
+  const { game, shown, select } = harness('challenge')
+  select()
+  assert.equal(game.state, 'menu')
+  await Promise.resolve()
+  assert.equal(game.state, 'playing')
+  assert.equal(game.mode, 'challenge')
+  assert.equal(game.paused, true)
+  assert.equal(game.pauseReason, 'begin')
+  assert.equal(shown.at(-1), 'begin')
+})
+
+test('CHALLENGE extracts after the target gates and ignores deaths on the board', async () => {
+  const { game, obstacles, select, tap } = harness('challenge', true)
+  select()
+  await Promise.resolve()
+  tap()
+  gatePerFrame(obstacles)
+  for (let i = 0; i < 3; i++) game.update(1 / 60)
+  assert.equal(game.cleared, 3)
+  assert.equal(game.extracted, true)
+  assert.equal(game.state, 'dead')
+})
+
+test('CHALLENGE stays offline when the board is down', async () => {
+  const toasts = []
+  const { game, select, hud } = harness(
+    'challenge',
+    true,
+    mockApi({
+      startRun: async () => {
+        throw new Error('offline')
+      },
+    }),
+  )
+  hud.toast = (text) => toasts.push(text)
+  select()
+  await Promise.resolve()
+  assert.equal(game.state, 'menu')
+  assert.equal(game.mode, 'run')
+  assert.equal(toasts.at(-1), 'BOARD OFFLINE')
 })

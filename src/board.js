@@ -15,6 +15,18 @@ export function placement(board, score) {
   return i + 1
 }
 
+export function qualifiesTime(board, ms) {
+  if (!board) return false
+  return board.length < BOARD_SIZE || ms < board[BOARD_SIZE - 1].score
+}
+
+export function placementTime(board, ms) {
+  if (!board) return 1
+  let i = 0
+  while (i < board.length && board[i].score <= ms) i++
+  return i + 1
+}
+
 export function createEntry() {
   return { chars: Array.from({ length: INITIALS }, () => 'A'), cursor: 0 }
 }
@@ -67,14 +79,19 @@ async function readJson(res) {
   return data
 }
 
-export async function fetchBoard() {
-  const data = await readJson(await fetch('/api/scores'))
-  return data.board
+export async function fetchBoard(mode = 'run') {
+  const q = mode === 'challenge' ? '?mode=challenge' : ''
+  return readJson(await fetch(`/api/scores${q}`))
 }
 
-export async function startRun() {
-  const data = await readJson(await fetch('/api/run', { method: 'POST' }))
-  return data.token
+export async function startRun(mode = 'run') {
+  return readJson(
+    await fetch('/api/run', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    }),
+  )
 }
 
 export async function submitScore({ initials, score, token }) {

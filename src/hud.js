@@ -1,9 +1,10 @@
 import { STICK_RANGE } from './input.js'
 import { rotateFsAction } from './screen.js'
+import { formatTime } from './rules.js'
 
 const TAP_MS = 280
 
-export const MENU_ITEMS = ['new', 'tutorial', 'scores', 'help', 'credits']
+export const MENU_ITEMS = ['new', 'challenge', 'tutorial', 'scores', 'help', 'credits']
 
 /** Copy for the hold overlay. `begin` is a fresh run; `resume` is after an interrupt. */
 export function pauseCopy(reason) {
@@ -20,6 +21,7 @@ export function stepMenu(index, dir, n = MENU_ITEMS.length) {
 
 export function createHud() {
   const scoreEl = document.getElementById('score')
+  const scoreLabel = document.getElementById('scoreLabel')
   const bestEl = document.getElementById('best')
   const livesEl = document.getElementById('lives')
   const center = document.getElementById('center')
@@ -53,6 +55,8 @@ export function createHud() {
   const scoresEl = document.getElementById('scores')
   const scoresList = document.getElementById('scoresList')
   const scoresStatus = document.getElementById('scoresStatus')
+  const scoresDay = document.getElementById('scoresDay')
+  const scoresTabs = Array.from(document.querySelectorAll('#scoresTabs button'))
   const entryEl = document.getElementById('entry')
   const entrySlots = Array.from(entryEl.querySelectorAll('.slot'))
   const lessonEl = document.getElementById('lesson')
@@ -84,6 +88,7 @@ export function createHud() {
     zonesEl.classList.toggle('hidden', mode !== 'touch' || scene !== 'menu')
     sysEl.classList.toggle('playing', inRun)
     exitBtn.classList.toggle('hidden', !(inRun && gameMode === 'tutorial'))
+    tutorialTag.textContent = 'TUTORIAL'
     tutorialTag.classList.toggle('hidden', !(inRun && gameMode === 'tutorial'))
     helpCloseBtn.querySelector('.label').textContent = mode === 'touch' ? 'CLOSE' : 'CLOSE · ESC'
     if (scene === 'menu') {
@@ -102,6 +107,13 @@ export function createHud() {
 
   function setScore(n, animate) {
     scoreEl.textContent = String(n)
+    scoreLabel.textContent = 'GATES'
+    if (animate) retrigger(scoreEl, 'pop')
+  }
+
+  function setExtract(cleared, target, animate) {
+    scoreEl.textContent = `${cleared}/${target}`
+    scoreLabel.textContent = 'EXTRACT'
     if (animate) retrigger(scoreEl, 'pop')
   }
 
@@ -159,23 +171,30 @@ export function createHud() {
     })
   }
 
-  function showEntry(score, rank, entry) {
+  function showEntry(score, rank, entry, extra = {}) {
     scene = 'entry'
     hideScreens()
     center.classList.remove('hidden')
     center.classList.add('dead')
+    center.classList.toggle('extract', !!extra.challenge)
     retrigger(center, 'rise')
     menuEl.classList.add('hidden')
     prompt.classList.remove('hidden')
-    title.innerHTML = 'REBOOT'
-    prompt.textContent = `RUN ${score} · RANK #${rank}`
+    if (extra.challenge) {
+      title.innerHTML = 'EXTRACT'
+      prompt.textContent = `${formatTime(extra.time ?? score)} · RANK #${rank}`
+    } else {
+      title.innerHTML = 'REBOOT'
+      prompt.textContent = `RUN ${score} · RANK #${rank}`
+    }
     entryEl.classList.remove('hidden')
     renderEntry(entry)
     applyChrome()
   }
 
-  function renderScores(board, rank) {
+  function renderScores(board, rank, kind = 'run') {
     scoresList.replaceChildren()
+    const times = kind === 'challenge'
     for (let i = 0; i < 10; i++) {
       const row = document.createElement('li')
       const item = board?.[i]
@@ -188,22 +207,28 @@ export function createHud() {
       name.textContent = item ? item.initials : '---'
       const pts = document.createElement('span')
       pts.className = 'pts'
-      pts.textContent = item ? String(item.score) : '---'
+      pts.textContent = item ? (times ? formatTime(item.score) : String(item.score)) : '---'
       row.append(place, name, pts)
       scoresList.appendChild(row)
     }
   }
 
-  function showScores(board, rank, status) {
+  function showScores(board, rank, status, view = {}) {
     scene = 'scores'
     hideScreens()
     hideEntry()
     center.classList.add('hidden')
     scoresEl.classList.remove('hidden')
+    const kind = view.kind === 'challenge' ? 'challenge' : 'run'
     const label = status || ''
     scoresStatus.textContent = label
     scoresStatus.classList.toggle('hidden', !label)
-    renderScores(board, rank)
+    if (scoresDay) {
+      scoresDay.textContent = kind === 'challenge' && view.day ? view.day : ''
+      scoresDay.classList.toggle('hidden', !(kind === 'challenge' && view.day))
+    }
+    scoresTabs.forEach((btn) => btn.classList.toggle('sel', btn.dataset.board === kind))
+    renderScores(board, rank, kind)
     applyChrome()
   }
 
@@ -214,6 +239,7 @@ export function createHud() {
     hideEntry()
     center.classList.remove('hidden')
     center.classList.remove('dead')
+    center.classList.remove('extract')
     retrigger(center, 'rise')
     title.innerHTML = 'MAGPIE<span>-9</span>'
     menuEl.classList.remove('hidden')
@@ -268,10 +294,11 @@ export function createHud() {
     applyChrome()
   }
 
-  function showDead(score, newBest) {
+  function showDead(score, newBest, extra = {}) {
     scene = 'dead'
     center.classList.remove('hidden')
     center.classList.add('dead')
+    center.classList.toggle('extract', !!extra.extracted)
     retrigger(center, 'rise')
     hideEntry()
     menuEl.classList.add('hidden')
@@ -279,6 +306,11 @@ export function createHud() {
     if (gameMode === 'tutorial') {
       title.innerHTML = 'TUTORIAL'
       prompt.textContent = 'SESSION ENDED'
+    } else if (extra.challenge) {
+      title.innerHTML = extra.extracted ? 'EXTRACT' : 'EXTRACT FAILED'
+      prompt.textContent = extra.extracted
+        ? formatTime(extra.time)
+        : `${score} / ${extra.target}`
     } else {
       title.innerHTML = 'REBOOT'
       prompt.textContent = newBest ? `NEW BEST ${score}` : `RUN ${score}`
@@ -412,7 +444,7 @@ export function createHud() {
 
   // Menu / screen buttons do not stop propagation: input.js already ignores
   // pointerdown on buttons, and letting it through unlocks audio on the gesture.
-  function bindMenu({ onSelect, onBack, onExit }) {
+  function bindMenu({ onSelect, onBack, onExit, onBoard }) {
     menuBtns.forEach((btn, i) => {
       btn.addEventListener('pointerdown', (e) => {
         e.preventDefault()
@@ -430,6 +462,13 @@ export function createHud() {
       e.preventDefault()
       onExit?.()
     })
+    scoresTabs.forEach((btn) => {
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onBoard?.(btn.dataset.board)
+      })
+    })
   }
 
   function bindEntry({ onAction }) {
@@ -445,6 +484,7 @@ export function createHud() {
 
   return {
     setScore,
+    setExtract,
     setBest,
     setLives,
     setSpeed,

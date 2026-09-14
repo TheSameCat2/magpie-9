@@ -8,6 +8,9 @@ import {
   pickLifeSlot,
   pauseTapAction,
   heldPauseReason,
+  rollOrbType,
+  SHUNT_GATES,
+  SHUNT_SPEED,
 } from './game.js'
 
 test('difficulty at score 0 is the base speed', () => {
@@ -24,18 +27,18 @@ test('stageDelta(0) is zero', () => {
   assert.equal(stageDelta(0), 0)
 })
 
-test('stageDelta(1) is about 0.36', () => {
-  assert.ok(Math.abs(stageDelta(1) - 0.36) < 1e-9)
+test('stageDelta(1) is about 0.252', () => {
+  assert.ok(Math.abs(stageDelta(1) - 0.252) < 1e-9)
 })
 
 test('stageDelta is zero at the speed cap', () => {
-  assert.equal(stageDelta(30), 0)
+  assert.equal(stageDelta(40), 0)
 })
 
-test('half of stageDelta(n) is 1.5% of the previous speed below the cap', () => {
+test('half of stageDelta(n) is 1.05% of the previous speed below the cap', () => {
   for (const n of [1, 5, 10, 15]) {
     const half = 0.5 * stageDelta(n)
-    const expected = 0.015 * difficulty(n - 1).speed
+    const expected = 0.0105 * difficulty(n - 1).speed
     assert.ok(Math.abs(half - expected) < 1e-9, `score ${n}`)
   }
 })
@@ -107,7 +110,7 @@ function stub() {
   )
 }
 
-function harness(menuItem = 'new') {
+function harness(menuItem = 'new', god = true) {
   if (typeof globalThis.localStorage === 'undefined') {
     globalThis.localStorage = memoryStore()
   }
@@ -173,7 +176,7 @@ function harness(menuItem = 'new') {
     postfx: stub(),
     screen: { needsRotate: false, hidden: false, isFullscreen: false, supportsFullscreen: false, isStandalone: false },
     reduceMotion: true,
-    god: true,
+    god,
     hud,
   })
   function tap() {
@@ -190,7 +193,7 @@ function harness(menuItem = 'new') {
     game.update(1 / 60)
     input.selectEdge = false
   }
-  return { game, bird, input, powerups, shown, tap, select }
+  return { game, bird, input, powerups, obstacles, shown, tap, select }
 }
 
 test('NEW GAME drops into a held run until the first jump', () => {
@@ -240,4 +243,76 @@ test('closing a tutorial explainer holds the run on jump to resume', () => {
   tap()
   assert.equal(game.paused, false)
   assert.equal(game.pauseReason, null)
+})
+
+test('rollOrbType splits shunts, dampers, and empty gates', () => {
+  assert.equal(rollOrbType({ lifeDue: true }), 'life')
+  assert.equal(rollOrbType({ rand: () => 0 }), 'shunt')
+  assert.equal(rollOrbType({ rand: () => 0.14 }), 'shunt')
+  assert.equal(rollOrbType({ rand: () => 0.2 }), 'damper')
+  assert.equal(rollOrbType({ rand: () => 0.9 }), null)
+})
+
+function collectOnce(powerups, orb) {
+  let armed = true
+  powerups.collect = (_pos, _r, out) => {
+    out.length = 0
+    if (armed) {
+      armed = false
+      out.push(orb)
+      return true
+    }
+    return false
+  }
+}
+
+function gatePerFrame(obstacles) {
+  obstacles.collectScores = (out) => {
+    out.length = 0
+    out.push({ type: 'bulkhead', z: 0, depth: 0.3, hole: { x: 0, y: 0, w: 2.8, h: 3.2 } })
+    return true
+  }
+}
+
+test('shunt engages overdrive: double gates for five gates at +2 speed', () => {
+  const { game, powerups, obstacles, select, tap } = harness('new')
+  select()
+  tap()
+  const cruise = difficulty(game.score).speed
+  collectOnce(powerups, { type: 'shunt', x: 0, y: 0, z: 0 })
+  game.update(1 / 60)
+  assert.equal(game.shuntLeft, SHUNT_GATES)
+  assert.ok(Math.abs(game.speed - (cruise + SHUNT_SPEED)) < 1e-9)
+  gatePerFrame(obstacles)
+  for (let i = 0; i < SHUNT_GATES; i++) game.update(1 / 60)
+  assert.equal(game.shuntLeft, 0)
+  assert.equal(game.score, SHUNT_GATES * 2)
+  assert.ok(Math.abs(game.speed - difficulty(game.score).speed) < 1e-9)
+})
+
+test('a spare hit burns the shunt charge', () => {
+  const h = harness('new', false)
+  h.select()
+  h.tap()
+  collectOnce(h.powerups, { type: 'shunt', x: 0, y: 0, z: 0 })
+  h.game.update(1 / 60)
+  assert.equal(h.game.shuntLeft, SHUNT_GATES)
+  collectOnce(h.powerups, { type: 'life', x: 0, y: 0, z: 0 })
+  h.game.update(1 / 60)
+  assert.equal(h.game.lives, 2)
+  h.obstacles.hits = () => ({ z: -10, gap: 20 })
+  h.game.update(1 / 60)
+  assert.equal(h.game.state, 'respawn')
+  assert.equal(h.game.lives, 1)
+  assert.equal(h.game.shuntLeft, 0)
+})
+
+test('tutorial shunts are ignored without an explainer card', () => {
+  const { game, powerups, select, tap } = harness('tutorial')
+  select()
+  tap()
+  collectOnce(powerups, { type: 'shunt', x: 0, y: 0, z: 0 })
+  game.update(1 / 60)
+  assert.equal(game.shuntLeft, 0)
+  assert.equal(game.lesson, null)
 })

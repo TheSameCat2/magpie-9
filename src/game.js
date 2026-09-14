@@ -26,6 +26,21 @@ const NEAR_MISS = 0.34
 const MILESTONE = 10
 const BASE_FOV = 68
 const ORB_CHANCE = 0.5
+// Shunt: voluntary overdrive. Bonus gates for a few gates, faster conduit
+// while it lasts. A hit with a spare clears it.
+const SHUNT_CHANCE = 0.15
+export const SHUNT_GATES = 5
+// Scaled with the gentler ramp so the overdrive keeps its relative bite.
+export const SHUNT_SPEED = 1.4
+
+// Pure orb roll for a non-life gate. Injectable RNG for tests.
+export function rollOrbType({ lifeDue = false, rand = Math.random } = {}) {
+  if (lifeDue) return 'life'
+  const r = rand()
+  if (r < SHUNT_CHANCE) return 'shunt'
+  if (r < SHUNT_CHANCE + ORB_CHANCE) return 'damper'
+  return null
+}
 const REWIND_TIME = 0.45
 // How far past the last cleared gate the bird sits after a spare (z of that gate).
 // Must clear the plate + collider so resume does not instantly re-hit it.
@@ -96,6 +111,7 @@ export function createGame({
   let speed = BASE_SPEED
   let slow = 0
   let lives = 1
+  let shuntLeft = 0
   let gatesSpawned = 0
   let lifeSlot = -1
   let rewindLeft = 0
@@ -170,7 +186,8 @@ export function createGame({
   }
 
   function applySpeed() {
-    speed = tutorial() ? tutorialSpeed(slow) : Math.max(BASE_SPEED, difficulty(score).speed - slow)
+    const shunt = !tutorial() && shuntLeft > 0 ? SHUNT_SPEED : 0
+    speed = tutorial() ? tutorialSpeed(slow) : Math.max(BASE_SPEED, difficulty(score).speed - slow + shunt)
     hud.setSpeed(speed)
     audio.setSpeed(speed)
   }
@@ -184,8 +201,8 @@ export function createGame({
         continue
       }
       if (idx % MILESTONE === 0) lifeSlot = pickLifeSlot(idx)
-      if (idx === lifeSlot) powerups.spawn(z, 'life')
-      else if (Math.random() < ORB_CHANCE) powerups.spawn(z)
+      const drop = rollOrbType({ lifeDue: idx === lifeSlot })
+      if (drop) powerups.spawn(z, drop)
     }
   }
 
@@ -198,6 +215,7 @@ export function createGame({
     if (!paused) {
       paused = true
       audio.title()
+      audio.clearHazard()
     }
     hud.showPaused(pauseReason)
   }
@@ -271,6 +289,7 @@ export function createGame({
     score = 0
     slow = 0
     lives = Math.max(1, startLives)
+    shuntLeft = 0
     gatesSpawned = 0
     lifeSlot = -1
     rewindLeft = 0
@@ -391,6 +410,7 @@ export function createGame({
     slow = 0
     speed = BASE_SPEED
     lives = 1
+    shuntLeft = 0
     gatesSpawned = 0
     lifeSlot = -1
     rewindLeft = 0
@@ -423,6 +443,14 @@ export function createGame({
 
   function onGate(obs) {
     score += 1
+    // Shunt overdrive: each gate scores double until the charge runs out.
+    // The bonus itself feeds difficulty(), which is the price of the ride.
+    let shuntSpent = false
+    if (!tutorial() && shuntLeft > 0) {
+      score += 1
+      shuntLeft -= 1
+      shuntSpent = shuntLeft === 0
+    }
     const margin = passMargin(bird.pos, BIRD_RADIUS, obs)
     const close = margin < NEAR_MISS
     const milestone = !tutorial() && score % MILESTONE === 0
@@ -448,6 +476,8 @@ export function createGame({
       audio.milestone()
       postfx.flash(THEME.sodium, 0.22)
       SHARED.uKick.value = 1.4
+    } else if (shuntSpent) {
+      hud.toast('SHUNT SPENT', 'ice')
     } else if (!tutorial() && score === best + 1 && best > 0) {
       hud.toast('NEW BEST', 'ice')
       hud.setBest(score, true)
@@ -458,6 +488,19 @@ export function createGame({
   }
 
   function onOrb(orb) {
+    if (orb.type === 'shunt') {
+      // Tutorials never drop shunts; ignore one defensively if it arrives.
+      if (tutorial()) return
+      shuntLeft = SHUNT_GATES
+      applySpeed()
+      hud.toast('SHUNT ENGAGED', 'ice')
+      fx.orbBurst(orb.x, orb.y, orb.z, THEME.ice)
+      audio.shunt()
+      postfx.flash(THEME.ice, 0.14)
+      SHARED.uKick.value = Math.max(SHARED.uKick.value, 0.4)
+      fx.kick(0.4)
+      return
+    }
     if (orb.type === 'life') {
       lives += 1
       hud.setLives(lives, true)
@@ -488,6 +531,11 @@ export function createGame({
     const back = anchor ? rewindDistance(anchor.z, anchor.gap) : 0
     powerups.cullBehind(anchor ? anchor.z : 0)
     bird.reset()
+    // A hit burns the shunt charge. Speed is recomputed by hand: applySpeed()
+    // would re-assert the drone hum that crash() just silenced.
+    shuntLeft = 0
+    speed = tutorial() ? tutorialSpeed(slow) : Math.max(BASE_SPEED, difficulty(score).speed - slow)
+    hud.setSpeed(speed)
     audio.crash()
     fx.orbBurst(bird.x, bird.y, 0, THEME.green)
     postfx.flash(THEME.green, 0.5)
@@ -580,6 +628,7 @@ export function createGame({
       if (tutorial() && input.backEdge) {
         toMenu()
       } else if (paused) {
+        audio.clearHazard()
         if (tapped) tryResume()
       } else {
         if (input.flapEdge) {
@@ -601,6 +650,13 @@ export function createGame({
           spawnAhead()
           if (powerups.collect(bird.pos, BIRD_RADIUS, collected)) {
             for (const orb of collected) onOrb(orb)
+          }
+          const next = obstacles.nearestAhead()
+          if (next) {
+            const prox = next.z < 0 ? Math.max(0, Math.min(1, 1 + next.z / 38)) : 1
+            audio.hazard(next.type, prox * prox)
+          } else {
+            audio.clearHazard()
           }
         }
       }
@@ -668,6 +724,9 @@ export function createGame({
     },
     get speed() {
       return speed
+    },
+    get shuntLeft() {
+      return shuntLeft
     },
   }
 }

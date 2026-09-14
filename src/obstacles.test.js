@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { BIRD_RADIUS, R } from './theme.js'
 import { hexOutside, hitObstacle } from './collision.js'
 import { difficulty } from './game.js'
-import { HOLE_W, HOLE_H, layoutGate } from './obstacles.js'
+import { HOLE_W, HOLE_H, layoutGate, pickType, resolveType, SLED_MAX_AMP, SLED_MIN_PERIOD } from './obstacles.js'
 
 function mulberry32(seed) {
   return function rand() {
@@ -75,4 +75,58 @@ test('tutorial offset 0 centres the laser band; runs still scatter it', () => {
     assert.equal(layoutGate('laser-bar', 0, () => r).gapY, 0)
   }
   assert.notEqual(layoutGate('laser-bar', difficulty(3).offset, () => 0.99).gapY, 0)
+})
+
+test('sleds never appear before score 8 or inside the warm-up gates', () => {
+  const lo = () => 0
+  assert.equal(pickType(0, 20, lo), 'bulkhead')
+  assert.equal(pickType(1, 20, lo), 'bulkhead')
+  assert.equal(pickType(5, 7, lo), 'pylon')
+  assert.equal(pickType(5, 8, lo), 'sled')
+})
+
+test('high rolls fall through to bulkhead at any score', () => {
+  const hi = () => 0.99
+  assert.equal(pickType(5, 20, hi), 'bulkhead')
+})
+
+test('sled motion stays bounded and quickens as the offset grows', () => {
+  const soft = layoutGate('sled', difficulty(8).offset, mulberry32(7))
+  const hard = layoutGate('sled', difficulty(20).offset, mulberry32(7))
+  for (const layout of [soft, hard]) {
+    assert.ok(layout.sled.amp <= SLED_MAX_AMP, `amp ${layout.sled.amp}`)
+    assert.ok(layout.sled.period >= SLED_MIN_PERIOD, `period ${layout.sled.period}`)
+  }
+  assert.ok(hard.sled.period <= soft.sled.period)
+})
+
+test('every sled swing position stays inside the hex', () => {
+  const rand = mulberry32(4242)
+  const hw = HOLE_W * 0.5
+  const hh = HOLE_H * 0.5
+  for (let score = 8; score <= 22; score++) {
+    const offset = difficulty(score).offset
+    for (let i = 0; i < 20; i++) {
+      const layout = layoutGate('sled', offset, rand)
+      for (let k = 0; k < 8; k++) {
+        const hx = layout.sled.baseX + layout.sled.amp * Math.sin((k / 8) * Math.PI * 2)
+        const corners = [
+          [hx - hw, layout.sled.baseY - hh],
+          [hx - hw, layout.sled.baseY + hh],
+          [hx + hw, layout.sled.baseY - hh],
+          [hx + hw, layout.sled.baseY + hh],
+        ]
+        for (const [x, y] of corners) {
+          assert.equal(hexOutside(x, y, R), false, `score ${score} phase ${k} corner (${x.toFixed(3)}, ${y.toFixed(3)})`)
+        }
+      }
+    }
+  }
+})
+
+test('resolveType stills sleds under reduced motion only', () => {
+  assert.equal(resolveType('sled', true), 'bulkhead')
+  assert.equal(resolveType('sled', false), 'sled')
+  assert.equal(resolveType('pylon', true), 'pylon')
+  assert.equal(resolveType('bulkhead', true), 'bulkhead')
 })

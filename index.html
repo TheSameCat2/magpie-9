@@ -1290,6 +1290,12 @@
       .help-orb.green {
         border-color: rgba(61, 255, 138, 0.3);
       }
+      .help-orb.ice {
+        border-color: rgba(61, 224, 255, 0.3);
+      }
+      .help-orb.wide {
+        grid-column: 1 / -1;
+      }
       .help-orb-fig {
         width: 96px;
         height: 96px;
@@ -1317,6 +1323,9 @@
       .help-orb.green .orb-shell {
         stroke: rgba(61, 255, 138, 0.85);
       }
+      .help-orb.ice .orb-shell {
+        stroke: rgba(61, 224, 255, 0.85);
+      }
       .orb-icon path {
         fill: none;
         stroke-linecap: round;
@@ -1340,6 +1349,12 @@
       .help-orb.green .orb-core {
         stroke: #e8fff0;
       }
+      .help-orb.ice .orb-stroke {
+        stroke: var(--ice);
+      }
+      .help-orb.ice .orb-core {
+        stroke: #e8fbff;
+      }
       .help-orb-name {
         font-family: Orbitron, sans-serif;
         font-weight: 700;
@@ -1354,6 +1369,10 @@
         color: var(--green);
         text-shadow: 0 0 14px rgba(61, 255, 138, 0.55);
       }
+      .help-orb.ice .help-orb-name {
+        color: var(--ice);
+        text-shadow: 0 0 14px rgba(61, 224, 255, 0.55);
+      }
       .help-orb-text p {
         margin: 8px 0 0;
         font-size: 12px;
@@ -1366,6 +1385,9 @@
       }
       .help-orb.green .help-orb-text p b {
         color: var(--green);
+      }
+      .help-orb.ice .help-orb-text p b {
+        color: var(--ice);
       }
       .help-orb-sub {
         margin-top: 8px;
@@ -1762,6 +1784,7 @@
                 <li><b>GRAVITY PULLS.</b> Idle and the drone drops.</li>
                 <li><b>FLAP CLIMBS.</b> Each flap is a pulse, not a hover.</li>
                 <li><b>THREAD THE HATCH.</b> +1 gate per bulkhead. Walls, plates and beams kill.</li>
+                <li><b>SLED HATCHES DRIFT.</b> Magenta frame past gate 8. Strafe with the hatch.</li>
               </ul>
             </div>
           </section>
@@ -1885,6 +1908,37 @@
                   <div class="help-orb-name">SPARE</div>
                   <p>+1 life, shown as <b>+</b> top right. A hit rewinds you to the last gate. Jump to resume.</p>
                   <div class="help-orb-sub">ONE PER 10-GATE SECTOR</div>
+                </div>
+              </div>
+              <div class="help-orb ice wide">
+                <svg class="help-orb-fig" viewBox="0 0 120 120" aria-hidden="true">
+                  <defs>
+                    <radialGradient id="haloIce" cx="50%" cy="50%" r="50%">
+                      <stop offset="0" stop-color="#3de0ff" stop-opacity="0.55" />
+                      <stop offset="0.55" stop-color="#3de0ff" stop-opacity="0.14" />
+                      <stop offset="1" stop-color="#3de0ff" stop-opacity="0" />
+                    </radialGradient>
+                    <radialGradient id="shellIce" cx="38%" cy="34%" r="70%">
+                      <stop offset="0" stop-color="#e8fbff" stop-opacity="0.55" />
+                      <stop offset="0.45" stop-color="#3de0ff" stop-opacity="0.22" />
+                      <stop offset="1" stop-color="#1a7a9a" stop-opacity="0.08" />
+                    </radialGradient>
+                    <filter id="glowIce" x="-30%" y="-30%" width="160%" height="160%">
+                      <feGaussianBlur stdDeviation="2.4" result="b" />
+                      <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+                    </filter>
+                  </defs>
+                  <circle cx="60" cy="60" r="58" fill="url(#haloIce)" />
+                  <circle class="orb-shell" cx="60" cy="60" r="34" fill="url(#shellIce)" />
+                  <g class="orb-icon" filter="url(#glowIce)">
+                    <path class="orb-stroke" d="M71 19 L41 66 H58 L49 101 L79 53 H62 Z" />
+                    <path class="orb-core" d="M71 19 L41 66 H58 L49 101 L79 53 H62 Z" />
+                  </g>
+                </svg>
+                <div class="help-orb-text">
+                  <div class="help-orb-name">SHUNT</div>
+                  <p>Double gates for the next <b>5 gates</b>. The conduit runs faster while it lasts. A hit burns the charge.</p>
+                  <div class="help-orb-sub">VOLATILE · BONUS GATES, FASTER CONDUIT</div>
                 </div>
               </div>
             </div>

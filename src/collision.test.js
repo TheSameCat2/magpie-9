@@ -58,6 +58,14 @@ test('laser-bar kills at the sphere edge of the gap', () => {
   assert.equal(hitObstacle({ x: 0, y: edge, z: 0 }, RADIUS, obs), true)
 })
 
+test('sled reads its live hole position like a bulkhead', () => {
+  const at = (hx) => ({ type: 'sled', z: 0, depth: 0.3, hole: { x: hx, y: 0, w: 2.8, h: 3.2 } })
+  assert.equal(hitObstacle({ x: 0, y: 0, z: 0 }, RADIUS, at(0)), false)
+  assert.equal(hitObstacle({ x: 0, y: 0, z: 0 }, RADIUS, at(1.5)), true)
+  assert.ok(passMargin({ x: 0, y: 0, z: 0 }, RADIUS, at(0)) > 0)
+  assert.ok(passMargin({ x: 0, y: 0, z: 0 }, RADIUS, at(1.5)) <= 0)
+})
+
 test('passMargin is non-positive exactly when hitObstacle is true', () => {
   const cases = [
     { pos: { x: 0, y: 0, z: 0 }, obs: bulkhead({ x: 0, y: 0, w: 2.8, h: 3.2 }) },

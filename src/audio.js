@@ -4,6 +4,15 @@ import { MUTE_KEY } from './theme.js'
 const SCALE = [0, 2, 4, 7, 9]
 const ROOT = 329.63 // E4
 
+export const HAZARD_MAX_GAIN = 0.09
+
+// Proximity hum level for the nearest gate ahead. `prox` is 0 far away, 1 at
+// the bird. Squared so the hum stays bed-level until the gate commits.
+export function hazardGain(prox) {
+  const p = Math.max(0, Math.min(1, prox))
+  return p * p * HAZARD_MAX_GAIN
+}
+
 function noteHz(index) {
   const lap = Math.floor(index / SCALE.length)
   const step = SCALE[index % SCALE.length]
@@ -17,6 +26,7 @@ export function createAudio() {
   let wet = null
   let drone = null
   let noiseBuf = null
+  let hum = null
 
   function ensure() {
     if (!ctx) {
@@ -116,6 +126,46 @@ export function createAudio() {
     wind.start()
 
     drone = { out, filt, oscs, windF, windG }
+    buildHum()
+  }
+
+  // One persistent voice retuned per hazard type: no per-frame allocs, the
+  // game just calls hazard()/clearHazard() and the gains chase.
+  function buildHum() {
+    const osc = ctx.createOscillator()
+    osc.type = 'sawtooth'
+    osc.frequency.value = 55
+    const filt = ctx.createBiquadFilter()
+    filt.type = 'lowpass'
+    filt.frequency.value = 240
+    const gain = ctx.createGain()
+    gain.gain.value = 0
+    osc.connect(filt)
+    filt.connect(gain)
+    gain.connect(master)
+    osc.start()
+
+    const noise = ctx.createBufferSource()
+    noise.buffer = noiseBuf
+    noise.loop = true
+    const noiseFilt = ctx.createBiquadFilter()
+    noiseFilt.type = 'bandpass'
+    noiseFilt.frequency.value = 800
+    noiseFilt.Q.value = 1.1
+    const noiseGain = ctx.createGain()
+    noiseGain.gain.value = 0
+    noise.connect(noiseFilt)
+    noiseFilt.connect(noiseGain)
+    noiseGain.connect(master)
+    noise.start()
+
+    hum = { osc, filt, gain, noiseFilt, noiseGain }
+  }
+
+  function silenceHum(t) {
+    if (!hum) return
+    hum.gain.gain.setTargetAtTime(0, t, 0.08)
+    hum.noiseGain.gain.setTargetAtTime(0, t, 0.08)
   }
 
   function tone(freq, dur, type, gainVal, { endFreq, attack = 0.004, toWet = 0, when = 0 } = {}) {
@@ -248,7 +298,48 @@ export function createAudio() {
         }
         drone.out.gain.setTargetAtTime(0, t + 0.1, 0.3)
         drone.windG.gain.setTargetAtTime(0, t, 0.1)
+        silenceHum(t)
       }
+    },
+    shunt() {
+      tone(1200, 0.14, 'sine', 0.11, { endFreq: 2400, toWet: 0.9 })
+      tone(2400, 0.22, 'triangle', 0.06, { toWet: 1, when: 0.07 })
+      noise(0.14, 0.07, { type: 'highpass', from: 4500, to: 9000 })
+    },
+    // Proximity telegraph for the nearest gate ahead. Silent until the audio
+    // context exists (first user gesture) and while muted.
+    hazard(type, prox) {
+      if (!ctx || !hum || muted) return
+      const t = ctx.currentTime
+      const g = hazardGain(prox)
+      if (type === 'laser-bar') {
+        hum.osc.type = 'sine'
+        hum.osc.frequency.setTargetAtTime(1350, t, 0.08)
+        hum.filt.type = 'lowpass'
+        hum.filt.frequency.setTargetAtTime(4200, t, 0.08)
+        hum.gain.gain.setTargetAtTime(g * 0.8, t, 0.08)
+        hum.noiseGain.gain.setTargetAtTime(0, t, 0.08)
+      } else if (type === 'pylon' || type === 'sled') {
+        hum.osc.type = 'sawtooth'
+        hum.osc.frequency.setTargetAtTime(type === 'sled' ? 92 : 110, t, 0.08)
+        hum.filt.type = 'bandpass'
+        hum.filt.frequency.setTargetAtTime(type === 'sled' ? 600 : 700, t, 0.08)
+        hum.gain.gain.setTargetAtTime(g * 0.5, t, 0.08)
+        hum.noiseFilt.frequency.setTargetAtTime(900, t, 0.1)
+        hum.noiseGain.gain.setTargetAtTime(g, t, 0.08)
+      } else {
+        hum.osc.type = 'sawtooth'
+        hum.osc.frequency.setTargetAtTime(52, t, 0.08)
+        hum.filt.type = 'lowpass'
+        hum.filt.frequency.setTargetAtTime(220, t, 0.08)
+        hum.gain.gain.setTargetAtTime(g, t, 0.08)
+        hum.noiseFilt.frequency.setTargetAtTime(300, t, 0.1)
+        hum.noiseGain.gain.setTargetAtTime(g * 0.4, t, 0.08)
+      }
+    },
+    clearHazard() {
+      if (!ctx) return
+      silenceHum(ctx.currentTime)
     },
     arm() {
       ensure()
@@ -264,6 +355,7 @@ export function createAudio() {
       if (!ctx) return
       resetPitch()
       setDrone(0.25, 12)
+      silenceHum(ctx.currentTime)
     },
     toggleMute() {
       muted = !muted

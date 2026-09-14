@@ -20,7 +20,13 @@ const COLOR = {
   bulkhead: THEME.ice,
   'laser-bar': THEME.mag,
   pylon: THEME.sodium,
+  sled: THEME.mag,
 }
+
+// Max sideways travel of a sled hatch and its motion bounds. Amplitude derives
+// from the difficulty offset so difficulty() stays the single tuning source.
+export const SLED_MAX_AMP = 1.1
+export const SLED_MIN_PERIOD = 2.8
 
 const unitPlane = new THREE.PlaneGeometry(1, 1)
 const unitBox = new THREE.BoxGeometry(1, 1, 1)
@@ -38,11 +44,9 @@ function hexShape() {
   return shape
 }
 
-function bulkheadGeometry(ox, oy) {
+function bulkheadGeometry(ox, oy, hw = HOLE_W * 0.5, hh = HOLE_H * 0.5) {
   const shape = hexShape()
   const hole = new THREE.Path()
-  const hw = HOLE_W * 0.5
-  const hh = HOLE_H * 0.5
   hole.moveTo(ox - hw, oy - hh)
   hole.lineTo(ox - hw, oy + hh)
   hole.lineTo(ox + hw, oy + hh)
@@ -58,11 +62,18 @@ function bulkheadGeometry(ox, oy) {
   return geo
 }
 
-function pickType(spawnIndex, score) {
+export function pickType(spawnIndex, score, rand = Math.random) {
   if (spawnIndex < 2) return 'bulkhead'
-  if (score >= 5 && Math.random() < 0.3) return 'pylon'
-  if (score >= 3 && Math.random() < 0.38) return 'laser-bar'
+  if (score >= 8 && rand() < 0.22) return 'sled'
+  if (score >= 5 && rand() < 0.3) return 'pylon'
+  if (score >= 3 && rand() < 0.38) return 'laser-bar'
   return 'bulkhead'
+}
+
+// Reduced-motion players never meet a moving hatch: it arrives as the static
+// bulkhead it would have been.
+export function resolveType(type, reduceMotion = false) {
+  return reduceMotion && type === 'sled' ? 'bulkhead' : type
 }
 
 function clamp(v, lo, hi) {
@@ -90,6 +101,29 @@ export function layoutGate(type, offset, rand = Math.random) {
     return {
       gapY: offset > 0 ? clamp((rand() * 2 - 1) * Math.max(0.4, offset), -1.7, 1.7) : 0,
       gapH: LASER_GAP,
+    }
+  }
+
+  if (type === 'sled') {
+    // A bulkhead hatch that slides in X. The base sits closer to centre than a
+    // static hatch so the full swing stays inside the hex.
+    const off = Math.max(0, offset)
+    const ang = rand() * Math.PI * 2
+    const mag = off * (0.55 + rand() * 0.45) * 0.5
+    const baseX = Math.cos(ang) * mag
+    const baseY = Math.sin(ang) * mag
+    const amp = Math.min(SLED_MAX_AMP, off * 0.6)
+    const period = Math.max(SLED_MIN_PERIOD, 4.8 - off * 0.8)
+    return {
+      hole: { x: baseX, y: baseY, w: HOLE_W, h: HOLE_H },
+      sled: {
+        baseX,
+        baseY,
+        amp,
+        freq: (Math.PI * 2) / period,
+        period,
+        phase: rand() * Math.PI * 2,
+      },
     }
   }
 
@@ -129,6 +163,22 @@ function makeSlot(materials) {
   pylonEdge.visible = false
   group.add(pylon, pylonEdge)
 
+  // Sled hatch: the plate carries a wide slot (full swing range) while two
+  // shutter boxes ride with the hatch and cover the slot around it.
+  const sledTop = new THREE.Mesh(unitBox, materials.plate)
+  const sledBot = new THREE.Mesh(unitBox, materials.plate)
+  sledTop.visible = false
+  sledBot.visible = false
+  group.add(sledTop, sledBot)
+
+  const shutters = []
+  for (let i = 0; i < 2; i++) {
+    const shutter = new THREE.Mesh(unitBox, materials.plate)
+    shutter.visible = false
+    shutters.push(shutter)
+    group.add(shutter)
+  }
+
   const frame = new THREE.Mesh(unitPlane, makeFrameMaterial(THEME.ice))
   frame.visible = false
   frame.renderOrder = 5
@@ -160,6 +210,10 @@ function makeSlot(materials) {
     laserBot,
     pylon,
     pylonEdge,
+    sledTop,
+    sledBot,
+    shutters,
+    sled: null,
     frame,
     ring,
     geo: null,
@@ -173,6 +227,10 @@ function hideAll(obs) {
   obs.laserBot.visible = false
   obs.pylon.visible = false
   obs.pylonEdge.visible = false
+  obs.sledTop.visible = false
+  obs.sledBot.visible = false
+  for (const s of obs.shutters) s.visible = false
+  obs.sled = null
   obs.frame.visible = false
   obs.ring.visible = false
   obs.ringT = -1
@@ -195,6 +253,25 @@ function placeRims(obs, ox, oy) {
     rim.scale.set(s.w, s.h, 0.14)
     rim.position.set(s.x, s.y, 0)
   })
+}
+
+// Rides the two shutter boxes with the moving hatch so the wide plate slot
+// reads as a 2.8-wide hatch wherever it sits. Shutters sit just ahead of the
+// plate (+0.16) so they never z-fight it.
+function placeSled(obs) {
+  const hw = HOLE_W * 0.5
+  const ox = obs.hole.x
+  const oy = obs.hole.y
+  const w = obs.sled.amp * 2 + 0.4
+  const left = obs.shutters[0]
+  const right = obs.shutters[1]
+  left.visible = true
+  right.visible = true
+  left.scale.set(w, HOLE_H, 0.14)
+  right.scale.set(w, HOLE_H, 0.14)
+  left.position.set(ox - hw - w * 0.5, oy, 0.16)
+  right.position.set(ox + hw + w * 0.5, oy, 0.16)
+  placeRims(obs, ox, oy)
 }
 
 function setFrame(obs, mode, x, y, w, h, halfW, halfH, edgeSign, color) {
@@ -256,6 +333,42 @@ function configure(obs, type, z, offset, gap) {
     return
   }
 
+  if (type === 'sled') {
+    // Wide slot in the plate covers the full swing; shutters + rims ride the
+    // hatch itself. Collision reads obs.hole, same rect test as a bulkhead.
+    const { baseX, baseY, amp } = layout.sled
+    obs.hole.x = layout.hole.x
+    obs.hole.y = layout.hole.y
+    obs.sled = { ...layout.sled }
+    obs.depth = DEPTH
+    if (obs.geo) obs.geo.dispose()
+    obs.geo = bulkheadGeometry(baseX, baseY, HOLE_W * 0.5 + amp, HOLE_H * 0.5)
+    obs.bulkhead.geometry = obs.geo
+    obs.bulkhead.visible = true
+    const topH = Math.max(0.4, R + 0.4 - (baseY + HOLE_H * 0.5))
+    const botH = Math.max(0.4, baseY - HOLE_H * 0.5 + R + 0.4)
+    obs.sledTop.visible = true
+    obs.sledBot.visible = true
+    obs.sledTop.scale.set(VERTEX_R * 2, topH, 0.14)
+    obs.sledBot.scale.set(VERTEX_R * 2, botH, 0.14)
+    obs.sledTop.position.set(0, baseY + HOLE_H * 0.5 + topH * 0.5, 0.16)
+    obs.sledBot.position.set(0, baseY - HOLE_H * 0.5 - botH * 0.5, 0.16)
+    placeSled(obs)
+    setFrame(
+      obs,
+      0,
+      baseX,
+      baseY,
+      HOLE_W + amp * 2 + 2.6,
+      HOLE_H + 2.6,
+      HOLE_W * 0.5,
+      HOLE_H * 0.5,
+      1,
+      COLOR.sled,
+    )
+    return
+  }
+
   const { side, px, edge } = layout
   obs.side = side
   obs.edge = edge
@@ -271,7 +384,8 @@ function configure(obs, type, z, offset, gap) {
   setFrame(obs, 2, edge, 0, 2.8, PYLON_H + 1.2, 0, 0, side === 'left' ? -1 : 1, COLOR.pylon)
 }
 
-export function createObstacles(scene, materials) {
+export function createObstacles(scene, materials, opts = {}) {
+  const reduceMotion = !!opts.reduceMotion
   const root = new THREE.Group()
   root.name = 'obstacles'
   scene.add(root)
@@ -300,7 +414,8 @@ export function createObstacles(scene, materials) {
   function spawn(score, diff, z, gap, typeFor) {
     const obs = pool.find((o) => !o.active)
     if (!obs) return
-    const type = typeFor ? typeFor(spawnIndex) : pickType(spawnIndex, score)
+    const picked = typeFor ? typeFor(spawnIndex) : pickType(spawnIndex, score)
+    const type = resolveType(picked, reduceMotion)
     const offset = spawnIndex < 2 ? 0 : diff.offset
     configure(obs, type, z, offset, gap)
     spawnIndex += 1
@@ -363,6 +478,13 @@ export function createObstacles(scene, materials) {
         deactivate(obs)
         continue
       }
+      // The hatch rides its sine; collision reads obs.hole live. Frozen while
+      // paused (dt = 0) so a resume never meets a jumped hatch.
+      if (obs.type === 'sled' && obs.sled) {
+        obs.sled.phase += dt * obs.sled.freq
+        obs.hole.x = obs.sled.baseX + obs.sled.amp * Math.sin(obs.sled.phase)
+        placeSled(obs)
+      }
       animate(obs, dt)
     }
   }
@@ -376,7 +498,7 @@ export function createObstacles(scene, materials) {
     u.uT.value = 0
     u.uFade.value = 1
     u.uColor.value.set(COLOR[obs.type])
-    if (obs.type === 'bulkhead') {
+    if (obs.type === 'bulkhead' || obs.type === 'sled') {
       const w = HOLE_W + RING_EXPAND * 2 + 1
       const h = HOLE_H + RING_EXPAND * 2 + 1
       u.uSize.value.set(w, h)
@@ -425,7 +547,7 @@ export function createObstacles(scene, materials) {
 
   // Where sparks should erupt from for a given gate.
   function burstShape(obs, bx, by, shape) {
-    if (obs.type === 'bulkhead') {
+    if (obs.type === 'bulkhead' || obs.type === 'sled') {
       shape.x = obs.hole.x
       shape.y = obs.hole.y
       shape.hw = HOLE_W * 0.5

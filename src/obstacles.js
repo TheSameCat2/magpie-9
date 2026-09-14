@@ -63,9 +63,11 @@ function bulkheadGeometry(ox, oy, hw = HOLE_W * 0.5, hh = HOLE_H * 0.5) {
   return geo
 }
 
-export function pickType(spawnIndex, score, rand = Math.random) {
+// `prevType` is the gate spawned just before this one. Two moving hatches in a
+// row ramp difficulty too sharply, so a sled must be followed by a static gate.
+export function pickType(spawnIndex, score, rand = Math.random, prevType = null) {
   if (spawnIndex < 2) return 'bulkhead'
-  if (score >= 8 && rand() < 0.22) return 'sled'
+  if (score >= 8 && prevType !== 'sled' && rand() < 0.22) return 'sled'
   if (score >= 5 && rand() < 0.3) return 'pylon'
   if (score >= 3 && rand() < 0.38) return 'laser-bar'
   return 'bulkhead'
@@ -392,6 +394,7 @@ export function createObstacles(scene, materials) {
   }
 
   let spawnIndex = 0
+  let lastType = null
 
   function deactivate(obs) {
     obs.active = false
@@ -402,15 +405,18 @@ export function createObstacles(scene, materials) {
 
   function reset() {
     spawnIndex = 0
+    lastType = null
     for (const obs of pool) deactivate(obs)
   }
 
   function spawn(score, diff, z, gap, typeFor, spec) {
     const obs = pool.find((o) => !o.active)
     if (!obs) return
-    const picked = spec?.type ?? (typeFor ? typeFor(spawnIndex) : pickType(spawnIndex, score))
+    const picked =
+      spec?.type ?? (typeFor ? typeFor(spawnIndex) : pickType(spawnIndex, score, Math.random, lastType))
     const offset = spec ? spec.offset : spawnIndex < 2 ? 0 : diff.offset
     configure(obs, picked, z, offset, gap, spec?.layout)
+    lastType = picked
     spawnIndex += 1
     return obs
   }

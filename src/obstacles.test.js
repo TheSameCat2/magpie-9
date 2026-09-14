@@ -128,3 +128,11 @@ test('pickType still returns sleds regardless of score once unlocked', () => {
   assert.equal(pickType(8, 8, () => 0), 'sled')
   assert.equal(pickType(20, 20, () => 0), 'sled')
 })
+
+test('a sled is never followed directly by another sled', () => {
+  const lo = () => 0
+  assert.equal(pickType(9, 20, lo, 'sled'), 'pylon')
+  for (const prev of [null, 'bulkhead', 'laser-bar', 'pylon']) {
+    assert.equal(pickType(9, 20, lo, prev), 'sled', `prev=${prev}`)
+  }
+})

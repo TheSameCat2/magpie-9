@@ -14,7 +14,7 @@ export function generateCourse(rand, target = CHALLENGE_TARGET) {
   let lifeSlot = -1
   for (let i = 0; i < n; i++) {
     if (i % SECTOR === 0) lifeSlot = pickLifeSlot(i, rand)
-    const type = pickType(i, i, rand)
+    const type = pickType(i, i, rand, gates[i - 1]?.type ?? null)
     const offset = i < 2 ? 0 : difficulty(i).offset
     const layout = layoutGate(type, offset, rand)
     const orbType = rollOrbType({ lifeDue: i === lifeSlot, rand })

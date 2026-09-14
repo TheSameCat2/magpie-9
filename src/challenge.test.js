@@ -30,6 +30,21 @@ test('challenge courses still warm up with two centred bulkheads', () => {
   assert.ok(course.some((g) => g.type === 'sled'), 'expected a sled somewhere in 40 gates')
 })
 
+test('challenge courses never place two sleds back to back', () => {
+  let sleds = 0
+  for (let seed = 1; seed <= 200; seed++) {
+    const course = generateCourse(createRng(seed), CHALLENGE_TARGET)
+    for (let i = 1; i < course.length; i++) {
+      if (course[i].type === 'sled') sleds += 1
+      assert.ok(
+        !(course[i].type === 'sled' && course[i - 1].type === 'sled'),
+        `seed ${seed}: consecutive sleds at gates ${i - 1} and ${i}`,
+      )
+    }
+  }
+  assert.ok(sleds > 0, 'expected sleds across the sampled courses')
+})
+
 test('formatTime is m:ss.t without rounding up', () => {
   assert.equal(formatTime(0), '0:00.0')
   assert.equal(formatTime(83247), '1:23.2')

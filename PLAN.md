@@ -58,7 +58,7 @@ Pin exact `three` version. `WebGLRenderer`, `SRGBColorSpace`, `ACESFilmicToneMap
 
 **Horizontal:** accel `55`, max `|vx| = 7`, damping `~10/s` on release. Clamp to playable hex. Bank `z-rot ∝ −vx`, pitch `x-rot ∝ vy`.
 
-**Forward:** base scroll `12` u/s; after each gate `speed *= 1.03`, cap `22`. Bird does not move in Z.
+**Forward:** base scroll `12` u/s; after each gate `speed *= 1.021`, cap `22`. Bird does not move in Z.
 
 **Fail:** sphere vs tunnel wall or obstacle. With lives > 1, consume one spare, rewind the world to just inside the last passed gate (never forward), recenter the bird, and wait for a tap. Last life: freeze scroll, tumble, “REBOOT”, Space/click returns to title (consume that edge so it does not also arm).
 

@@ -406,6 +406,44 @@ export function plusMap() {
   return tex
 }
 
+export function boltMap() {
+  const S = 128
+  const [c, g] = canvas(S, S)
+  g.clearRect(0, 0, S, S)
+  g.lineJoin = 'round'
+  g.lineCap = 'round'
+  g.shadowColor = 'rgba(61, 224, 255, 0.95)'
+  g.shadowBlur = 14
+
+  function bolt() {
+    g.beginPath()
+    g.moveTo(76, 20)
+    g.lineTo(44, 70)
+    g.lineTo(62, 70)
+    g.lineTo(52, 108)
+    g.lineTo(84, 56)
+    g.lineTo(66, 56)
+    g.closePath()
+  }
+
+  g.strokeStyle = '#3de0ff'
+  g.lineWidth = 12
+  bolt()
+  g.stroke()
+
+  g.shadowBlur = 0
+  g.strokeStyle = '#e8fbff'
+  g.lineWidth = 5
+  bolt()
+  g.stroke()
+
+  const tex = texture(c, true)
+  tex.wrapS = THREE.ClampToEdgeWrapping
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  tex.needsUpdate = true
+  return tex
+}
+
 export function makeRibMaterial(color, base, pulseScale) {
   return new THREE.ShaderMaterial({
     vertexShader: RIB_VERT,

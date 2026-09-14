@@ -25,7 +25,7 @@ export function hitObstacle(pos, radius, obs) {
   const half = obs.depth * 0.5 + r
   if (Math.abs(pos.z - obs.z) > half) return false
 
-  if (obs.type === 'bulkhead') {
+  if (obs.type === 'bulkhead' || obs.type === 'sled') {
     const inHole =
       Math.abs(pos.x - obs.hole.x) < obs.hole.w * 0.5 - r &&
       Math.abs(pos.y - obs.hole.y) < obs.hole.h * 0.5 - r
@@ -48,7 +48,7 @@ export function hitObstacle(pos, radius, obs) {
 // at the moment it is threaded. Small values are near misses.
 export function passMargin(pos, radius, obs) {
   const r = hitRadius(radius)
-  if (obs.type === 'bulkhead') {
+  if (obs.type === 'bulkhead' || obs.type === 'sled') {
     const mx = obs.hole.w * 0.5 - Math.abs(pos.x - obs.hole.x)
     const my = obs.hole.h * 0.5 - Math.abs(pos.y - obs.hole.y)
     return Math.min(mx, my) - r

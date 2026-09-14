@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { SHARED, THEME, makeOrbMaterial, makeHaloMaterial, chevronMap, plusMap } from './theme.js'
+import { SHARED, THEME, makeOrbMaterial, makeHaloMaterial, chevronMap, plusMap, boltMap } from './theme.js'
 import { hitOrb } from './collision.js'
 
 const POOL = 6
@@ -66,6 +66,11 @@ export function createPowerups(scene) {
       orb: makeOrbMaterial(THEME.green),
       halo: makeHaloMaterial(THEME.green),
       icon: makeIconMaterial(plusMap()),
+    },
+    shunt: {
+      orb: makeOrbMaterial(THEME.ice),
+      halo: makeHaloMaterial(THEME.ice),
+      icon: makeIconMaterial(boltMap()),
     },
   }
 

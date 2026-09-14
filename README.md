@@ -18,6 +18,14 @@ Click / tap an entry, or use ↑ ↓ (W S) and Enter / Space. NEW GAME and TUTOR
 drop you into a held run — jump to begin. Esc (or a tap) backs out of Help,
 Credits, and Scores; after a crash, a tap returns to the menu.
 
+## Pause
+
+PAUSE (top left, under the gate counter), P, or Esc holds a live run. Flaps
+and taps do nothing while the pause menu is up; CONTINUE (or P / Esc again)
+resumes with a courtesy jump. Held time never counts toward a Challenge
+extract: the clock stops for the pause menu, the JUMP TO BEGIN wait, a
+backgrounded tab, and the rotate overlay. Spare rewinds still cost the clock.
+
 ## Scores
 
 A global top 10, arcade-style: no accounts. Crash with a run that beats the
@@ -57,6 +65,7 @@ Landscape only. Portrait shows a rotate overlay and pauses the run.
 - Menu / reboot: FULL enters fullscreen (Android / desktop; remembered across reloads until you exit). MUTE toggles audio. HELP opens the field manual.
 - Portrait: ENTER FULLSCREEN on the rotate overlay does the same (and locks landscape on Android). Browsers without the Fullscreen API get an add-to-Home-Screen hint instead.
 - Backgrounding the tab auto-pauses. Jump to resume once you are back in landscape.
+- PAUSE (top left) holds the run; tap CONTINUE to carry on. A stray flap will not resume it.
 
 Installed Android PWAs open fullscreen and locked to landscape. iPhone Safari has no element fullscreen; add to Home Screen for a chrome-less page. A PNG `apple-touch-icon` is a follow-up.
 

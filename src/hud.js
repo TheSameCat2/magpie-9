@@ -6,10 +6,14 @@ const TAP_MS = 280
 
 export const MENU_ITEMS = ['new', 'challenge', 'tutorial', 'scores', 'help', 'credits']
 
-/** Copy for the hold overlay. `begin` is a fresh run; `resume` is after an interrupt. */
+/**
+ * Copy for the hold overlay. `begin` is a fresh run; `resume` is after an
+ * interrupt; `menu` is the player's own pause, released only by CONTINUE.
+ */
 export function pauseCopy(reason) {
   if (reason === 'begin') return { title: 'JUMP TO BEGIN', sub: '' }
   if (reason === 'resume') return { title: 'PAUSED', sub: 'JUMP TO RESUME' }
+  if (reason === 'menu') return { title: 'PAUSED', sub: '' }
   return null
 }
 
@@ -41,6 +45,8 @@ export function createHud() {
   const pausedEl = document.getElementById('paused')
   const pausedTitle = pausedEl.querySelector('.overlay-title')
   const pausedSub = pausedEl.querySelector('.overlay-sub')
+  const continueBtn = document.getElementById('btnContinue')
+  const pauseBtn = document.getElementById('pause')
   const respawnEl = document.getElementById('respawn')
   const muteBtn = document.getElementById('btnMute')
   const fsBtn = document.getElementById('btnFs')
@@ -72,6 +78,7 @@ export function createHud() {
   let gameMode = 'run'
   let menuIndex = 0
   let helpOpen = false
+  let held = false
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   function retrigger(el, cls) {
@@ -87,6 +94,8 @@ export function createHud() {
     keysEl.classList.toggle('hidden', mode === 'touch')
     zonesEl.classList.toggle('hidden', mode !== 'touch' || scene !== 'menu')
     sysEl.classList.toggle('playing', inRun)
+    // PAUSE only while the sim is actually running: gone under any hold, respawn, or screen.
+    pauseBtn.classList.toggle('hidden', !(scene === 'playing' && !held))
     exitBtn.classList.toggle('hidden', !(inRun && gameMode === 'tutorial'))
     tutorialTag.textContent = 'TUTORIAL'
     tutorialTag.classList.toggle('hidden', !(inRun && gameMode === 'tutorial'))
@@ -364,19 +373,28 @@ export function createHud() {
   }
 
   function showPaused(reason) {
+    held = true
+    applyChrome()
     const copy = pauseCopy(reason)
     if (!copy) {
       pausedEl.classList.add('hidden')
       return
     }
+    const menu = reason === 'menu'
     pausedTitle.textContent = copy.title
     pausedSub.textContent = copy.sub
     pausedSub.classList.toggle('hidden', !copy.sub)
+    continueBtn.classList.toggle('hidden', !menu)
     pausedEl.classList.remove('hidden')
+    if (menu) continueBtn.focus({ preventScroll: true })
   }
 
   function hidePaused() {
+    held = false
+    applyChrome()
     pausedEl.classList.add('hidden')
+    continueBtn.classList.add('hidden')
+    if (document.activeElement === continueBtn) continueBtn.blur()
   }
 
   function showRespawn() {
@@ -471,6 +489,22 @@ export function createHud() {
     })
   }
 
+  // Same contract as the menu buttons: no stopPropagation, so the tap still
+  // unlocks audio while input.js skips it as a flap / stick origin.
+  function bindPause({ onPause, onContinue }) {
+    function wire(btn, fn) {
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault()
+        fn?.()
+      })
+      btn.addEventListener('click', (e) => {
+        if (e.detail === 0) fn?.()
+      })
+    }
+    wire(pauseBtn, onPause)
+    wire(continueBtn, onContinue)
+  }
+
   function bindEntry({ onAction }) {
     entryEl.addEventListener('pointerdown', (e) => {
       const btn = e.target.closest('[data-entry]')
@@ -499,6 +533,7 @@ export function createHud() {
     renderEntry,
     showScores,
     bindEntry,
+    bindPause,
     showLesson,
     hideLesson,
     setGameMode,

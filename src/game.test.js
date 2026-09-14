@@ -73,10 +73,21 @@ test('pauseTapAction resumes once the hold is only a jump prompt', () => {
   assert.equal(pauseTapAction({ paused: true, lesson: null, blocked: false }), 'resume')
 })
 
+test('pauseTapAction never lets a flap out of the pause menu', () => {
+  assert.equal(pauseTapAction({ paused: true, lesson: null, blocked: false, menu: true }), 'ignore')
+})
+
 test('heldPauseReason keeps jump-to-begin through rotate and hide', () => {
   assert.equal(heldPauseReason('begin', 'hidden'), 'begin')
   assert.equal(heldPauseReason('begin', 'rotate'), 'begin')
   assert.equal(heldPauseReason('begin', 'begin'), 'begin')
+})
+
+test('heldPauseReason keeps the pause menu through rotate and hide', () => {
+  assert.equal(heldPauseReason('menu', 'hidden'), 'menu')
+  assert.equal(heldPauseReason('menu', 'rotate'), 'menu')
+  assert.equal(heldPauseReason('menu', 'menu'), 'menu')
+  assert.equal(heldPauseReason(null, 'menu'), 'menu')
 })
 
 test('heldPauseReason lets a lesson take the overlay', () => {
@@ -130,6 +141,8 @@ function harness(menuItem = 'new', god = true, api) {
   if (typeof globalThis.localStorage === 'undefined') {
     globalThis.localStorage = memoryStore()
   }
+  let clockMs = 1_000
+  const now = () => clockMs
   const input = {
     muteEdge: false,
     debugEdge: false,
@@ -138,6 +151,7 @@ function harness(menuItem = 'new', god = true, api) {
     tapEdge: false,
     helpEdge: false,
     backEdge: false,
+    pauseEdge: false,
     selectEdge: false,
     navEdge: 0,
     mode: 'keys',
@@ -166,6 +180,10 @@ function harness(menuItem = 'new', god = true, api) {
   hud.menuItem = menuItem
   hud.showPaused = (reason) => shown.push(reason)
   hud.hidePaused = () => shown.push('hide')
+  let pauseUi = {}
+  hud.bindPause = (handlers) => {
+    pauseUi = handlers
+  }
   const powerups = stub()
   powerups.collect = (_pos, _r, out) => {
     out.length = 0
@@ -174,6 +192,7 @@ function harness(menuItem = 'new', god = true, api) {
   const obstacles = stub()
   obstacles.hits = () => null
   obstacles.collectScores = () => false
+  const screen = { needsRotate: false, hidden: false, isFullscreen: false, supportsFullscreen: false, isStandalone: false }
   const game = createGame({
     bird,
     tunnel: stub(),
@@ -190,11 +209,12 @@ function harness(menuItem = 'new', god = true, api) {
     audio: stub(),
     fx: stub(),
     postfx: stub(),
-    screen: { needsRotate: false, hidden: false, isFullscreen: false, supportsFullscreen: false, isStandalone: false },
+    screen,
     reduceMotion: true,
     god,
     hud,
     api: api ?? mockApi(),
+    now,
   })
   function tap() {
     input.flapEdge = true
@@ -210,7 +230,36 @@ function harness(menuItem = 'new', god = true, api) {
     game.update(1 / 60)
     input.selectEdge = false
   }
-  return { game, bird, input, powerups, obstacles, shown, tap, select, hud }
+  function pauseKey() {
+    input.pauseEdge = true
+    game.update(1 / 60)
+    input.pauseEdge = false
+  }
+  function escKey() {
+    input.backEdge = true
+    game.update(1 / 60)
+    input.backEdge = false
+  }
+  function advance(ms) {
+    clockMs += ms
+  }
+  return {
+    game,
+    bird,
+    input,
+    powerups,
+    obstacles,
+    shown,
+    tap,
+    select,
+    pauseKey,
+    escKey,
+    advance,
+    hud,
+    screen,
+    pressPause: () => pauseUi.onPause?.(),
+    pressContinue: () => pauseUi.onContinue?.(),
+  }
 }
 
 test('NEW GAME drops into a held run until the first jump', () => {
@@ -347,10 +396,11 @@ test('CHALLENGE waits for the daily course then holds', async () => {
 })
 
 test('CHALLENGE extracts after the target gates and ignores deaths on the board', async () => {
-  const { game, obstacles, select, tap } = harness('challenge', true)
+  const { game, obstacles, select, tap, advance } = harness('challenge', true)
   select()
   await Promise.resolve()
   tap()
+  advance(60_000)
   gatePerFrame(obstacles)
   for (let i = 0; i < 3; i++) game.update(1 / 60)
   assert.equal(game.cleared, 3)
@@ -375,4 +425,123 @@ test('CHALLENGE stays offline when the board is down', async () => {
   assert.equal(game.state, 'menu')
   assert.equal(game.mode, 'run')
   assert.equal(toasts.at(-1), 'BOARD OFFLINE')
+})
+
+test('PAUSE holds a live run behind the pause menu until CONTINUE', () => {
+  const { game, bird, shown, select, tap, pressPause, pressContinue } = harness('new')
+  select()
+  tap()
+  assert.equal(game.paused, false)
+  pressPause()
+  assert.equal(game.paused, true)
+  assert.equal(game.pauseReason, 'menu')
+  assert.equal(shown.at(-1), 'menu')
+  const flaps = bird.flaps
+  tap()
+  tap()
+  assert.equal(game.paused, true, 'a flap must not release the pause menu')
+  assert.equal(game.pauseReason, 'menu')
+  assert.equal(bird.flaps, flaps)
+  pressContinue()
+  assert.equal(game.paused, false)
+  assert.equal(game.pauseReason, null)
+  assert.equal(shown.at(-1), 'hide')
+  assert.equal(bird.flaps, flaps + 1, 'CONTINUE relaunches the bird like any resume')
+})
+
+test('P and Esc toggle the pause menu from the keyboard', () => {
+  const { game, select, tap, pauseKey, escKey } = harness('new')
+  select()
+  tap()
+  pauseKey()
+  assert.equal(game.paused, true)
+  assert.equal(game.pauseReason, 'menu')
+  pauseKey()
+  assert.equal(game.paused, false)
+  escKey()
+  assert.equal(game.paused, true)
+  assert.equal(game.pauseReason, 'menu')
+  escKey()
+  assert.equal(game.paused, false)
+  assert.equal(game.state, 'playing')
+})
+
+test('PAUSE is inert while the run is already held, and Esc still exits a tutorial', () => {
+  const held = harness('new')
+  held.select()
+  held.pressPause()
+  assert.equal(held.game.pauseReason, 'begin')
+  held.pressContinue()
+  assert.equal(held.game.paused, true, 'CONTINUE only answers the pause menu')
+
+  const tut = harness('tutorial')
+  tut.select()
+  tut.tap()
+  tut.escKey()
+  assert.equal(tut.game.state, 'menu')
+})
+
+test('the pause menu survives a hidden tab and still waits for CONTINUE', () => {
+  const { game, shown, screen, select, tap, advance, pressPause, pressContinue } = harness('new')
+  select()
+  tap()
+  pressPause()
+  advance(1_000)
+  screen.hidden = true
+  game.syncScreen()
+  assert.equal(game.pauseReason, 'menu')
+  assert.equal(game.paused, true)
+  assert.equal(pressContinue(), false, 'CONTINUE waits for the tab to come back')
+  advance(4_000)
+  screen.hidden = false
+  game.syncScreen()
+  assert.equal(shown.at(-1), 'menu')
+  tap()
+  assert.equal(game.paused, true)
+  pressContinue()
+  assert.equal(game.paused, false)
+  assert.equal(game.pausedMs, 5_000, 'one continuous hold, counted once')
+})
+
+test('CHALLENGE time excludes the begin wait and every pause, and the board hears about it', async () => {
+  const submitted = []
+  const { game, bird, obstacles, select, tap, advance, pressPause, pressContinue } = harness(
+    'challenge',
+    true,
+    mockApi({
+      fetchBoard: async (mode = 'run') =>
+        mode === 'challenge' ? { board: [], day: '2026-09-14', now: 1_000 } : { board: [] },
+      submitScore: async (payload) => {
+        submitted.push(payload)
+        return { board: [], rank: 1, day: '2026-09-14' }
+      },
+    }),
+  )
+  await new Promise((r) => setTimeout(r, 0))
+  select()
+  await Promise.resolve()
+  assert.equal(game.pauseReason, 'begin')
+  advance(5_000)
+  tap()
+  assert.equal(game.pausedMs, 5_000, 'waiting at JUMP TO BEGIN does not count')
+  advance(2_000)
+  pressPause()
+  advance(30_000)
+  const flaps = bird.flaps
+  tap()
+  assert.equal(game.paused, true)
+  assert.equal(bird.flaps, flaps)
+  pressContinue()
+  assert.equal(game.pausedMs, 35_000)
+  advance(3_000)
+  gatePerFrame(obstacles)
+  for (let i = 0; i < 3; i++) game.update(1 / 60)
+  assert.equal(game.extracted, true)
+  assert.equal(game.extractTime, 5_000)
+  assert.equal(game.state, 'entry')
+  for (let i = 0; i < 3; i++) select()
+  assert.equal(submitted.length, 1)
+  assert.equal(submitted[0].token, 'challenge-token')
+  assert.equal(submitted[0].score, 5_000)
+  assert.equal(submitted[0].pausedMs, 35_000)
 })

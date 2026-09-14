@@ -94,12 +94,12 @@ export async function startRun(mode = 'run') {
   )
 }
 
-export async function submitScore({ initials, score, token }) {
+export async function submitScore({ initials, score, token, pausedMs = 0 }) {
   return readJson(
     await fetch('/api/scores', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ initials, score, token }),
+      body: JSON.stringify({ initials, score, token, pausedMs }),
     }),
   )
 }

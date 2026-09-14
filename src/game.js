@@ -27,6 +27,7 @@ import {
   submitScore,
 } from './board.js'
 import { hitTunnel, passMargin } from './collision.js'
+import { createRunClock } from './clock.js'
 import { createHud } from './hud.js'
 import { generateCourse } from './challenge.js'
 import {
@@ -51,16 +52,19 @@ export function rewindDistance(anchorZ, gap) {
   return Math.max(0, anchorZ + gap - RESPAWN_INSIDE)
 }
 
-/** What a flap/tap does while the run is held. A lesson dismiss stays paused. */
-export function pauseTapAction({ paused, lesson, blocked }) {
-  if (!paused || blocked) return 'ignore'
+/**
+ * What a flap/tap does while the run is held. A lesson dismiss stays paused;
+ * the pause menu only releases through CONTINUE, never a stray flap.
+ */
+export function pauseTapAction({ paused, lesson, blocked, menu = false }) {
+  if (!paused || blocked || menu) return 'ignore'
   if (lesson) return 'hold'
   return 'resume'
 }
 
-/** Keep "jump to begin" through rotate/hide; a lesson still takes the overlay. */
+/** Keep "jump to begin" and the pause menu through rotate/hide; a lesson still takes the overlay. */
 export function heldPauseReason(current, next) {
-  if (current === 'begin' && next !== 'lesson' && next !== 'begin') return 'begin'
+  if ((current === 'begin' || current === 'menu') && next !== 'lesson' && next !== current) return current
   return next
 }
 
@@ -92,8 +96,10 @@ export function createGame({
   startLives = 1,
   hud: hudOverride,
   api = { startRun, fetchBoard, submitScore },
+  now = Date.now,
 } = {}) {
   const hud = hudOverride ?? createHud()
+  const clock = createRunClock(now)
   // menu | credits | playing | respawn | dead | entry | scores  (help is a modal)
   let state = 'menu'
   // run | tutorial | challenge — which rules the current (or next) session uses.
@@ -108,7 +114,6 @@ export function createGame({
   let challengeMeta = { day: null, target: CHALLENGE_TARGET }
   let scoresKind = 'run'
   let runToken = null
-  let runT0 = 0
   let course = null
   let extracted = false
   let extractTime = 0
@@ -174,6 +179,10 @@ export function createGame({
       if (state === 'entry') applyEntry(action)
     },
   })
+  hud.bindPause({
+    onPause: holdMenu,
+    onContinue: continueRun,
+  })
   refreshBoard()
 
   const tutorial = () => mode === 'tutorial'
@@ -236,10 +245,45 @@ export function createGame({
     }
     if (!paused) {
       paused = true
+      clock.hold()
       audio.title()
       audio.clearHazard()
     }
     hud.showPaused(pauseReason)
+  }
+
+  /** The overlay to show for the current hold once the screen is usable again. */
+  function heldOverlay() {
+    if (lesson) return 'lesson'
+    if (pauseReason === 'begin' || pauseReason === 'menu') return pauseReason
+    return 'resume'
+  }
+
+  function release() {
+    paused = false
+    pauseReason = null
+    lesson = null
+    clock.release()
+    hud.hidePaused()
+    hud.hideLesson()
+  }
+
+  /** PAUSE button / P / Esc: hold a live run behind the pause menu. */
+  function holdMenu() {
+    if (state !== 'playing' || paused) return false
+    pause('menu')
+    return true
+  }
+
+  /** CONTINUE: the only way out of the pause menu. Flaps and taps never release it. */
+  function continueRun() {
+    if (state !== 'playing' || !paused || pauseReason !== 'menu') return false
+    if (screen.needsRotate || screen.hidden) return false
+    release()
+    launchBird()
+    audio.setSpeed(speed)
+    onResume?.()
+    return true
   }
 
   // Tutorial: freeze the run under an explainer card the first time each orb type is collected.
@@ -262,6 +306,7 @@ export function createGame({
       paused,
       lesson,
       blocked: screen.needsRotate || screen.hidden,
+      menu: pauseReason === 'menu',
     })
     if (action === 'ignore') return false
     if (action === 'hold') {
@@ -271,11 +316,7 @@ export function createGame({
       return true
     }
     const begin = pauseReason === 'begin'
-    paused = false
-    pauseReason = null
-    lesson = null
-    hud.hidePaused()
-    hud.hideLesson()
+    release()
     if (begin) {
       audio.arm()
       postfx.kick(0.5)
@@ -294,7 +335,7 @@ export function createGame({
       pause(screen.needsRotate ? 'rotate' : 'hidden')
     } else if (state === 'playing' && paused) {
       // A lesson card is already asking for the tap; do not stack JUMP TO RESUME on top of it.
-      hud.showPaused(lesson ? 'lesson' : pauseReason === 'begin' ? 'begin' : 'resume')
+      hud.showPaused(heldOverlay())
     }
     if (screen.hidden) audio.suspend()
     else audio.resume()
@@ -326,7 +367,7 @@ export function createGame({
       target: session.target ?? CHALLENGE_TARGET,
     }
     runToken = session.token ?? null
-    runT0 = session.now ?? Date.now()
+    clock.start(session.now ?? now())
     bird.reset()
     obstacles.reset()
     powerups.reset()
@@ -437,6 +478,8 @@ export function createGame({
     const initials = initialsOf(entry)
     const token = runToken
     const saved = extracted ? extractTime : score
+    // The board clocks challenge runs from the token; it needs the held time to take it back off.
+    const pausedMs = Math.round(clock.pausedMs)
     runToken = null
     entry = null
     state = 'scores'
@@ -444,7 +487,7 @@ export function createGame({
     hud.hideEntry()
     paintScores(-1, 'SAVING')
     api
-      .submitScore({ initials, score: saved, token })
+      .submitScore({ initials, score: saved, token, pausedMs })
       .then((res) => {
         if (scoresKind === 'challenge') {
           challengeBoard = res.board
@@ -508,7 +551,7 @@ export function createGame({
     pauseReason = null
     lesson = null
     extracted = true
-    extractTime = Math.max(0, Date.now() - runT0)
+    extractTime = clock.elapsed()
     hud.hidePaused()
     hud.hideLesson()
     hud.hideRespawn()
@@ -788,11 +831,16 @@ export function createGame({
         toMenu()
       }
     } else if (state === 'playing') {
+      // Esc leaves a tutorial; everywhere else it is the keyboard pause key alongside P.
+      const pauseKey = input.pauseEdge || (!tutorial() && input.backEdge)
       if (tutorial() && input.backEdge) {
         toMenu()
       } else if (paused) {
         audio.clearHazard()
-        if (tapped) tryResume()
+        if (pauseKey && pauseReason === 'menu') continueRun()
+        else if (tapped) tryResume()
+      } else if (pauseKey) {
+        holdMenu()
       } else {
         if (input.flapEdge) {
           bird.flap()
@@ -892,6 +940,12 @@ export function createGame({
     },
     get extracted() {
       return extracted
+    },
+    get extractTime() {
+      return extractTime
+    },
+    get pausedMs() {
+      return clock.pausedMs
     },
     get lives() {
       return lives

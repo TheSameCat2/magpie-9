@@ -48,6 +48,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
   let selectEdge = false
   let backEdge = false
   let helpEdge = false
+  let pauseEdge = false
   let navEdge = 0
   let hEdge = 0
   let charEdge = ''
@@ -101,6 +102,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
     if (k === 'm') muteEdge = true
     if (k === 'b') debugEdge = true
     if (k === 'h') helpEdge = true
+    if (k === 'p') pauseEdge = true
   }
 
   function onUp(e) {
@@ -215,6 +217,9 @@ export function createInput({ onGesture, onModeChange } = {}) {
     get backEdge() {
       return backEdge
     },
+    get pauseEdge() {
+      return pauseEdge
+    },
     get navEdge() {
       return navEdge
     },
@@ -245,6 +250,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
       selectEdge = false
       backEdge = false
       helpEdge = false
+      pauseEdge = false
       navEdge = 0
       hEdge = 0
       charEdge = ''

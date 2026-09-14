@@ -711,10 +711,17 @@
         animation: orbit 6s linear infinite;
       }
 
+      #pause {
+        top: calc(100px + var(--sat));
+        left: calc(34px + var(--sal));
+      }
       #exit {
-        position: absolute;
         bottom: calc(22px + var(--sab));
         right: calc(30px + var(--sar));
+      }
+      #pause,
+      #exit {
+        position: absolute;
         pointer-events: auto;
         z-index: 3;
         min-width: 48px;
@@ -729,9 +736,14 @@
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
       }
+      #pause:focus-visible,
       #exit:focus-visible {
         outline: 1px solid var(--ice);
         outline-offset: 2px;
+      }
+      /* Tutorial hides the gate counter, so PAUSE sits under the TUTORIAL tag instead. */
+      body[data-mode="tutorial"] #pause {
+        top: calc(56px + var(--sat));
       }
       #tutorialTag {
         position: absolute;
@@ -1557,6 +1569,14 @@
           bottom: calc(10px + var(--sab));
           right: calc(20px + var(--sar));
         }
+        #pause {
+          top: calc(68px + var(--sat));
+          left: calc(20px + var(--sal));
+          min-height: 36px;
+        }
+        body[data-mode="tutorial"] #pause {
+          top: calc(38px + var(--sat));
+        }
         #tutorialTag {
           top: calc(16px + var(--sat));
           left: calc(22px + var(--sal));
@@ -1621,6 +1641,7 @@
       <div id="velBar"><i></i></div>
       <div id="keys">H HELP · M MUTE · B COLLIDER</div>
       <div id="tutorialTag" class="hidden">TUTORIAL</div>
+      <button type="button" id="pause" class="hidden" aria-label="Pause run">PAUSE</button>
       <button type="button" id="exit" class="hidden" aria-label="Exit tutorial to menu">MENU</button>
       <div id="sys">
         <button type="button" id="btnMute" aria-label="Mute" aria-pressed="false">
@@ -1774,6 +1795,12 @@
         <div class="overlay-card">
           <div class="overlay-title">PAUSED</div>
           <div class="overlay-sub">JUMP TO RESUME</div>
+          <button type="button" id="btnContinue" class="fs-btn hidden" aria-label="Continue run">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            <span class="label">CONTINUE</span>
+          </button>
         </div>
       </div>
       <div id="respawn" class="overlay hidden">
@@ -1860,6 +1887,7 @@
                 </div>
               </div>
               <div class="help-minor">
+                <span><kbd>P</kbd> PAUSE</span>
                 <span><kbd>R</kbd> RESET</span>
                 <span><kbd>M</kbd> MUTE</span>
                 <span><kbd>H</kbd> HELP</span>
@@ -1885,6 +1913,7 @@
                   <li><b>LEFT HALF.</b> Touch and drag sideways. A floating stick strafes the drone.</li>
                   <li><b>RIGHT HALF.</b> Tap to flap. Jump to begin a run or resume after a pause.</li>
                   <li><b>LANDSCAPE ONLY.</b> Portrait pauses. FULL goes fullscreen.</li>
+                  <li><b>PAUSE.</b> Top left during a run. Only CONTINUE resumes; a stray tap will not.</li>
                 </ul>
               </div>
             </div>
@@ -1995,6 +2024,7 @@
               <li><b>TODAY'S CONDUIT.</b> Forty gates, same layout for everyone until UTC midnight.</li>
               <li><b>EXTRACT.</b> Clear all forty and the run ends. Ranked by time, not gates.</li>
               <li><b>SHUNT TO RACE.</b> Overdrive is the gamble. A spare rewind still costs the clock.</li>
+              <li><b>PAUSE FREELY.</b> The clock stops while the run is held. Only flying counts.</li>
               <li><b>BOARD.</b> TODAY on the scores screen. Deaths do not place.</li>
             </ul>
           </section>

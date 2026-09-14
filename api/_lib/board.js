@@ -149,6 +149,18 @@ export function rankTime(ms, t0) {
   return -ms + (1 - t0 / 1e13) * 1e-6
 }
 
+/**
+ * Challenge time actually played: wall-clock since the token minus the time
+ * the client held the run. The client's claim is only sanity-checked here;
+ * the physics floor in the score handler is what keeps it honest.
+ * Returns null when the claim cannot be a real pause.
+ */
+export function playedMs(elapsedMs, pausedMs = 0) {
+  const paused = pausedMs === undefined || pausedMs === null ? 0 : Number(pausedMs)
+  if (!Number.isSafeInteger(paused) || paused < 0 || paused > elapsedMs) return null
+  return elapsedMs - paused
+}
+
 export function timeFromRank(z) {
   return Math.max(0, Math.round(-Number(z)))
 }

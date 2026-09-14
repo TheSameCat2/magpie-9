@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { R, VERTEX_R, THEME, makeFrameMaterial, makeRingMaterial } from './theme.js'
+import { FIRST_GATE_Z } from './rules.js'
 import { hitObstacle } from './collision.js'
 
 const POOL = 12
@@ -68,12 +69,6 @@ export function pickType(spawnIndex, score, rand = Math.random) {
   if (score >= 5 && rand() < 0.3) return 'pylon'
   if (score >= 3 && rand() < 0.38) return 'laser-bar'
   return 'bulkhead'
-}
-
-// Reduced-motion players never meet a moving hatch: it arrives as the static
-// bulkhead it would have been.
-export function resolveType(type, reduceMotion = false) {
-  return reduceMotion && type === 'sled' ? 'bulkhead' : type
 }
 
 function clamp(v, lo, hi) {
@@ -289,7 +284,7 @@ function setFrame(obs, mode, x, y, w, h, halfW, halfH, edgeSign, color) {
   obs.frame.visible = true
 }
 
-function configure(obs, type, z, offset, gap) {
+function configure(obs, type, z, offset, gap, preset) {
   hideAll(obs)
   obs.type = type
   obs.z = z
@@ -299,7 +294,7 @@ function configure(obs, type, z, offset, gap) {
   obs.group.visible = true
   obs.group.position.set(0, 0, z)
 
-  const layout = layoutGate(type, offset)
+  const layout = preset || layoutGate(type, offset)
 
   if (type === 'bulkhead') {
     const ox = layout.hole.x
@@ -384,8 +379,7 @@ function configure(obs, type, z, offset, gap) {
   setFrame(obs, 2, edge, 0, 2.8, PYLON_H + 1.2, 0, 0, side === 'left' ? -1 : 1, COLOR.pylon)
 }
 
-export function createObstacles(scene, materials, opts = {}) {
-  const reduceMotion = !!opts.reduceMotion
+export function createObstacles(scene, materials) {
   const root = new THREE.Group()
   root.name = 'obstacles'
   scene.add(root)
@@ -411,13 +405,12 @@ export function createObstacles(scene, materials, opts = {}) {
     for (const obs of pool) deactivate(obs)
   }
 
-  function spawn(score, diff, z, gap, typeFor) {
+  function spawn(score, diff, z, gap, typeFor, spec) {
     const obs = pool.find((o) => !o.active)
     if (!obs) return
-    const picked = typeFor ? typeFor(spawnIndex) : pickType(spawnIndex, score)
-    const type = resolveType(picked, reduceMotion)
-    const offset = spawnIndex < 2 ? 0 : diff.offset
-    configure(obs, type, z, offset, gap)
+    const picked = spec?.type ?? (typeFor ? typeFor(spawnIndex) : pickType(spawnIndex, score))
+    const offset = spec ? spec.offset : spawnIndex < 2 ? 0 : diff.offset
+    configure(obs, picked, z, offset, gap, spec?.layout)
     spawnIndex += 1
     return obs
   }
@@ -434,15 +427,19 @@ export function createObstacles(scene, materials, opts = {}) {
   }
 
   // `typeFor(spawnIndex)` overrides the random hazard pick (tutorial's fixed order).
-  function ensureAhead(score, diff, out, typeFor) {
+  // `course` is a precomputed gate list (challenge); layout and spacing are frozen.
+  function ensureAhead(score, diff, out, typeFor, course) {
     if (out) out.length = 0
     let guard = 0
     while (guard++ < 8) {
+      if (course && spawnIndex >= course.length) break
+      const spec = course?.[spawnIndex]
       const mz = minActiveZ()
       if (mz !== null && mz <= -48) break
-      const gap = mz === null ? 32 : diff.spacing
-      const z = mz === null ? -32 : mz - diff.spacing
-      const obs = spawn(score, diff, z, gap, typeFor)
+      const spacing = spec?.spacing ?? diff.spacing
+      const gap = mz === null ? FIRST_GATE_Z : spacing
+      const z = mz === null ? -FIRST_GATE_Z : mz - spacing
+      const obs = spawn(score, diff, z, gap, typeFor, spec)
       if (obs && out) out.push(obs)
     }
   }

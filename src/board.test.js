@@ -6,7 +6,9 @@ import {
   entryAction,
   initialsOf,
   placement,
+  placementTime,
   qualifies,
+  qualifiesTime,
   stepChar,
 } from './board.js'
 
@@ -44,6 +46,35 @@ test('placement is 1-based and later ties lose', () => {
   assert.equal(placement(full, 18), 3)
   assert.equal(placement(full, 3), 10)
   assert.equal(placement(full, 2), 11)
+})
+
+const times = [
+  { initials: 'AAA', score: 40000 },
+  { initials: 'BBB', score: 45000 },
+  { initials: 'CCC', score: 50000 },
+  { initials: 'DDD', score: 55000 },
+  { initials: 'EEE', score: 60000 },
+  { initials: 'FFF', score: 65000 },
+  { initials: 'GGG', score: 70000 },
+  { initials: 'HHH', score: 75000 },
+  { initials: 'III', score: 80000 },
+  { initials: 'JJJ', score: 90000 },
+]
+
+test('qualifiesTime beats a slower tenth place', () => {
+  assert.equal(qualifiesTime(null, 1), false)
+  assert.equal(qualifiesTime([], 90000), true)
+  assert.equal(qualifiesTime(times, 89999), true)
+  assert.equal(qualifiesTime(times, 90000), false)
+  assert.equal(qualifiesTime(times, 90001), false)
+})
+
+test('placementTime ranks lower times first and later ties lose', () => {
+  assert.equal(placementTime([], 7), 1)
+  assert.equal(placementTime(times, 39999), 1)
+  assert.equal(placementTime(times, 45000), 3)
+  assert.equal(placementTime(times, 89999), 10)
+  assert.equal(placementTime(times, 90000), 11)
 })
 
 test('createEntry starts on AAA', () => {

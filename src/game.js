@@ -1,18 +1,34 @@
 import * as THREE from 'three'
 import { BIRD_RADIUS, BEST_KEY, SHARED, THEME } from './theme.js'
-import { BASE_SPEED, difficulty, stageDelta } from './rules.js'
+import {
+  BASE_SPEED,
+  CHALLENGE_TARGET,
+  SECTOR,
+  SHUNT_GATES,
+  SHUNT_SPEED,
+  challengeBestKey,
+  createRng,
+  difficulty,
+  formatTime,
+  pickLifeSlot,
+  rollOrbType,
+  stageDelta,
+} from './rules.js'
 import {
   createEntry,
   entryAction,
   fetchBoard,
   initialsOf,
   placement,
+  placementTime,
   qualifies,
+  qualifiesTime,
   startRun,
   submitScore,
 } from './board.js'
 import { hitTunnel, passMargin } from './collision.js'
 import { createHud } from './hud.js'
+import { generateCourse } from './challenge.js'
 import {
   TUTORIAL_DAMPER,
   TUTORIAL_ORB_SPREAD,
@@ -22,25 +38,10 @@ import {
   tutorialSpeed,
 } from './tutorial.js'
 
-const NEAR_MISS = 0.34
-const MILESTONE = 10
-const BASE_FOV = 68
-const ORB_CHANCE = 0.5
-// Shunt: voluntary overdrive. Bonus gates for a few gates, faster conduit
-// while it lasts. A hit with a spare clears it.
-const SHUNT_CHANCE = 0.15
-export const SHUNT_GATES = 5
-// Scaled with the gentler ramp so the overdrive keeps its relative bite.
-export const SHUNT_SPEED = 1.4
+export { SHUNT_GATES, SHUNT_SPEED, pickLifeSlot, rollOrbType }
 
-// Pure orb roll for a non-life gate. Injectable RNG for tests.
-export function rollOrbType({ lifeDue = false, rand = Math.random } = {}) {
-  if (lifeDue) return 'life'
-  const r = rand()
-  if (r < SHUNT_CHANCE) return 'shunt'
-  if (r < SHUNT_CHANCE + ORB_CHANCE) return 'damper'
-  return null
-}
+const NEAR_MISS = 0.34
+const BASE_FOV = 68
 const REWIND_TIME = 0.45
 // How far past the last cleared gate the bird sits after a spare (z of that gate).
 // Must clear the plate + collider so resume does not instantly re-hit it.
@@ -48,10 +49,6 @@ const RESPAWN_INSIDE = 1.2
 
 export function rewindDistance(anchorZ, gap) {
   return Math.max(0, anchorZ + gap - RESPAWN_INSIDE)
-}
-
-export function pickLifeSlot(sectorStart, rand = Math.random) {
-  return sectorStart + Math.floor(rand() * MILESTONE)
 }
 
 /** What a flap/tap does while the run is held. A lesson dismiss stays paused. */
@@ -94,18 +91,28 @@ export function createGame({
   god = false,
   startLives = 1,
   hud: hudOverride,
+  api = { startRun, fetchBoard, submitScore },
 } = {}) {
   const hud = hudOverride ?? createHud()
   // menu | credits | playing | respawn | dead | entry | scores  (help is a modal)
   let state = 'menu'
-  // run | tutorial — which rules the current (or next) session uses.
+  // run | tutorial | challenge — which rules the current (or next) session uses.
   let mode = 'run'
   const lessonsSeen = new Set()
   let lesson = null
   let score = 0
+  let cleared = 0
   let best = loadBest()
   let board = null
+  let challengeBoard = null
+  let challengeMeta = { day: null, target: CHALLENGE_TARGET }
+  let scoresKind = 'run'
   let runToken = null
+  let runT0 = 0
+  let course = null
+  let extracted = false
+  let extractTime = 0
+  let armGen = 0
   let entry = null
   let deathNewBest = false
   let speed = BASE_SPEED
@@ -158,6 +165,9 @@ export function createGame({
     onExit() {
       if (mode === 'tutorial' && (state === 'playing' || state === 'respawn')) toMenu()
     },
+    onBoard(kind) {
+      if (state === 'scores') openScores(kind)
+    },
   })
   hud.bindEntry({
     onAction(action) {
@@ -167,6 +177,7 @@ export function createGame({
   refreshBoard()
 
   const tutorial = () => mode === 'tutorial'
+  const challenge = () => mode === 'challenge'
 
   function currentDifficulty() {
     return tutorial() ? tutorialDifficulty() : difficulty(score)
@@ -174,7 +185,13 @@ export function createGame({
 
   function spawnAhead() {
     const diff = currentDifficulty()
-    obstacles.ensureAhead(score, diff, spawned, tutorial() ? tutorialGateType : undefined)
+    obstacles.ensureAhead(
+      score,
+      diff,
+      spawned,
+      tutorial() ? tutorialGateType : undefined,
+      challenge() ? course : undefined,
+    )
     maybeDropOrbs(spawned, diff)
   }
 
@@ -200,7 +217,12 @@ export function createGame({
         powerups.spawn(z, tutorialOrbType(idx), TUTORIAL_ORB_SPREAD)
         continue
       }
-      if (idx % MILESTONE === 0) lifeSlot = pickLifeSlot(idx)
+      if (challenge()) {
+        const spec = course?.[idx]
+        if (spec?.orb) powerups.spawn(z, spec.orb.type, undefined, spec.orb)
+        continue
+      }
+      if (idx % SECTOR === 0) lifeSlot = pickLifeSlot(idx)
       const drop = rollOrbType({ lifeDue: idx === lifeSlot })
       if (drop) powerups.spawn(z, drop)
     }
@@ -278,7 +300,8 @@ export function createGame({
     else audio.resume()
   }
 
-  function arm(nextMode = 'run') {
+  function arm(nextMode = 'run', session = {}) {
+    armGen += 1
     mode = nextMode
     hud.setGameMode(mode)
     lessonsSeen.clear()
@@ -287,6 +310,9 @@ export function createGame({
     paused = false
     pauseReason = null
     score = 0
+    cleared = 0
+    extracted = false
+    extractTime = 0
     slow = 0
     lives = Math.max(1, startLives)
     shuntLeft = 0
@@ -294,34 +320,88 @@ export function createGame({
     lifeSlot = -1
     rewindLeft = 0
     rewindTotal = 0
+    course = session.course ?? null
+    challengeMeta = {
+      day: session.day ?? null,
+      target: session.target ?? CHALLENGE_TARGET,
+    }
+    runToken = session.token ?? null
+    runT0 = session.now ?? Date.now()
     bird.reset()
     obstacles.reset()
     powerups.reset()
     hud.setLives(lives)
     hud.hideRespawn()
     spawnAhead()
-    hud.setScore(0)
+    if (challenge()) {
+      hud.setExtract(0, challengeMeta.target)
+      const pb = loadChallengeBest(challengeMeta.day)
+      hud.setBest(pb ? formatTime(pb) : '—')
+    } else {
+      hud.setScore(0)
+      hud.setBest(best)
+    }
     applySpeed()
     hud.showPlaying()
     hud.hideLesson()
     pause('begin')
-    runToken = null
     if (nextMode === 'run') {
-      startRun()
-        .then((token) => {
-          runToken = token
+      runToken = null
+      api
+        .startRun('run')
+        .then((data) => {
+          runToken = data?.token ?? null
         })
         .catch(() => {})
     }
   }
 
+  function loadChallengeBest(day) {
+    if (!day) return 0
+    const n = Number(localStorage.getItem(challengeBestKey(day)) || '0')
+    return Number.isFinite(n) && n > 0 ? n : 0
+  }
+
+  function saveChallengeBest(day, ms) {
+    const prev = loadChallengeBest(day)
+    if (!prev || ms < prev) localStorage.setItem(challengeBestKey(day), String(ms))
+  }
+
+  function scoresView() {
+    if (scoresKind === 'challenge') {
+      return { kind: 'challenge', day: challengeMeta.day, board: challengeBoard }
+    }
+    return { kind: 'run', day: null, board }
+  }
+
+  function paintScores(rank = -1, status = '') {
+    const view = scoresView()
+    hud.showScores(view.board, rank, status, { kind: view.kind, day: view.day })
+  }
+
   function refreshBoard() {
-    fetchBoard()
-      .then((next) => {
-        board = next
-        if (state === 'scores') hud.showScores(board, -1)
+    api
+      .fetchBoard('run')
+      .then((data) => {
+        board = data.board
+        if (state === 'scores' && scoresKind === 'run') paintScores()
       })
       .catch(() => {})
+    api
+      .fetchBoard('challenge')
+      .then((data) => {
+        challengeBoard = data.board
+        if (data.day) challengeMeta = { ...challengeMeta, day: data.day }
+        if (state === 'scores' && scoresKind === 'challenge') paintScores()
+      })
+      .catch(() => {})
+  }
+
+  function openScores(kind = 'run') {
+    scoresKind = kind === 'challenge' ? 'challenge' : 'run'
+    state = 'scores'
+    paintScores()
+    refreshBoard()
   }
 
   function applyEntry(action) {
@@ -336,6 +416,19 @@ export function createGame({
     state = 'dead'
     entry = null
     hud.hideEntry()
+    showReboot()
+  }
+
+  function showReboot() {
+    if (challenge()) {
+      hud.showDead(cleared, false, {
+        challenge: true,
+        extracted,
+        time: extractTime,
+        target: challengeMeta.target,
+      })
+      return
+    }
     hud.showDead(score, deathNewBest)
   }
 
@@ -343,19 +436,26 @@ export function createGame({
     if (state !== 'entry') return
     const initials = initialsOf(entry)
     const token = runToken
-    const saved = score
+    const saved = extracted ? extractTime : score
     runToken = null
     entry = null
     state = 'scores'
+    scoresKind = extracted ? 'challenge' : 'run'
     hud.hideEntry()
-    hud.showScores(board, -1, 'SAVING')
-    submitScore({ initials, score: saved, token })
+    paintScores(-1, 'SAVING')
+    api
+      .submitScore({ initials, score: saved, token })
       .then((res) => {
-        board = res.board
-        if (state === 'scores') hud.showScores(board, res.rank)
+        if (scoresKind === 'challenge') {
+          challengeBoard = res.board
+          if (res.day) challengeMeta = { ...challengeMeta, day: res.day }
+        } else {
+          board = res.board
+        }
+        if (state === 'scores') paintScores(res.rank)
       })
       .catch(() => {
-        if (state === 'scores') hud.showScores(board, -1, 'BOARD OFFLINE')
+        if (state === 'scores') paintScores(-1, 'BOARD OFFLINE')
       })
   }
 
@@ -365,6 +465,7 @@ export function createGame({
     paused = false
     pauseReason = null
     lesson = null
+    extracted = false
     hud.hidePaused()
     hud.hideLesson()
     hud.hideRespawn()
@@ -375,15 +476,22 @@ export function createGame({
     postfx.glitch(1)
     shake = reduceMotion ? 0 : 0.5
     hitStop = 0.09
-    // Tutorial sessions never touch the best score.
-    const newBest = !tutorial() && score > best
+    if (tutorial() || challenge()) {
+      hud.showDead(challenge() ? cleared : score, false, {
+        challenge: challenge(),
+        extracted: false,
+        target: challengeMeta.target,
+      })
+      return
+    }
+    const newBest = score > best
     if (newBest) {
       best = score
       saveBest(best)
       hud.setBest(best, true)
     }
     deathNewBest = newBest && score > 0
-    const eligible = !tutorial() && score > 0 && runToken && qualifies(board, score)
+    const eligible = score > 0 && runToken && qualifies(board, score)
     if (eligible) {
       state = 'entry'
       entry = createEntry()
@@ -393,12 +501,44 @@ export function createGame({
     }
   }
 
+  function extract() {
+    if (state !== 'playing') return
+    state = 'dead'
+    paused = false
+    pauseReason = null
+    lesson = null
+    extracted = true
+    extractTime = Math.max(0, Date.now() - runT0)
+    hud.hidePaused()
+    hud.hideLesson()
+    hud.hideRespawn()
+    audio.milestone()
+    postfx.flash(THEME.ice, 0.35)
+    SHARED.uKick.value = 1.4
+    saveChallengeBest(challengeMeta.day, extractTime)
+    hud.setBest(formatTime(loadChallengeBest(challengeMeta.day)), true)
+    const eligible = runToken && qualifiesTime(challengeBoard, extractTime)
+    if (eligible) {
+      state = 'entry'
+      entry = createEntry()
+      hud.showEntry(extractTime, placementTime(challengeBoard, extractTime), entry, {
+        challenge: true,
+        time: extractTime,
+      })
+    } else {
+      showReboot()
+    }
+  }
+
   function toMenu() {
+    armGen += 1
     state = 'menu'
     mode = 'run'
     paused = false
     pauseReason = null
     lesson = null
+    extracted = false
+    course = null
     hud.setGameMode(mode)
     hud.hidePaused()
     hud.hideLesson()
@@ -417,7 +557,9 @@ export function createGame({
     rewindTotal = 0
     shake = 0
     fovPunch = 0
+    cleared = 0
     hud.setScore(0)
+    hud.setBest(best)
     hud.setLives(1)
     hud.setSpeed(BASE_SPEED)
     hud.hideEntry()
@@ -430,18 +572,37 @@ export function createGame({
     if (screen.needsRotate) return
     if (item === 'new') arm('run')
     else if (item === 'tutorial') arm('tutorial')
+    else if (item === 'challenge') void beginChallenge()
     else if (item === 'help') hud.showHelp()
-    else if (item === 'scores') {
-      state = 'scores'
-      hud.showScores(board, -1)
-      refreshBoard()
-    } else if (item === 'credits') {
+    else if (item === 'scores') openScores(scoresKind)
+    else if (item === 'credits') {
       state = 'credits'
       hud.showCredits()
     }
   }
 
+  async function beginChallenge() {
+    const gen = ++armGen
+    try {
+      const data = await api.startRun('challenge')
+      if (gen !== armGen || state !== 'menu') return
+      const seed = Number(data.seed)
+      const target = Number(data.target) || CHALLENGE_TARGET
+      if (!Number.isFinite(seed) || !data.token || !data.day) throw new Error('bad course')
+      arm('challenge', {
+        token: data.token,
+        day: data.day,
+        target,
+        now: Number(data.now) || Date.now(),
+        course: generateCourse(createRng(seed >>> 0), target),
+      })
+    } catch {
+      if (state === 'menu' && gen === armGen) hud.toast('BOARD OFFLINE', 'mag')
+    }
+  }
+
   function onGate(obs) {
+    cleared += 1
     score += 1
     // Shunt overdrive: each gate scores double until the charge runs out.
     // The bonus itself feeds difficulty(), which is the price of the ride.
@@ -453,9 +614,10 @@ export function createGame({
     }
     const margin = passMargin(bird.pos, BIRD_RADIUS, obs)
     const close = margin < NEAR_MISS
-    const milestone = !tutorial() && score % MILESTONE === 0
+    const milestone = !tutorial() && !challenge() && score % SECTOR === 0
 
-    hud.setScore(score, true)
+    if (challenge()) hud.setExtract(cleared, challengeMeta.target, true)
+    else hud.setScore(score, true)
     obstacles.celebrate(obs, bird.x, bird.y)
     obstacles.burstShape(obs, bird.x, bird.y, burst)
     fx.gateBurst(burst.x, burst.y, obs.z, burst.hw, burst.hh, burst.color, close ? 70 : 42)
@@ -472,19 +634,20 @@ export function createGame({
       postfx.flash(THEME.ice, 0.12)
     }
     if (milestone) {
-      hud.toast(`SECTOR ${score / MILESTONE}`, 'sodium')
+      hud.toast(`SECTOR ${score / SECTOR}`, 'sodium')
       audio.milestone()
       postfx.flash(THEME.sodium, 0.22)
       SHARED.uKick.value = 1.4
     } else if (shuntSpent) {
       hud.toast('SHUNT SPENT', 'ice')
-    } else if (!tutorial() && score === best + 1 && best > 0) {
+    } else if (!tutorial() && !challenge() && score === best + 1 && best > 0) {
       hud.toast('NEW BEST', 'ice')
       hud.setBest(score, true)
     }
-    if (!tutorial() && score > best) hud.setBest(score, true)
+    if (!tutorial() && !challenge() && score > best) hud.setBest(score, true)
 
     applySpeed()
+    if (challenge() && cleared >= challengeMeta.target) extract()
   }
 
   function onOrb(orb) {
@@ -544,10 +707,6 @@ export function createGame({
     hitStop = 0.06
     state = 'respawn'
     rewindLeft = rewindTotal = back
-    if (reduceMotion && back > 0) {
-      scrollWorld(-back, 0)
-      rewindLeft = 0
-    }
     if (rewindLeft === 0) hud.showRespawn()
   }
 
@@ -621,6 +780,10 @@ export function createGame({
           if (input.navEdge) hud.moveMenu(input.navEdge)
           if (input.selectEdge) choose(hud.menuItem)
         }
+      } else if (state === 'scores') {
+        if (input.hEdge) openScores(input.hEdge < 0 ? 'run' : 'challenge')
+        else if (input.navEdge) openScores(input.navEdge < 0 ? 'run' : 'challenge')
+        else if (tapped || input.backEdge || input.selectEdge) toMenu()
       } else if (tapped || input.backEdge || input.selectEdge) {
         toMenu()
       }
@@ -645,18 +808,23 @@ export function createGame({
           else die()
         } else {
           if (obstacles.collectScores(passed)) {
-            for (const obs of passed) onGate(obs)
+            for (const obs of passed) {
+              onGate(obs)
+              if (state !== 'playing') break
+            }
           }
-          spawnAhead()
-          if (powerups.collect(bird.pos, BIRD_RADIUS, collected)) {
-            for (const orb of collected) onOrb(orb)
-          }
-          const next = obstacles.nearestAhead()
-          if (next) {
-            const prox = next.z < 0 ? Math.max(0, Math.min(1, 1 + next.z / 38)) : 1
-            audio.hazard(next.type, prox * prox)
-          } else {
-            audio.clearHazard()
+          if (state === 'playing') {
+            spawnAhead()
+            if (powerups.collect(bird.pos, BIRD_RADIUS, collected)) {
+              for (const orb of collected) onOrb(orb)
+            }
+            const next = obstacles.nearestAhead()
+            if (next) {
+              const prox = next.z < 0 ? Math.max(0, Math.min(1, 1 + next.z / 38)) : 1
+              audio.hazard(next.type, prox * prox)
+            } else {
+              audio.clearHazard()
+            }
           }
         }
       }
@@ -676,7 +844,7 @@ export function createGame({
         bird.updateIdle(dt, 0)
       }
     } else if (state === 'dead') {
-      bird.updateDead(dt)
+      if (!extracted) bird.updateDead(dt)
       if (tapped && !blocked) toMenu()
     } else if (state === 'entry') {
       bird.updateDead(dt)
@@ -718,6 +886,12 @@ export function createGame({
     },
     get score() {
       return score
+    },
+    get cleared() {
+      return cleared
+    },
+    get extracted() {
+      return extracted
     },
     get lives() {
       return lives

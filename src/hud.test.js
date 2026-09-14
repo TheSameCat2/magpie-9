@@ -27,6 +27,10 @@ test('pauseCopy prompts a jump to resume after an interrupt', () => {
   assert.deepEqual(pauseCopy('resume'), { title: 'PAUSED', sub: 'JUMP TO RESUME' })
 })
 
+test('pauseCopy shows a bare PAUSED for the pause menu, leaving the prompt to CONTINUE', () => {
+  assert.deepEqual(pauseCopy('menu'), { title: 'PAUSED', sub: '' })
+})
+
 test('pauseCopy hides the hold overlay for lessons and screen blocks', () => {
   assert.equal(pauseCopy('lesson'), null)
   assert.equal(pauseCopy('rotate'), null)

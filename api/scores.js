@@ -9,6 +9,7 @@ import {
   json,
   memberOf,
   parseRows,
+  playedMs,
   rankOfMember,
   rankScore,
   rankTime,
@@ -85,8 +86,15 @@ export async function POST(request) {
   const elapsed = elapsedMs / 1000
   if (elapsed > 86400) return json({ error: 'EXPIRED' }, 400)
 
+  // Challenge rank is the time played, not the time since the token was
+  // issued: the client reports how long it held the run so pauses stop the
+  // clock. Endless runs rank by gates, so their pauses do not matter here.
+  let timeMs = elapsedMs
   if (challenge) {
-    if (elapsed < minChallengeSeconds(parsed.target) * MIN_FACTOR) return json({ error: 'TOO FAST' }, 400)
+    const played = playedMs(elapsedMs, body?.pausedMs ?? 0)
+    if (played === null) return json({ error: 'BAD PAUSE' }, 400)
+    timeMs = played
+    if (timeMs / 1000 < minChallengeSeconds(parsed.target) * MIN_FACTOR) return json({ error: 'TOO FAST' }, 400)
   } else if (elapsed < minRunSeconds(score) * MIN_FACTOR) {
     return json({ error: 'TOO FAST' }, 400)
   }
@@ -105,7 +113,7 @@ export async function POST(request) {
   if (challenge) {
     const key = challengeBoardKey(parsed.day)
     const pipeline = redis.multi()
-    pipeline.zadd(key, { score: rankTime(elapsedMs, parsed.t0), member })
+    pipeline.zadd(key, { score: rankTime(timeMs, parsed.t0), member })
     pipeline.expire(key, CHALLENGE_TTL)
     pipeline.zremrangebyrank(key, 0, -(BOARD_SIZE + 1))
     pipeline.zrange(key, 0, BOARD_SIZE - 1, { rev: true, withScores: true })
@@ -115,7 +123,7 @@ export async function POST(request) {
       board: toBoard(pairs, 'challenge'),
       rank: rankOfMember(pairs, member),
       day: parsed.day,
-      time: elapsedMs,
+      time: timeMs,
     })
   }
 

@@ -7,6 +7,7 @@ const {
   challengeBoardKey,
   challengeSeed,
   issueToken,
+  playedMs,
   rankTime,
   timeFromRank,
   toBoard,
@@ -63,4 +64,20 @@ test('toBoard maps challenge zset scores back to milliseconds', () => {
     { initials: 'AAA', score: 83247 },
     { initials: 'BBB', score: 90000 },
   ])
+})
+
+test('playedMs takes the held time back off the token clock', () => {
+  assert.equal(playedMs(90_000, 30_000), 60_000)
+  assert.equal(playedMs(90_000, 0), 90_000)
+  assert.equal(playedMs(90_000), 90_000)
+  assert.equal(playedMs(90_000, null), 90_000)
+  assert.equal(playedMs(90_000, '30000'), 60_000)
+})
+
+test('playedMs rejects a pause that cannot be real', () => {
+  assert.equal(playedMs(90_000, -1), null)
+  assert.equal(playedMs(90_000, 90_001), null)
+  assert.equal(playedMs(90_000, 1.5), null)
+  assert.equal(playedMs(90_000, 'lots'), null)
+  assert.equal(playedMs(90_000, Infinity), null)
 })

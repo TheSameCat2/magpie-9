@@ -143,7 +143,10 @@ export function createGame({
   let roll = 0
   let paused = false
   let pauseReason = null
-  let countdown = 0
+  // Wall-clock end of the resume countdown. Frame dt is clamped and rAF can
+  // crawl on weak GPUs, so summing it would stretch the count; read the clock.
+  let countdownEnd = 0
+  let countdownDigit = 0
   const camBase = new THREE.Vector3(0, 0.55, 6.4)
   const look = new THREE.Vector3()
   const passed = []
@@ -272,7 +275,6 @@ export function createGame({
   function release() {
     paused = false
     pauseReason = null
-    countdown = 0
     lesson = null
     clock.release()
     hud.hidePaused()
@@ -294,24 +296,30 @@ export function createGame({
     if (state !== 'playing' || !paused || pauseReason !== 'menu') return false
     if (screen.needsRotate || screen.hidden) return false
     pauseReason = 'countdown'
-    countdown = RESUME_COUNTDOWN
+    countdownEnd = now() + RESUME_COUNTDOWN * 1000
+    countdownDigit = RESUME_COUNTDOWN
     audio.tick()
-    hud.showPaused('countdown', countdown)
+    hud.showPaused('countdown', RESUME_COUNTDOWN)
     return true
   }
 
-  /** Runs the countdown on real time (the sim dt is 0 while held). */
-  function tickCountdown(realDt) {
-    const before = Math.ceil(countdown)
-    countdown = Math.max(0, countdown - realDt)
-    if (countdown === 0) {
+  /** Seconds left on the resume countdown, 0 once it has run out or is not running. */
+  function countdownLeft() {
+    if (pauseReason !== 'countdown') return 0
+    return Math.max(0, (countdownEnd - now()) / 1000)
+  }
+
+  function tickCountdown() {
+    const left = countdownLeft()
+    if (left === 0) {
       finishCountdown()
       return
     }
-    const after = Math.ceil(countdown)
-    if (after !== before) {
+    const digit = Math.ceil(left)
+    if (digit !== countdownDigit) {
+      countdownDigit = digit
       audio.tick()
-      hud.showPaused('countdown', countdown)
+      hud.showPaused('countdown', left)
     }
   }
 
@@ -875,7 +883,7 @@ export function createGame({
         audio.clearHazard()
         if (pauseReason === 'countdown') {
           if (pauseKey) pause('menu')
-          else tickCountdown(realDt)
+          else tickCountdown()
         } else if (pauseKey && pauseReason === 'menu') continueRun()
         else if (tapped) tryResume()
       } else if (pauseKey) {
@@ -972,7 +980,7 @@ export function createGame({
       return pauseReason
     },
     get countdown() {
-      return countdown
+      return countdownLeft()
     },
     get score() {
       return score

@@ -920,6 +920,37 @@
         word-spacing: 0.22em;
         color: var(--muted);
       }
+      /* Resume countdown: one big digit per second, lighter backdrop so the held run stays readable. */
+      #paused.countdown {
+        background: rgba(7, 8, 12, 0.4);
+      }
+      #paused.countdown .overlay-title {
+        font-size: clamp(48px, 14vw, 96px);
+        letter-spacing: 0.04em;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 0 28px rgba(61, 224, 255, 0.6);
+      }
+      #paused.countdown .overlay-title.pop {
+        animation: countdown-pop 0.9s ease-out;
+      }
+      #paused.countdown .overlay-sub {
+        animation: blink 1.6s ease-in-out infinite;
+      }
+      @keyframes countdown-pop {
+        0% {
+          transform: scale(1.35);
+          opacity: 0.2;
+        }
+        30% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 0.85;
+        }
+      }
       .overlay-glyph {
         width: 54px;
         height: 34px;
@@ -1913,7 +1944,7 @@
                   <li><b>LEFT HALF.</b> Touch and drag sideways. A floating stick strafes the drone.</li>
                   <li><b>RIGHT HALF.</b> Tap to flap. Jump to begin a run or resume after a pause.</li>
                   <li><b>LANDSCAPE ONLY.</b> Portrait pauses. FULL goes fullscreen.</li>
-                  <li><b>PAUSE.</b> Top left during a run. Only CONTINUE resumes; a stray tap will not.</li>
+                  <li><b>PAUSE.</b> Top left during a run. Only CONTINUE resumes, after a 3-2-1 countdown and with no automatic jump; a stray tap will not.</li>
                 </ul>
               </div>
             </div>

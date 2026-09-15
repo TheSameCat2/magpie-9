@@ -8,12 +8,14 @@ export const MENU_ITEMS = ['new', 'challenge', 'tutorial', 'scores', 'help', 'cr
 
 /**
  * Copy for the hold overlay. `begin` is a fresh run; `resume` is after an
- * interrupt; `menu` is the player's own pause, released only by CONTINUE.
+ * interrupt; `menu` is the player's own pause, released only by CONTINUE;
+ * `countdown` is the seconds left (`left`) before that release goes live.
  */
-export function pauseCopy(reason) {
+export function pauseCopy(reason, left = 0) {
   if (reason === 'begin') return { title: 'JUMP TO BEGIN', sub: '' }
   if (reason === 'resume') return { title: 'PAUSED', sub: 'JUMP TO RESUME' }
   if (reason === 'menu') return { title: 'PAUSED', sub: '' }
+  if (reason === 'countdown') return { title: String(Math.max(1, Math.ceil(left))), sub: 'RESUMING' }
   return null
 }
 
@@ -372,27 +374,41 @@ export function createHud() {
     rotateEl.classList.toggle('hidden', !show)
   }
 
-  function showPaused(reason) {
+  function showPaused(reason, left = 0) {
     held = true
     applyChrome()
-    const copy = pauseCopy(reason)
+    const copy = pauseCopy(reason, left)
     if (!copy) {
       pausedEl.classList.add('hidden')
+      pausedEl.classList.remove('countdown')
       return
     }
     const menu = reason === 'menu'
+    const counting = reason === 'countdown'
+    if (counting && pausedTitle.textContent !== copy.title) {
+      // Restart the pop animation for each new digit.
+      pausedTitle.classList.remove('pop')
+      void pausedTitle.offsetWidth
+      pausedTitle.classList.add('pop')
+    } else if (!counting) {
+      pausedTitle.classList.remove('pop')
+    }
     pausedTitle.textContent = copy.title
     pausedSub.textContent = copy.sub
     pausedSub.classList.toggle('hidden', !copy.sub)
+    pausedEl.classList.toggle('countdown', counting)
     continueBtn.classList.toggle('hidden', !menu)
     pausedEl.classList.remove('hidden')
     if (menu) continueBtn.focus({ preventScroll: true })
+    else if (document.activeElement === continueBtn) continueBtn.blur()
   }
 
   function hidePaused() {
     held = false
     applyChrome()
     pausedEl.classList.add('hidden')
+    pausedEl.classList.remove('countdown')
+    pausedTitle.classList.remove('pop')
     continueBtn.classList.add('hidden')
     if (document.activeElement === continueBtn) continueBtn.blur()
   }

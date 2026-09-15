@@ -47,6 +47,9 @@ const REWIND_TIME = 0.45
 // How far past the last cleared gate the bird sits after a spare (z of that gate).
 // Must clear the plate + collider so resume does not instantly re-hit it.
 const RESPAWN_INSIDE = 1.2
+// Seconds between CONTINUE and the run going live. The release itself never
+// flaps, so the first jump after a pause is always the player's own.
+export const RESUME_COUNTDOWN = 3
 
 export function rewindDistance(anchorZ, gap) {
   return Math.max(0, anchorZ + gap - RESPAWN_INSIDE)
@@ -54,7 +57,8 @@ export function rewindDistance(anchorZ, gap) {
 
 /**
  * What a flap/tap does while the run is held. A lesson dismiss stays paused;
- * the pause menu only releases through CONTINUE, never a stray flap.
+ * the pause menu (and the countdown out of it) only releases through
+ * CONTINUE, never a stray flap.
  */
 export function pauseTapAction({ paused, lesson, blocked, menu = false }) {
   if (!paused || blocked || menu) return 'ignore'
@@ -62,8 +66,13 @@ export function pauseTapAction({ paused, lesson, blocked, menu = false }) {
   return 'resume'
 }
 
-/** Keep "jump to begin" and the pause menu through rotate/hide; a lesson still takes the overlay. */
+/**
+ * Keep "jump to begin" and the pause menu through rotate/hide; a lesson still
+ * takes the overlay. An interrupted countdown falls back to the pause menu so
+ * the run never goes live while the screen is unusable.
+ */
 export function heldPauseReason(current, next) {
+  if (current === 'countdown') return 'menu'
   if ((current === 'begin' || current === 'menu') && next !== 'lesson' && next !== current) return current
   return next
 }
@@ -134,6 +143,7 @@ export function createGame({
   let roll = 0
   let paused = false
   let pauseReason = null
+  let countdown = 0
   const camBase = new THREE.Vector3(0, 0.55, 6.4)
   const look = new THREE.Vector3()
   const passed = []
@@ -262,6 +272,7 @@ export function createGame({
   function release() {
     paused = false
     pauseReason = null
+    countdown = 0
     lesson = null
     clock.release()
     hud.hidePaused()
@@ -275,15 +286,40 @@ export function createGame({
     return true
   }
 
-  /** CONTINUE: the only way out of the pause menu. Flaps and taps never release it. */
+  /**
+   * CONTINUE: the only way out of the pause menu. Flaps and taps never release
+   * it. Starts the countdown rather than going live; see `finishCountdown`.
+   */
   function continueRun() {
     if (state !== 'playing' || !paused || pauseReason !== 'menu') return false
     if (screen.needsRotate || screen.hidden) return false
+    pauseReason = 'countdown'
+    countdown = RESUME_COUNTDOWN
+    audio.tick()
+    hud.showPaused('countdown', countdown)
+    return true
+  }
+
+  /** Runs the countdown on real time (the sim dt is 0 while held). */
+  function tickCountdown(realDt) {
+    const before = Math.ceil(countdown)
+    countdown = Math.max(0, countdown - realDt)
+    if (countdown === 0) {
+      finishCountdown()
+      return
+    }
+    const after = Math.ceil(countdown)
+    if (after !== before) {
+      audio.tick()
+      hud.showPaused('countdown', countdown)
+    }
+  }
+
+  /** Deliberately no launchBird: the bird keeps its held velocity until the player flaps. */
+  function finishCountdown() {
     release()
-    launchBird()
     audio.setSpeed(speed)
     onResume?.()
-    return true
   }
 
   // Tutorial: freeze the run under an explainer card the first time each orb type is collected.
@@ -306,7 +342,7 @@ export function createGame({
       paused,
       lesson,
       blocked: screen.needsRotate || screen.hidden,
-      menu: pauseReason === 'menu',
+      menu: pauseReason === 'menu' || pauseReason === 'countdown',
     })
     if (action === 'ignore') return false
     if (action === 'hold') {
@@ -837,7 +873,10 @@ export function createGame({
         toMenu()
       } else if (paused) {
         audio.clearHazard()
-        if (pauseKey && pauseReason === 'menu') continueRun()
+        if (pauseReason === 'countdown') {
+          if (pauseKey) pause('menu')
+          else tickCountdown(realDt)
+        } else if (pauseKey && pauseReason === 'menu') continueRun()
         else if (tapped) tryResume()
       } else if (pauseKey) {
         holdMenu()
@@ -931,6 +970,9 @@ export function createGame({
     },
     get pauseReason() {
       return pauseReason
+    },
+    get countdown() {
+      return countdown
     },
     get score() {
       return score

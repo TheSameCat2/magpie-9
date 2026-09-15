@@ -9,6 +9,7 @@ import {
   pauseTapAction,
   heldPauseReason,
   rollOrbType,
+  RESUME_COUNTDOWN,
   SHUNT_GATES,
   SHUNT_SPEED,
 } from './game.js'
@@ -88,6 +89,12 @@ test('heldPauseReason keeps the pause menu through rotate and hide', () => {
   assert.equal(heldPauseReason('menu', 'rotate'), 'menu')
   assert.equal(heldPauseReason('menu', 'menu'), 'menu')
   assert.equal(heldPauseReason(null, 'menu'), 'menu')
+})
+
+test('heldPauseReason drops an interrupted countdown back to the pause menu', () => {
+  assert.equal(heldPauseReason('countdown', 'hidden'), 'menu')
+  assert.equal(heldPauseReason('countdown', 'rotate'), 'menu')
+  assert.equal(heldPauseReason('countdown', 'menu'), 'menu')
 })
 
 test('heldPauseReason lets a lesson take the overlay', () => {
@@ -243,6 +250,11 @@ function harness(menuItem = 'new', god = true, api) {
   function advance(ms) {
     clockMs += ms
   }
+  /** Let `ms` of wall-clock pass, then run one idle frame so the game notices. */
+  function wait(ms) {
+    advance(ms)
+    game.update(1 / 60)
+  }
   return {
     game,
     bird,
@@ -255,6 +267,7 @@ function harness(menuItem = 'new', god = true, api) {
     pauseKey,
     escKey,
     advance,
+    wait,
     hud,
     screen,
     pressPause: () => pauseUi.onPause?.(),
@@ -428,7 +441,7 @@ test('CHALLENGE stays offline when the board is down', async () => {
 })
 
 test('PAUSE holds a live run behind the pause menu until CONTINUE', () => {
-  const { game, bird, shown, select, tap, pressPause, pressContinue } = harness('new')
+  const { game, bird, shown, select, tap, wait, pressPause, pressContinue } = harness('new')
   select()
   tap()
   assert.equal(game.paused, false)
@@ -443,27 +456,106 @@ test('PAUSE holds a live run behind the pause menu until CONTINUE', () => {
   assert.equal(game.pauseReason, 'menu')
   assert.equal(bird.flaps, flaps)
   pressContinue()
+  assert.equal(game.paused, true, 'CONTINUE counts down instead of going live at once')
+  assert.equal(game.pauseReason, 'countdown')
+  assert.equal(game.countdown, RESUME_COUNTDOWN)
+  assert.equal(shown.at(-1), 'countdown')
+  wait(RESUME_COUNTDOWN * 1000 - 1)
+  assert.equal(game.paused, true, 'still held a moment before the count runs out')
+  wait(1)
   assert.equal(game.paused, false)
   assert.equal(game.pauseReason, null)
+  assert.equal(game.countdown, 0)
   assert.equal(shown.at(-1), 'hide')
-  assert.equal(bird.flaps, flaps + 1, 'CONTINUE relaunches the bird like any resume')
+  assert.equal(bird.flaps, flaps, 'the countdown release never flaps for the player')
 })
 
-test('P and Esc toggle the pause menu from the keyboard', () => {
-  const { game, select, tap, pauseKey, escKey } = harness('new')
+test('the countdown runs on the wall clock, not on however many frames the device manages', () => {
+  const { game, shown, select, tap, advance, pressPause, pressContinue } = harness('new')
   select()
   tap()
-  pauseKey()
+  pressPause()
+  pressContinue()
+  const redraws = shown.length
+  for (let i = 0; i < 200; i++) game.update(0.05)
+  assert.equal(game.paused, true, 'a flood of clamped frames with no wall time does not advance it')
+  assert.equal(game.countdown, RESUME_COUNTDOWN)
+  assert.equal(shown.length, redraws, 'no redraw until the digit changes')
+  advance(1_200)
+  game.update(1 / 60)
+  assert.equal(shown.at(-1), 'countdown')
+  assert.equal(shown.length, redraws + 1, 'one redraw for the 2')
+  assert.ok(Math.abs(game.countdown - 1.8) < 1e-9)
+  advance(2_000)
+  game.update(1 / 60)
+  assert.equal(game.paused, false, 'three real seconds later it goes live in a single frame')
+})
+
+test('flaps during the resume countdown are ignored and never release it early', () => {
+  const { game, bird, select, tap, advance, wait, pressPause, pressContinue } = harness('new')
+  select()
+  tap()
+  pressPause()
+  pressContinue()
+  const flaps = bird.flaps
+  advance(500)
+  tap()
+  tap()
   assert.equal(game.paused, true)
-  assert.equal(game.pauseReason, 'menu')
-  pauseKey()
+  assert.equal(game.pauseReason, 'countdown')
+  assert.equal(bird.flaps, flaps, 'a stray flap mid-countdown does nothing')
+  assert.ok(game.countdown < RESUME_COUNTDOWN, 'the countdown keeps running through ignored taps')
+  wait(2_500)
   assert.equal(game.paused, false)
-  escKey()
+  assert.equal(bird.flaps, flaps)
+})
+
+test('P and Esc toggle the pause menu from the keyboard, and cancel a countdown back to it', () => {
+  const { game, bird, select, tap, wait, pauseKey, escKey } = harness('new')
+  select()
+  tap()
+  const flaps = bird.flaps
+  pauseKey()
   assert.equal(game.paused, true)
   assert.equal(game.pauseReason, 'menu')
+  pauseKey()
+  assert.equal(game.paused, true)
+  assert.equal(game.pauseReason, 'countdown')
+  wait(1_000)
+  pauseKey()
+  assert.equal(game.pauseReason, 'menu', 'P mid-countdown returns to the pause menu')
   escKey()
+  assert.equal(game.pauseReason, 'countdown')
+  assert.equal(game.countdown, RESUME_COUNTDOWN, 'a fresh countdown starts from the top')
+  escKey()
+  assert.equal(game.pauseReason, 'menu', 'Esc mid-countdown returns to the pause menu')
+  escKey()
+  wait(RESUME_COUNTDOWN * 1000)
   assert.equal(game.paused, false)
   assert.equal(game.state, 'playing')
+  assert.equal(bird.flaps, flaps)
+})
+
+test('a hidden tab during the countdown drops back to the pause menu', () => {
+  const { game, shown, screen, select, tap, wait, pressPause, pressContinue } = harness('new')
+  select()
+  tap()
+  pressPause()
+  pressContinue()
+  wait(1_000)
+  screen.hidden = true
+  game.syncScreen()
+  assert.equal(game.paused, true)
+  assert.equal(game.pauseReason, 'menu')
+  assert.equal(game.countdown, 0)
+  wait(RESUME_COUNTDOWN * 1000)
+  assert.equal(game.paused, true, 'nothing counts down while the tab is away')
+  screen.hidden = false
+  game.syncScreen()
+  assert.equal(shown.at(-1), 'menu')
+  pressContinue()
+  assert.equal(game.pauseReason, 'countdown')
+  assert.equal(game.countdown, RESUME_COUNTDOWN)
 })
 
 test('PAUSE is inert while the run is already held, and Esc still exits a tutorial', () => {
@@ -482,7 +574,7 @@ test('PAUSE is inert while the run is already held, and Esc still exits a tutori
 })
 
 test('the pause menu survives a hidden tab and still waits for CONTINUE', () => {
-  const { game, shown, screen, select, tap, advance, pressPause, pressContinue } = harness('new')
+  const { game, shown, screen, select, tap, advance, wait, pressPause, pressContinue } = harness('new')
   select()
   tap()
   pressPause()
@@ -499,13 +591,14 @@ test('the pause menu survives a hidden tab and still waits for CONTINUE', () => 
   tap()
   assert.equal(game.paused, true)
   pressContinue()
+  wait(RESUME_COUNTDOWN * 1000)
   assert.equal(game.paused, false)
-  assert.equal(game.pausedMs, 5_000, 'one continuous hold, counted once')
+  assert.equal(game.pausedMs, 8_000, 'one continuous hold through the countdown, counted once')
 })
 
 test('CHALLENGE time excludes the begin wait and every pause, and the board hears about it', async () => {
   const submitted = []
-  const { game, bird, obstacles, select, tap, advance, pressPause, pressContinue } = harness(
+  const { game, bird, obstacles, select, tap, advance, wait, pressPause, pressContinue } = harness(
     'challenge',
     true,
     mockApi({
@@ -533,6 +626,9 @@ test('CHALLENGE time excludes the begin wait and every pause, and the board hear
   assert.equal(bird.flaps, flaps)
   pressContinue()
   assert.equal(game.pausedMs, 35_000)
+  wait(RESUME_COUNTDOWN * 1000)
+  assert.equal(game.paused, false)
+  assert.equal(game.pausedMs, 38_000, 'the resume countdown is still held time')
   advance(3_000)
   gatePerFrame(obstacles)
   for (let i = 0; i < 3; i++) game.update(1 / 60)
@@ -543,5 +639,5 @@ test('CHALLENGE time excludes the begin wait and every pause, and the board hear
   assert.equal(submitted.length, 1)
   assert.equal(submitted[0].token, 'challenge-token')
   assert.equal(submitted[0].score, 5_000)
-  assert.equal(submitted[0].pausedMs, 35_000)
+  assert.equal(submitted[0].pausedMs, 38_000)
 })

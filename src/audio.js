@@ -351,6 +351,11 @@ export function createAudio() {
     setSpeed(speed) {
       if (ctx) setDrone(1, speed)
     },
+    // One blip per resume-countdown digit.
+    tick() {
+      tone(880, 0.07, 'square', 0.04, { toWet: 0.4 })
+      tone(1760, 0.05, 'sine', 0.03, { when: 0.01 })
+    },
     title() {
       if (!ctx) return
       resetPitch()

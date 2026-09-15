@@ -31,6 +31,14 @@ test('pauseCopy shows a bare PAUSED for the pause menu, leaving the prompt to CO
   assert.deepEqual(pauseCopy('menu'), { title: 'PAUSED', sub: '' })
 })
 
+test('pauseCopy counts whole seconds down to 1 while a resume is pending', () => {
+  assert.deepEqual(pauseCopy('countdown', 3), { title: '3', sub: 'RESUMING' })
+  assert.deepEqual(pauseCopy('countdown', 2.4), { title: '3', sub: 'RESUMING' })
+  assert.deepEqual(pauseCopy('countdown', 1.01), { title: '2', sub: 'RESUMING' })
+  assert.deepEqual(pauseCopy('countdown', 0.2), { title: '1', sub: 'RESUMING' })
+  assert.equal(pauseCopy('countdown', 0).title, '1', 'never flashes a 0')
+})
+
 test('pauseCopy hides the hold overlay for lessons and screen blocks', () => {
   assert.equal(pauseCopy('lesson'), null)
   assert.equal(pauseCopy('rotate'), null)

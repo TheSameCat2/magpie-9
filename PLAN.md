@@ -7,7 +7,7 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
 
 1. Vanilla Three.js. No React/Vue. No Cannon/Rapier/Ammo. Sphere vs box/plane only.
 2. Bird is fixed in Z relative to the camera. The world scrolls toward the camera.
-3. One play loop: Menu → Playing → (Respawn → Playing) → Dead → Menu. Credits is a static screen off the menu; Help is the field-manual modal (also H / HELP button on menu and reboot). Tutorial is the same loop with `mode = 'tutorial'` rules (see `src/tutorial.js`). Pause is a hold inside Playing (`paused`, `dt = 0`), never a state: PAUSE / P / Esc opens the pause menu, which only CONTINUE (or the pause key) releases, via a 3 s `countdown` hold that goes live without a flap (the pause key cancels it back to the menu); rotate, hidden, jump-to-begin, and lessons reuse the same hold. The challenge clock (`src/clock.js`) excludes every hold, and the board is told the held time on submit.
+3. One play loop: Menu → Playing → (Respawn → Playing) → Dead → Menu. Credits is a static screen off the menu; Help is the field-manual modal (also H / HELP button on menu and reboot). Tutorial is the same loop with `mode = 'tutorial'` rules (see `src/config/tutorial.js`). Pause is a hold inside Playing (`paused`, `dt = 0`), never a state: PAUSE / P / Esc opens the pause menu, which only CONTINUE (or the pause key) releases, via a 3 s `countdown` hold that goes live without a flap (the pause key cancels it back to the menu); rotate, hidden, jump-to-begin, and lessons reuse the same hold (`src/game/hold.js`). The challenge clock (`src/game/clock.js`) excludes every hold, and the board is told the held time on submit.
 4. Procedural geometry only in v1. No GLTF, no texture CDNs. CanvasTexture / data-URI if needed.
 5. No story, shop, or multiplayer. Two orbs: gold damper and green spare-life (`+`, one per 10-gate sector). A spare life rewinds to just inside the last passed gate and waits for a tap.
 6. Gameplay before bloom. Silhouette, fog, lights first.
@@ -18,31 +18,33 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
 ## Stack
 
 ```
-~/Projects/magpie-9/
-  package.json          # three pinned, vite
-  index.html
+magpie-9/
+  package.json          # three pinned, vite, prettier
+  index.html            # HUD markup only; styles in src/styles
   src/
-    main.js             # renderer, resize, rAF
-    theme.js            # palette, fog, materials
-    input.js            # keys + zoned pointers; analog stick; edge flap
-    bird.js             # mesh, flap impulse, strafe, bank/pitch
-    tunnel.js           # pooled hexagonal segments + scroll
-    obstacles.js        # pooled hazard types + spawn
-    powerups.js         # pooled damper + life orbs
-    collision.js        # sphere vs tunnel + descriptors + orbs
-    game.js             # state machine, score, difficulty, restart
-    hud.js              # DOM overlay
-    audio.js            # optional WebAudio beeps
+    main.js             # bootstrap: renderer, world, game, rAF
+    config/             # numbers: theme, world dims, rules, tutorial
+    lib/                # pure helpers: math, rng, time, storage
+    platform/           # browser edges: input, screen
+    render/             # scene, materials, textures, shaders, postfx, quality
+    world/              # bird, tunnel, gates/, powerups, fx, collision
+    audio/              # WebAudio graph, drone, hazard hum, one-shots
+    hud/                # DOM overlay, one file per panel
+    game/               # state machine, run rules, hold, scoreboard
+    styles/             # CSS, one file per HUD area
+  api/                  # Vercel functions: run tokens + score board
 ```
+
+`AGENTS.md` has the file-by-file map and the conventions.
 
 Pin exact `three` version. `WebGLRenderer`, `SRGBColorSpace`, `ACESFilmicToneMapping`, pixel ratio capped at 2.
 
 ## Coordinates (source of truth)
 
-| Axis | Meaning |
-|------|---------|
+| Axis | Meaning       |
+| ---- | ------------- |
 | +X   | right (D / →) |
-| +Y   | up (flap) |
+| +Y   | up (flap)     |
 | +Z   | toward camera |
 
 - Bird rest: `(0, 0, 0)`
@@ -74,11 +76,11 @@ Hexagonal conduit, 6 plates + emissive rib. Segment length `10`, pool **8**. Fog
 
 ## Obstacles (v1: three types)
 
-| Id | What | Hole |
-|----|------|------|
-| `bulkhead` | Hex plate, rectangular hatch offset in X/Y | 2.8 × 3.2 |
-| `laser-bar` | Horizontal energy slab, open band | band height 3.0, random Y |
-| `pylon` | Left **or** right blocked past centre | forces strafe |
+| Id          | What                                       | Hole                      |
+| ----------- | ------------------------------------------ | ------------------------- |
+| `bulkhead`  | Hex plate, rectangular hatch offset in X/Y | 2.8 × 3.2                 |
+| `laser-bar` | Horizontal energy slab, open band          | band height 3.0, random Y |
+| `pylon`     | Left **or** right blocked past centre      | forces strafe             |
 
 First gate `z = −32`. Spacing `28` shrinking toward `18`. Mostly bulkhead; laser-bar after score 3; pylon after score 5. First two hatches are centred (warm-up; Tutorial mode keeps offset 0 throughout). After that, hatch offset is `min(0.8 + score * 0.12, 1.8)` so the conduit centre is not a safe lane. Hole stays inside the hex.
 
@@ -146,6 +148,6 @@ Rotating fan OBB, branching tunnels, shader rain, soundtrack, WebXR, mid-run pal
 
 - Strafe without pylons is fake difficulty
 - Bloom hides unfair collision — keep `B` debug until deaths feel fair
-- Hold-to-flap makes it not Flappy — edge-trigger in `input.js`
+- Hold-to-flap makes it not Flappy — edge-trigger in `src/platform/input.js`
 - Z-fight: inset ribs
 - EffectComposer must resize

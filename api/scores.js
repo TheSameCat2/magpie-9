@@ -1,137 +1,112 @@
-import { BOARD_SIZE, DAY_RE, MAX_SCORE, minChallengeSeconds, minRunSeconds, utcDay } from '../src/rules.js'
+import { MAX_SCORE, minChallengeSeconds, minRunSeconds } from '../src/config/rules.js'
+import { DAY_RE, utcDay } from '../src/lib/time.js'
 import {
-  BLOCKLIST,
   BOARD_KEY,
   CHALLENGE_TTL,
   challengeBoardKey,
-  clientIp,
-  getRedis,
-  json,
   memberOf,
-  parseRows,
   playedMs,
-  rankOfMember,
   rankScore,
   rankTime,
   readBoard,
-  scoreRatelimit,
-  secret,
-  takeNonce,
-  toBoard,
-  verify,
+  writeScore,
 } from './_lib/board.js'
+import { clientIp, fail, json } from './_lib/http.js'
+import { acceptableInitials, normalizeInitials } from './_lib/initials.js'
+import { getRedis, scoreRatelimit, takeNonce } from './_lib/redis.js'
+import { secret, verify } from './_lib/token.js'
 
-const INITIALS_RE = /^[A-Z0-9]{3}$/
+/** Tolerance on the physics floor, for clock skew and a generous frame clamp. */
 const MIN_FACTOR = 0.9
+/** Tokens older than this can no longer post. */
+const MAX_RUN_SECONDS = 86400
 
 export async function GET(request) {
   const url = new URL(request.url)
-  const mode = url.searchParams.get('mode')
-  if (mode === 'challenge') {
-    const day = url.searchParams.get('day') || utcDay()
-    if (!DAY_RE.test(day)) return json({ error: 'BAD DAY' }, 400)
-    try {
-      return json({
-        board: await readBoard(getRedis(), challengeBoardKey(day), 'challenge'),
-        day,
-        now: Date.now(),
-      })
-    } catch {
-      return json({ error: 'BOARD OFFLINE' }, 503)
-    }
-  }
+  const challenge = url.searchParams.get('mode') === 'challenge'
   try {
-    return json({ board: await readBoard() })
+    if (!challenge) return json({ board: await readBoard() })
+    const day = url.searchParams.get('day') || utcDay()
+    if (!DAY_RE.test(day)) return fail('BAD DAY', 400)
+    const board = await readBoard(getRedis(), challengeBoardKey(day), 'challenge')
+    return json({ board, day, now: Date.now() })
   } catch {
-    return json({ error: 'BOARD OFFLINE' }, 503)
+    return fail('BOARD OFFLINE', 503)
   }
 }
 
+/**
+ * Validate a submission without touching Redis. Returns `{ error, status }`
+ * or `{ initials, parsed, score, timeMs }` ready to write.
+ */
+function validateSubmission(body, nowMs = Date.now()) {
+  const initials = normalizeInitials(body?.initials)
+  if (!acceptableInitials(initials)) return { error: 'BAD INITIALS', status: 400 }
+
+  const parsed = verify(body?.token)
+  if (!parsed) return { error: 'BAD TOKEN', status: 400 }
+
+  const elapsedMs = nowMs - parsed.t0
+  if (elapsedMs / 1000 > MAX_RUN_SECONDS) return { error: 'EXPIRED', status: 400 }
+
+  if (parsed.mode === 'challenge') {
+    // Challenge rank is the time played, not the time since the token was
+    // issued: the client reports how long it held the run so pauses stop the clock.
+    const timeMs = playedMs(elapsedMs, body?.pausedMs ?? 0)
+    if (timeMs === null) return { error: 'BAD PAUSE', status: 400 }
+    if (timeMs / 1000 < minChallengeSeconds(parsed.target) * MIN_FACTOR)
+      return { error: 'TOO FAST', status: 400 }
+    return { initials, parsed, timeMs }
+  }
+
+  // Endless runs rank by gates, so their pauses do not matter here.
+  const score = Number(body?.score)
+  if (!Number.isInteger(score) || score < 1 || score > MAX_SCORE) return { error: 'BAD SCORE', status: 400 }
+  if (elapsedMs / 1000 < minRunSeconds(score) * MIN_FACTOR) return { error: 'TOO FAST', status: 400 }
+  return { initials, parsed, score }
+}
+
 export async function POST(request) {
-  if (!secret()) return json({ error: 'BOARD OFFLINE' }, 503)
+  if (!secret()) return fail('BOARD OFFLINE', 503)
 
   try {
     const { success } = await scoreRatelimit().limit(clientIp(request))
-    if (!success) return json({ error: 'SLOW DOWN' }, 429)
+    if (!success) return fail('SLOW DOWN', 429)
   } catch {
-    return json({ error: 'BOARD OFFLINE' }, 503)
+    return fail('BOARD OFFLINE', 503)
   }
 
   let body
   try {
     body = await request.json()
   } catch {
-    return json({ error: 'BAD REQUEST' }, 400)
+    return fail('BAD REQUEST', 400)
   }
 
-  const initials = String(body?.initials || '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
-    .slice(0, 3)
-  const score = Number(body?.score)
-  const token = body?.token
-
-  if (!INITIALS_RE.test(initials)) return json({ error: 'BAD INITIALS' }, 400)
-  if (BLOCKLIST.has(initials)) return json({ error: 'BAD INITIALS' }, 400)
-
-  const parsed = verify(token)
-  if (!parsed) return json({ error: 'BAD TOKEN' }, 400)
-
-  const challenge = parsed.mode === 'challenge'
-  if (!challenge && (!Number.isInteger(score) || score < 1 || score > MAX_SCORE)) {
-    return json({ error: 'BAD SCORE' }, 400)
-  }
-
-  const elapsedMs = Date.now() - parsed.t0
-  const elapsed = elapsedMs / 1000
-  if (elapsed > 86400) return json({ error: 'EXPIRED' }, 400)
-
-  // Challenge rank is the time played, not the time since the token was
-  // issued: the client reports how long it held the run so pauses stop the
-  // clock. Endless runs rank by gates, so their pauses do not matter here.
-  let timeMs = elapsedMs
-  if (challenge) {
-    const played = playedMs(elapsedMs, body?.pausedMs ?? 0)
-    if (played === null) return json({ error: 'BAD PAUSE' }, 400)
-    timeMs = played
-    if (timeMs / 1000 < minChallengeSeconds(parsed.target) * MIN_FACTOR) return json({ error: 'TOO FAST' }, 400)
-  } else if (elapsed < minRunSeconds(score) * MIN_FACTOR) {
-    return json({ error: 'TOO FAST' }, 400)
-  }
+  const submission = validateSubmission(body)
+  if (submission.error) return fail(submission.error, submission.status)
+  const { initials, parsed, score, timeMs } = submission
 
   let redis
   try {
     redis = getRedis()
   } catch {
-    return json({ error: 'BOARD OFFLINE' }, 503)
+    return fail('BOARD OFFLINE', 503)
   }
 
-  const claimed = await takeNonce(parsed.nonce, redis)
-  if (!claimed) return json({ error: 'REPLAY' }, 409)
+  if (!(await takeNonce(parsed.nonce, redis))) return fail('REPLAY', 409)
 
   const member = memberOf(initials, parsed.nonce)
-  if (challenge) {
-    const key = challengeBoardKey(parsed.day)
-    const pipeline = redis.multi()
-    pipeline.zadd(key, { score: rankTime(timeMs, parsed.t0), member })
-    pipeline.expire(key, CHALLENGE_TTL)
-    pipeline.zremrangebyrank(key, 0, -(BOARD_SIZE + 1))
-    pipeline.zrange(key, 0, BOARD_SIZE - 1, { rev: true, withScores: true })
-    const results = await pipeline.exec()
-    const pairs = parseRows(results[results.length - 1])
-    return json({
-      board: toBoard(pairs, 'challenge'),
-      rank: rankOfMember(pairs, member),
-      day: parsed.day,
-      time: timeMs,
+  if (parsed.mode === 'challenge') {
+    const result = await writeScore(redis, {
+      key: challengeBoardKey(parsed.day),
+      member,
+      rank: rankTime(timeMs, parsed.t0),
+      kind: 'challenge',
+      ttl: CHALLENGE_TTL,
     })
+    return json({ ...result, day: parsed.day, time: timeMs })
   }
 
-  const pipeline = redis.multi()
-  pipeline.zadd(BOARD_KEY, { score: rankScore(score, parsed.t0), member })
-  pipeline.zremrangebyrank(BOARD_KEY, 0, -(BOARD_SIZE + 1))
-  pipeline.zrange(BOARD_KEY, 0, BOARD_SIZE - 1, { rev: true, withScores: true })
-  const results = await pipeline.exec()
-  const pairs = parseRows(results[results.length - 1])
-  return json({ board: toBoard(pairs), rank: rankOfMember(pairs, member) })
+  return json(await writeScore(redis, { key: BOARD_KEY, member, rank: rankScore(score, parsed.t0) }))
 }

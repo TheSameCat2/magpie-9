@@ -79,16 +79,29 @@ Bloom + a screen-space finishing pass (vignette, grain, chromatic kick on gate
 pass, glitch on death). Quality starts at the top rung and steps down
 automatically if frames run long. Pin it with a query param:
 
-| Param       | Effect                                              |
-|-------------|-----------------------------------------------------|
-| `?q=2`      | full DPR (max 2), bloom                              |
-| `?q=1`      | DPR 1.25, bloom                                      |
-| `?q=0`      | DPR 1, no bloom                                      |
-| `?god=1`    | invulnerable (for tuning visuals)                   |
-| `?debug=1`  | exposes `window.__magpie = { game, bird }`           |
-| `?rotate=1` | force the portrait rotate overlay (HUD QA)           |
+| Param       | Effect                                     |
+| ----------- | ------------------------------------------ |
+| `?q=2`      | full DPR (max 2), bloom                    |
+| `?q=1`      | DPR 1.25, bloom                            |
+| `?q=0`      | DPR 1, no bloom                            |
+| `?god=1`    | invulnerable (for tuning visuals)          |
+| `?debug=1`  | exposes `window.__magpie = { game, bird }` |
+| `?rotate=1` | force the portrait rotate overlay (HUD QA) |
 
 `prefers-reduced-motion` disables bloom, shake, FOV punch, camera roll and the
 screen-space pulses.
 
-See `PLAN.md` for rails, feel numbers, and non-goals.
+## Working on it
+
+```bash
+npm test            # node:test, every *.test.js under src/ and api/
+npm run build       # vite production build
+npm run format      # prettier --write (format:check in CI)
+```
+
+Tests sit next to the code they cover. The game logic (`src/game`, `src/config`,
+`src/lib`, `api/_lib`) has no DOM or Three.js dependency and is tested directly;
+`src/game/game.test.js` drives the whole state machine with stubbed world and HUD.
+
+See `PLAN.md` for rails, feel numbers, and non-goals, and `AGENTS.md` for the
+module map and conventions.

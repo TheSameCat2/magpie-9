@@ -1,0 +1,175 @@
+@media (max-width: 640px) {
+  .help-card {
+    padding: 22px 18px 24px;
+  }
+  .help-row,
+  .help-orbs {
+    grid-template-columns: 1fr;
+  }
+  .help-row .help-fig {
+    margin: 0 auto;
+  }
+  .help-binds {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+}
+
+@media (max-height: 480px) {
+  #score {
+    font-size: 32px;
+    top: calc(14px + var(--sat));
+    left: calc(20px + var(--sal));
+  }
+  #scoreLabel {
+    top: calc(50px + var(--sat));
+    left: calc(22px + var(--sal));
+    font-size: 9px;
+  }
+  #best {
+    font-size: 12px;
+    top: calc(16px + var(--sat));
+    right: calc(20px + var(--sar));
+  }
+  #lives {
+    font-size: 14px;
+    top: calc(36px + var(--sat));
+    right: calc(20px + var(--sar));
+  }
+  #sys {
+    top: calc(42px + var(--sat));
+    right: calc(14px + var(--sar));
+  }
+  #title {
+    font-size: clamp(22px, 8vh, 40px);
+    letter-spacing: 0.16em;
+  }
+  #prompt {
+    font-size: 11px;
+    margin-top: 12px;
+  }
+  #sub {
+    font-size: 10px;
+  }
+  #vel {
+    bottom: calc(12px + var(--sab));
+    left: calc(20px + var(--sal));
+  }
+  #velBar {
+    bottom: calc(8px + var(--sab));
+    left: calc(20px + var(--sal));
+  }
+  #keys {
+    bottom: calc(12px + var(--sab));
+    right: calc(20px + var(--sar));
+  }
+  #zones .zone {
+    padding-bottom: calc(42px + var(--sab));
+    font-size: 10px;
+  }
+  #menu {
+    margin-top: 12px;
+    gap: 4px;
+  }
+  #menu button {
+    min-height: 38px;
+    padding: 4px 22px;
+    font-size: 11px;
+  }
+  #entry {
+    margin-top: 10px;
+  }
+  .slot button {
+    width: 38px;
+    height: 32px;
+  }
+  .slot b {
+    font-size: 24px;
+  }
+  #btnEnter {
+    min-height: 38px;
+    margin-top: 10px;
+  }
+  #scoresList {
+    margin-top: 10px;
+    font-size: 12px;
+    gap: 3px;
+  }
+  .screen dl {
+    margin-top: 12px;
+    row-gap: 5px;
+    font-size: 11px;
+  }
+  .screen .overlay-sub {
+    margin-top: 12px;
+  }
+  #lesson svg {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 8px;
+  }
+  #lesson .lesson p {
+    margin-top: 8px;
+    font-size: 11px;
+    line-height: 1.55;
+  }
+  #exit {
+    bottom: calc(10px + var(--sab));
+    right: calc(20px + var(--sar));
+  }
+  #pause {
+    top: calc(68px + var(--sat));
+    left: calc(20px + var(--sal));
+    min-height: 36px;
+  }
+  body[data-mode='tutorial'] #pause {
+    top: calc(38px + var(--sat));
+  }
+  #tutorialTag {
+    top: calc(16px + var(--sat));
+    left: calc(22px + var(--sal));
+  }
+  #help {
+    padding: calc(8px + var(--sat)) calc(10px + var(--sar)) calc(8px + var(--sab)) calc(10px + var(--sal));
+  }
+  .help-card {
+    padding: 16px 22px 20px;
+  }
+  .help-sec {
+    margin-top: 14px;
+  }
+  .help-h {
+    margin-bottom: 8px;
+  }
+  .help-fig-flight {
+    width: 150px;
+    height: 93px;
+  }
+  .help-fig-phone {
+    width: 200px;
+    height: 106px;
+  }
+  .help-orb-fig {
+    width: 72px;
+    height: 72px;
+  }
+  .help-list,
+  .help-orb-text p {
+    font-size: 11px;
+  }
+  #help .fs-btn {
+    margin-top: 16px;
+    min-height: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #hud *,
+  #hud *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  #toast.show {
+    opacity: 1;
+  }
+}

@@ -3,16 +3,8 @@ import assert from 'node:assert/strict'
 
 process.env.BOARD_SECRET = process.env.BOARD_SECRET || 'test-secret'
 
-const {
-  challengeBoardKey,
-  challengeSeed,
-  issueToken,
-  playedMs,
-  rankTime,
-  timeFromRank,
-  toBoard,
-  verify,
-} = await import('./board.js')
+const { challengeBoardKey, playedMs, rankTime, timeFromRank, toBoard } = await import('./board.js')
+const { challengeSeed, issueToken, verify } = await import('./token.js')
 
 test('endless tokens still verify as run mode', () => {
   const token = issueToken()

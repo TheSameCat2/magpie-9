@@ -1,13 +1,16 @@
-import { CHALLENGE_TARGET, utcDay } from '../src/rules.js'
-import { challengeSeed, clientIp, issueToken, json, runRatelimit, secret } from './_lib/board.js'
+import { CHALLENGE_TARGET } from '../src/config/rules.js'
+import { utcDay } from '../src/lib/time.js'
+import { clientIp, fail, json } from './_lib/http.js'
+import { runRatelimit } from './_lib/redis.js'
+import { challengeSeed, issueToken, secret } from './_lib/token.js'
 
 export async function POST(request) {
-  if (!secret()) return json({ error: 'BOARD OFFLINE' }, 503)
+  if (!secret()) return fail('BOARD OFFLINE', 503)
   try {
     const { success } = await runRatelimit().limit(clientIp(request))
-    if (!success) return json({ error: 'SLOW DOWN' }, 429)
+    if (!success) return fail('SLOW DOWN', 429)
   } catch {
-    return json({ error: 'BOARD OFFLINE' }, 503)
+    return fail('BOARD OFFLINE', 503)
   }
 
   let mode = 'run'
@@ -15,7 +18,7 @@ export async function POST(request) {
     const body = await request.json()
     if (body?.mode === 'challenge') mode = 'challenge'
   } catch {
-    // Empty or non-JSON body is an endless run, matching the original POST.
+    // Empty or non-JSON body is an endless run.
   }
 
   if (mode === 'challenge') {

@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { BIRD_RADIUS, BEST_KEY, SHARED, THEME } from './theme.js'
+import { BIRD_HIT, BEST_KEY, SHARED, THEME } from './theme.js'
 import {
   BASE_SPEED,
   CHALLENGE_TARGET,
@@ -699,7 +699,7 @@ export function createGame({
       shuntLeft -= 1
       shuntSpent = shuntLeft === 0
     }
-    const margin = passMargin(bird.pos, BIRD_RADIUS, obs)
+    const margin = passMargin(bird.pos, BIRD_HIT, obs)
     const close = margin < NEAR_MISS
     const milestone = !tutorial() && !challenge() && score % SECTOR === 0
 
@@ -897,8 +897,8 @@ export function createGame({
         const dz = speed * dt
         bird.updatePlay(dt, input, dz)
         scrollWorld(dz, dt)
-        const hitObs = obstacles.hits(bird.pos, BIRD_RADIUS)
-        if (!god && (hitTunnel(bird.pos, BIRD_RADIUS) || hitObs)) {
+        const hitObs = obstacles.hits(bird.pos, BIRD_HIT)
+        if (!god && (hitTunnel(bird.pos, BIRD_HIT) || hitObs)) {
           if (lives > 1) spare(hitObs)
           else die()
         } else {
@@ -910,7 +910,7 @@ export function createGame({
           }
           if (state === 'playing') {
             spawnAhead()
-            if (powerups.collect(bird.pos, BIRD_RADIUS, collected)) {
+            if (powerups.collect(bird.pos, BIRD_HIT, collected)) {
               for (const orb of collected) onOrb(orb)
             }
             const next = obstacles.nearestAhead()

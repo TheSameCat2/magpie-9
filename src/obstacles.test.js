@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { BIRD_RADIUS, R } from './theme.js'
+import { BIRD_HIT, R } from './theme.js'
 import { hexOutside, hitObstacle } from './collision.js'
 import { difficulty } from './game.js'
 import { HOLE_W, HOLE_H, layoutGate, pickType, SLED_MAX_AMP, SLED_MIN_PERIOD } from './obstacles.js'
@@ -23,24 +23,34 @@ test('pylons always hit a bird sitting on the conduit centre', () => {
   for (const sideRand of [0, 0.49, 0.5, 0.99]) {
     const layout = layoutGate('pylon', 1, () => sideRand)
     const obs = { type: 'pylon', z: 0, depth: 0.42, side: layout.side, edge: layout.edge }
-    assert.equal(hitObstacle(centred(), BIRD_RADIUS, obs), true, `side=${layout.side}`)
+    assert.equal(hitObstacle(centred(), BIRD_HIT, obs), true, `side=${layout.side}`)
   }
 })
 
-test('most post-tutorial bulkheads hit a bird that never strafes', () => {
+test('early post-tutorial bulkheads leave the hull a centre path', () => {
   const rand = mulberry32(20260911)
+  const offset = difficulty(2).offset
   let hits = 0
-  let n = 0
-  for (let score = 2; score <= 20; score++) {
-    const offset = difficulty(score).offset
-    for (let i = 0; i < 40; i++) {
-      const layout = layoutGate('bulkhead', offset, rand)
-      const obs = { type: 'bulkhead', z: 0, depth: 0.3, hole: layout.hole }
-      n += 1
-      if (hitObstacle(centred(), BIRD_RADIUS, obs)) hits += 1
-    }
+  const n = 80
+  for (let i = 0; i < n; i++) {
+    const layout = layoutGate('bulkhead', offset, rand)
+    const obs = { type: 'bulkhead', z: 0, depth: 0.3, hole: layout.hole }
+    if (hitObstacle(centred(), BIRD_HIT, obs)) hits += 1
   }
-  assert.ok(hits / n >= 0.6, `centred-hit rate ${hits}/${n} = ${(hits / n).toFixed(3)}`)
+  assert.equal(hits, 0, `centred-hit rate ${hits}/${n}`)
+})
+
+test('capped-offset bulkheads still punish a bird that never strafes', () => {
+  const rand = mulberry32(20260911)
+  const offset = difficulty(20).offset
+  let hits = 0
+  const n = 200
+  for (let i = 0; i < n; i++) {
+    const layout = layoutGate('bulkhead', offset, rand)
+    const obs = { type: 'bulkhead', z: 0, depth: 0.3, hole: layout.hole }
+    if (hitObstacle(centred(), BIRD_HIT, obs)) hits += 1
+  }
+  assert.ok(hits / n >= 0.4, `centred-hit rate ${hits}/${n} = ${(hits / n).toFixed(3)}`)
 })
 
 test('every sampled bulkhead hole stays inside the hex', () => {
@@ -67,7 +77,7 @@ test('every sampled bulkhead hole stays inside the hex', () => {
 test('tutorial offset 0 leaves the centre lane open', () => {
   const layout = layoutGate('bulkhead', 0, () => 0.3)
   const obs = { type: 'bulkhead', z: 0, depth: 0.3, hole: layout.hole }
-  assert.equal(hitObstacle(centred(), BIRD_RADIUS, obs), false)
+  assert.equal(hitObstacle(centred(), BIRD_HIT, obs), false)
 })
 
 test('tutorial offset 0 centres the laser band; runs still scatter it', () => {

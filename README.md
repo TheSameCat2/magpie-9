@@ -9,7 +9,7 @@ npm run dev
 ```
 
 Open the printed local URL. Space / click flaps. A D (or arrows) strafe.
-M mutes, B shows the collider sphere.
+M mutes, B shows the body hitbox.
 
 ## Menu
 

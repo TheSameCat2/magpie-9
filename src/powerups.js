@@ -138,11 +138,11 @@ export function createPowerups(scene) {
     }
   }
 
-  function collect(pos, radius, out) {
+  function collect(pos, hit, out) {
     out.length = 0
     for (const orb of pool) {
       if (!orb.active) continue
-      if (hitOrb(pos, radius, orb)) {
+      if (hitOrb(pos, hit, orb)) {
         deactivate(orb)
         out.push(orb)
       }

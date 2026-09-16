@@ -31,7 +31,16 @@ export const THEME = {
 export const R = 4.2
 export const SEG_LEN = 10
 export const SEG_COUNT = 8
-export const BIRD_RADIUS = 0.5
+// Hull box in mesh-local units. World hit extents are half these after scale.
+export const BIRD_VISUAL_SCALE = 1.35
+export const BIRD_BODY_W = 0.42
+export const BIRD_BODY_H = 0.3
+export const BIRD_BODY_D = 0.74
+export const BIRD_HIT = {
+  x: (BIRD_BODY_W * BIRD_VISUAL_SCALE) / 2,
+  y: (BIRD_BODY_H * BIRD_VISUAL_SCALE) / 2,
+  z: (BIRD_BODY_D * BIRD_VISUAL_SCALE) / 2,
+}
 export const VERTEX_R = R / Math.cos(Math.PI / 6)
 export const BEST_KEY = 'magpie9.best'
 export const MUTE_KEY = 'magpie9.mute'

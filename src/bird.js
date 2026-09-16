@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { BIRD_RADIUS, R, SHARED, THEME } from './theme.js'
+import { BIRD_BODY_D, BIRD_BODY_H, BIRD_BODY_W, BIRD_VISUAL_SCALE, R, SHARED, THEME } from './theme.js'
 import { FRAME_VERT, THRUST_FRAG, TRAIL_VERT, TRAIL_FRAG } from './shaders.js'
 
 const TRAIL_N = 16
@@ -97,10 +97,9 @@ function makeTrail(scene, color) {
 export function createBird(scene, materials) {
   const group = new THREE.Group()
   group.name = 'magpie'
-  const visualScale = 1.35
-  group.scale.setScalar(visualScale)
+  group.scale.setScalar(BIRD_VISUAL_SCALE)
 
-  const body = box(0.42, 0.3, 0.74, materials.birdBody)
+  const body = box(BIRD_BODY_W, BIRD_BODY_H, BIRD_BODY_D, materials.birdBody)
   group.add(body)
 
   const belly = box(0.32, 0.14, 0.52, materials.birdBelly)
@@ -187,7 +186,7 @@ export function createBird(scene, materials) {
   group.add(thrustLight)
 
   const collider = new THREE.Mesh(
-    new THREE.SphereGeometry(BIRD_RADIUS / visualScale, 16, 12),
+    new THREE.BoxGeometry(BIRD_BODY_W, BIRD_BODY_H, BIRD_BODY_D),
     new THREE.MeshBasicMaterial({ color: 0x3de0ff, wireframe: true, transparent: true, opacity: 0.7 }),
   )
   collider.visible = false

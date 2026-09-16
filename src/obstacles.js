@@ -531,10 +531,10 @@ export function createObstacles(scene, materials) {
     return out.length
   }
 
-  function hits(pos, radius) {
+  function hits(pos, hit) {
     for (const obs of pool) {
       if (!obs.active) continue
-      if (hitObstacle(pos, radius, obs)) return obs
+      if (hitObstacle(pos, hit, obs)) return obs
     }
     return null
   }

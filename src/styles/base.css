@@ -1,0 +1,112 @@
+:root {
+  --void: #07080c;
+  --ice: #3de0ff;
+  --mag: #ff2a6d;
+  --ink: #dce8f0;
+  --muted: #8a97a6;
+  --sodium: #e8a030;
+  --gold: #ffd166;
+  --green: #3dff8a;
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  height: 100dvh;
+  background: var(--void);
+  overflow: hidden;
+  font-family: 'Share Tech Mono', ui-monospace, monospace;
+  color: var(--ink);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  overscroll-behavior: none;
+  cursor: crosshair;
+}
+canvas {
+  display: block;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+#hud::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.025) 0px,
+    rgba(255, 255, 255, 0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+#hud::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 120px 30px rgba(7, 8, 12, 0.85);
+  pointer-events: none;
+}
+
+.corner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(61, 224, 255, 0.35);
+  opacity: 0.8;
+}
+.corner.tl {
+  top: calc(18px + var(--sat));
+  left: calc(18px + var(--sal));
+  border-right: 0;
+  border-bottom: 0;
+}
+.corner.tr {
+  top: calc(18px + var(--sat));
+  right: calc(18px + var(--sar));
+  border-left: 0;
+  border-bottom: 0;
+}
+.corner.bl {
+  bottom: calc(18px + var(--sab));
+  left: calc(18px + var(--sal));
+  border-right: 0;
+  border-top: 0;
+}
+.corner.br {
+  bottom: calc(18px + var(--sab));
+  right: calc(18px + var(--sar));
+  border-left: 0;
+  border-top: 0;
+}
+
+/* Every HUD button is clickable, inherits the mono face, and shares one focus ring. */
+#hud button {
+  pointer-events: auto;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#hud button:focus-visible {
+  outline: 1px solid var(--ice);
+  outline-offset: 2px;
+}
+
+.hidden {
+  display: none !important;
+}

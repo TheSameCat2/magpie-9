@@ -1,56 +1,34 @@
-import * as THREE from 'three'
-import { THEME, SHARED, createFog, createMaterials } from './theme.js'
-import { createInput } from './input.js'
-import { createBird } from './bird.js'
-import { createTunnel } from './tunnel.js'
-import { createObstacles } from './obstacles.js'
-import { createPowerups } from './powerups.js'
-import { createAudio } from './audio.js'
-import { createFx } from './fx.js'
-import { createPostFx, QUALITY } from './postfx.js'
-import { createScreen } from './screen.js'
-import { createGame } from './game.js'
+// Bootstrap: build the renderer and world, wire platform services into the
+// game, and run the frame loop. Everything interesting lives in the modules.
 
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-const coarse =
-  window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0
+import { createInput } from './platform/input.js'
+import { createScreen } from './platform/screen.js'
+import { createRenderer, createCamera, createScene } from './render/scene.js'
+import { createMaterials } from './render/materials.js'
+import { createPostFx } from './render/postfx.js'
+import { QUALITY, createQualityGovernor, initialQuality } from './render/quality.js'
+import { UNIFORMS } from './render/uniforms.js'
+import { createBird } from './world/bird.js'
+import { createTunnel } from './world/tunnel.js'
+import { createGates } from './world/gates/index.js'
+import { createPowerups } from './world/powerups.js'
+import { createFx } from './world/fx.js'
+import { createAudio } from './audio/index.js'
+import { createGame } from './game/index.js'
+
+/** Frame dt is clamped so a hitch or a backgrounded tab never teleports the world. */
+const MAX_FRAME_DT = 0.05
+
 const params = new URLSearchParams(location.search)
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+const coarse = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-renderer.setSize(window.innerWidth, window.innerHeight, false)
-renderer.outputColorSpace = THREE.SRGBColorSpace
-renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.05
-renderer.setClearColor(THEME.void, 1)
+const renderer = createRenderer()
 document.body.appendChild(renderer.domElement)
-renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault())
-
-const scene = new THREE.Scene()
-scene.fog = createFog()
-scene.background = new THREE.Color(THEME.void)
-
-const camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 180)
-camera.position.set(0, 0.55, 6.4)
-scene.add(camera)
-
-const hemi = new THREE.HemisphereLight(0xa8b4c8, 0x141820, 1.15)
-scene.add(hemi)
-
-const key = new THREE.DirectionalLight(0xffe0c0, 0.8)
-key.position.set(2.2, 3.4, 7)
-scene.add(key)
-
-// Sits well ahead of the lens so plates sweeping past the camera don't blow out.
-const lamp = new THREE.PointLight(0xd7e4ff, 6, 32, 1.15)
-lamp.position.set(0, 0.2, -2.8)
-camera.add(lamp)
-
-const shaft = new THREE.PointLight(0x3de0ff, 2.2, 40, 1.5)
-shaft.position.set(0, 0, -14)
-scene.add(shaft)
-
+const camera = createCamera()
+const scene = createScene(camera)
 const materials = createMaterials()
+
 const audio = createAudio()
 const screen = createScreen()
 let game
@@ -63,24 +41,31 @@ const input = createInput({
     game?.setInputMode(mode)
   },
 })
+
 const bird = createBird(scene, materials)
 const tunnel = createTunnel(scene, materials)
-const obstacles = createObstacles(scene, materials)
+const gates = createGates(scene, materials)
 const powerups = createPowerups(scene)
 const fx = createFx(scene)
 const postfx = createPostFx(renderer, scene, camera, { reduceMotion })
 
-// ?q=0|1|2 pins a quality level; coarse pointers start one rung down.
-let quality = params.has('q') ? Number(params.get('q')) : coarse ? 1 : QUALITY.length - 1
-if (!Number.isFinite(quality)) quality = QUALITY.length - 1
-quality = THREE.MathUtils.clamp(quality, 0, QUALITY.length - 1)
-postfx.applyQuality(quality)
-SHARED.uPixelRatio.value = renderer.getPixelRatio()
+const quality = createQualityGovernor({
+  level: initialQuality(params, coarse),
+  pinned: params.has('q'),
+  onChange(level) {
+    postfx.applyQuality(level)
+    applySize()
+  },
+})
+postfx.applyQuality(quality.level)
+UNIFORMS.uPixelRatio.value = renderer.getPixelRatio()
+
+let last = performance.now()
 
 game = createGame({
   bird,
   tunnel,
-  obstacles,
+  gates,
   powerups,
   input,
   camera,
@@ -89,6 +74,7 @@ game = createGame({
   postfx,
   screen,
   reduceMotion,
+  // Skip the frozen interval so the first live frame is not one giant step.
   onResume() {
     last = performance.now()
   },
@@ -107,45 +93,23 @@ function applySize() {
   if (w < 1 || h < 1) return
   camera.aspect = w / h
   camera.updateProjectionMatrix()
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[quality].dpr))
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[quality.level].dpr))
   renderer.setSize(w, h, false)
   postfx.setSize(w, h)
-  SHARED.uPixelRatio.value = renderer.getPixelRatio()
+  UNIFORMS.uPixelRatio.value = renderer.getPixelRatio()
 }
 
 new ResizeObserver(applySize).observe(renderer.domElement)
 applySize()
 
-let last = performance.now()
-let frameAvg = 16
-let slowFor = 0
-let warmup = 3
-
-function adapt(frameMs, dt) {
-  frameAvg += (Math.min(frameMs, 100) - frameAvg) * 0.08
-  if (warmup > 0) {
-    warmup -= dt
-    return
-  }
-  if (frameAvg > 19.5) slowFor += dt
-  else slowFor = 0
-  if (slowFor > 1.5 && quality > 0 && !params.has('q')) {
-    quality -= 1
-    slowFor = 0
-    warmup = 2
-    postfx.applyQuality(quality)
-    applySize()
-  }
-}
-
 function frame(now) {
   const frameMs = now - last
-  const dt = Math.min(frameMs / 1000, 0.05)
+  const dt = Math.min(frameMs / 1000, MAX_FRAME_DT)
   last = now
   game.update(dt)
   postfx.render()
   input.endFrame()
-  adapt(frameMs, dt)
+  quality.observe(frameMs, dt)
   requestAnimationFrame(frame)
 }
 requestAnimationFrame(frame)

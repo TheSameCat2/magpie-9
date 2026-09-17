@@ -29,6 +29,7 @@ api/                   Vercel functions; may import config/ and lib/ only
 | `world.js`    | Conduit dimensions, bird hull size, `CAMERA`, `RECYCLE_Z`, fog density.   |
 | `rules.js`    | Gameplay: speeds, spacing, sectors, orb odds, `difficulty()`, run floors. |
 | `tutorial.js` | Tutorial-mode overrides for speed, gate order, and orb order.             |
+| `fx.js`       | Spark colour ramp per sector, `sparkPhase()`, afterburner score.          |
 
 Shared with the API: `rules.js` is imported by `api/scores.js` to reject
 impossible times, so keep it free of browser globals.
@@ -89,6 +90,7 @@ toast), `screens` (menu, end card, entry, credits, scores, lessons),
 | `run.js`        | Per-session numbers and scoring rules (`clearGate`, `engageShunt`, `spendLife`).        |
 | `hold.js`       | Every way a run freezes: jump-to-begin, pause menu + countdown, lesson, rotate, hidden. |
 | `spawner.js`    | Fills the horizon with gates and drops orbs per mode.                                   |
+| `sparks.js`     | Per-frame gate-edge sparks in the sector colour and the afterburner ramp.               |
 | `scoreboard.js` | Board cache, SCORES screen painting, initials entry, submit.                            |
 | `camera.js`     | Follow/bank/shake/FOV rig.                                                              |
 | `clock.js`      | Wall-clock run timer that excludes holds.                                               |

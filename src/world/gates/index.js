@@ -4,7 +4,7 @@ import { RECYCLE_Z } from '../../config/world.js'
 import { clamp01 } from '../../lib/math.js'
 import { hitObstacle } from '../collision.js'
 import { GATE_COLOR, configureGate, createGateSlot, placeSledHatch } from './slot.js'
-import { HOLE_H, HOLE_W, layoutGate, pickGateType } from './layout.js'
+import { HOLE_H, HOLE_W, layoutGate, openingShape, pickGateType } from './layout.js'
 
 export { GATE_COLOR } from './slot.js'
 export * from './layout.js'
@@ -221,5 +221,24 @@ export function createGates(scene, materials) {
     return shape
   }
 
-  return { reset, ensureAhead, scroll, collectPassed, celebrate, burstShape, hits, nearestAhead }
+  /** The full opening perimeter of a gate, for continuous edge sparks; writes into `shape`. */
+  function edgeShape(gate, shape) {
+    return openingShape(gate, shape)
+  }
+
+  return {
+    reset,
+    ensureAhead,
+    scroll,
+    collectPassed,
+    celebrate,
+    burstShape,
+    edgeShape,
+    hits,
+    nearestAhead,
+    /** Every pooled slot, live or not; iterate and check `active` rather than copying. */
+    get slots() {
+      return pool
+    },
+  }
 }

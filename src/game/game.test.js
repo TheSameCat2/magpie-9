@@ -169,9 +169,13 @@ function harness(menuItem = 'new', god = true, api) {
     x: 0,
     y: 0,
     bank: 0,
+    vx: 0,
+    thrustPulse: 0,
     pos: { x: 0, y: 0, z: 0 },
+    exhaust: { x: 0, y: 0, z: 0 },
     flaps: 0,
     reset() {},
+    setAfterburner() {},
     flap() {
       this.flaps += 1
     },
@@ -199,6 +203,7 @@ function harness(menuItem = 'new', god = true, api) {
   const gates = stub()
   gates.hits = () => null
   gates.collectPassed = () => false
+  gates.slots = []
   const screen = {
     needsRotate: false,
     hidden: false,

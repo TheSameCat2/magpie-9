@@ -4,7 +4,17 @@ import { BIRD_HIT, TUNNEL_APOTHEM } from '../../config/world.js'
 import { difficulty } from '../../config/rules.js'
 import { createRng } from '../../lib/rng.js'
 import { hexOutside, hitObstacle } from '../collision.js'
-import { HOLE_W, HOLE_H, layoutGate, pickGateType, SLED_MAX_AMP, SLED_MIN_PERIOD } from './layout.js'
+import {
+  HOLE_W,
+  HOLE_H,
+  LASER_GAP,
+  OPENING_EDGES,
+  layoutGate,
+  openingShape,
+  pickGateType,
+  SLED_MAX_AMP,
+  SLED_MIN_PERIOD,
+} from './layout.js'
 
 function centred() {
   return { x: 0, y: 0, z: 0 }
@@ -137,6 +147,43 @@ test('pickGateType still returns sleds regardless of score once unlocked', () =>
     pickGateType(20, 20, () => 0),
     'sled',
   )
+})
+
+test('opening shape traces the hatch rect and follows a sled hatch live', () => {
+  const shape = {}
+  const gate = { type: 'sled', hole: { x: 0.4, y: -0.3, w: HOLE_W, h: HOLE_H } }
+  openingShape(gate, shape)
+  assert.deepEqual(shape, {
+    x: 0.4,
+    y: -0.3,
+    hw: HOLE_W / 2,
+    hh: HOLE_H / 2,
+    edges: OPENING_EDGES.all,
+    nx: 0,
+  })
+  gate.hole.x = 1.1
+  assert.equal(openingShape(gate, shape).x, 1.1)
+})
+
+test('opening shape spans the conduit for a laser band, horizontal edges only', () => {
+  const shape = openingShape({ type: 'laser-bar', gapY: 0.7, gapH: LASER_GAP }, {})
+  assert.equal(shape.x, 0)
+  assert.equal(shape.y, 0.7)
+  assert.equal(shape.hh, LASER_GAP / 2)
+  assert.ok(shape.hw >= TUNNEL_APOTHEM)
+  assert.equal(shape.edges, OPENING_EDGES.horizontal)
+})
+
+test('opening shape for a pylon is its open edge with the normal facing the gap', () => {
+  for (const sideRand of [0, 0.99]) {
+    const layout = layoutGate('pylon', 1, () => sideRand)
+    const shape = openingShape({ type: 'pylon', side: layout.side, edge: layout.edge }, {})
+    assert.equal(shape.x, layout.edge)
+    assert.equal(shape.hw, 0)
+    assert.equal(shape.edges, OPENING_EDGES.vertical)
+    assert.equal(shape.nx, layout.side === 'left' ? 1 : -1, `side=${layout.side}`)
+    assert.ok(hexOutside(shape.x, shape.hh, TUNNEL_APOTHEM) === false)
+  }
 })
 
 test('a sled is never followed directly by another sled', () => {

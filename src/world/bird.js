@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { THEME } from '../config/theme.js'
+import { SPARK_RAMP } from '../config/fx.js'
 import { BIRD_BODY_D, BIRD_BODY_H, BIRD_BODY_W, BIRD_VISUAL_SCALE, TUNNEL_APOTHEM } from '../config/world.js'
 import { UNIFORMS } from '../render/uniforms.js'
 import { FRAME_VERT, THRUST_FRAG, TRAIL_VERT, TRAIL_FRAG } from '../render/shaders.js'
@@ -17,6 +18,8 @@ const DEAD_GRAVITY = -12
 const TRAIL_N = 16
 const DEAD_WALL = TUNNEL_APOTHEM - 0.65
 const DEAD_FLOOR = -DEAD_WALL
+/** How much longer the thruster cone burns at full afterburner. */
+const BURNER_STRETCH = 0.9
 const _tip = new THREE.Vector3()
 
 function box(w, h, d, material) {
@@ -209,10 +212,15 @@ export function createBird(scene, materials) {
   const trailR = createTrail(scene, THEME.mag)
 
   const pos = new THREE.Vector3()
+  /** World position of the thruster, refreshed with the trails; the afterburner streams from here. */
+  const exhaust = new THREE.Vector3()
+  const thrustCold = new THREE.Color(THEME.ice)
+  const thrustHot = new THREE.Color(SPARK_RAMP[SPARK_RAMP.length - 1])
   let vx = 0
   let vy = 0
   let wingPulse = 0
   let thrustPulse = 0
+  let afterburner = 0
   let t = 0
   const deadSpin = new THREE.Vector3()
 
@@ -223,6 +231,7 @@ export function createBird(scene, materials) {
 
   function syncTrails(dz, intensity) {
     group.updateMatrixWorld()
+    thruster.cone.getWorldPosition(exhaust)
     let tip = tipWorld(leftWing)
     trailL.push(tip.x, tip.y, tip.z, dz)
     tip = tipWorld(rightWing)
@@ -237,11 +246,13 @@ export function createBird(scene, materials) {
     vy = 0
     wingPulse = 0
     thrustPulse = 0
+    afterburner = 0
     t = 0
     group.position.set(0, 0, 0)
     group.rotation.set(0, 0, 0)
     deadSpin.set(0, 0, 0)
     group.updateMatrixWorld()
+    thruster.cone.getWorldPosition(exhaust)
     let tip = tipWorld(leftWing)
     trailL.reset(tip.x, tip.y, tip.z)
     tip = tipWorld(rightWing)
@@ -258,6 +269,7 @@ export function createBird(scene, materials) {
 
   function kill() {
     deadSpin.set((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 6)
+    afterburner = 0
     thruster.material.uniforms.uIntensity.value = 0
     thruster.light.intensity = 0
     thruster.cone.visible = false
@@ -274,11 +286,20 @@ export function createBird(scene, materials) {
     leftWing.pivot.rotation.z = angle
     rightWing.pivot.rotation.z = -angle
 
-    const glow = 0.55 + thrustPulse * 1.4 + Math.sin(t * 23) * 0.05
+    const glow = 0.55 + thrustPulse * 1.4 + Math.sin(t * 23) * 0.05 + afterburner * 0.5
     thruster.cone.visible = true
-    thruster.cone.scale.set(1 + thrustPulse * 0.3, 1 + thrustPulse * 1.3, 1 + thrustPulse * 0.3)
+    // The cone's local Y is its length (rotated onto the conduit axis).
+    const girth = 1 + thrustPulse * 0.3 + afterburner * 0.25
+    thruster.cone.scale.set(girth, 1 + thrustPulse * 1.3 + afterburner * BURNER_STRETCH, girth)
     thruster.material.uniforms.uIntensity.value = glow * 1.6
-    thruster.light.intensity = 0.8 + thrustPulse * 2.4
+    thruster.material.uniforms.uColor.value.copy(thrustCold).lerp(thrustHot, afterburner)
+    thruster.light.color.copy(thruster.material.uniforms.uColor.value)
+    thruster.light.intensity = 0.8 + thrustPulse * 2.4 + afterburner * 1.5
+  }
+
+  /** 0..1 ignition level; the game ramps it once the run passes the afterburner score. */
+  function setAfterburner(level) {
+    afterburner = THREE.MathUtils.clamp(level, 0, 1)
   }
 
   /** Menu / held bob: gravity off, gentle sine. */
@@ -353,9 +374,15 @@ export function createBird(scene, materials) {
     get bank() {
       return group.rotation.z
     },
+    /** Flap thrust pulse, 1 on the flap frame decaying to 0. */
+    get thrustPulse() {
+      return thrustPulse
+    },
+    exhaust,
     reset,
     flap,
     kill,
+    setAfterburner,
     updateIdle,
     updatePlay,
     updateDead,

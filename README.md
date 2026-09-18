@@ -55,8 +55,8 @@ it is open.
 A slower practice run (fixed 9 u/s, wider spacing, no ramp, no sectors). There
 is no gate counter or best score. Hazards arrive centred and in a fixed order
 (bulkhead ×3, laser-bar ×2, pylon ×2, repeat) and every gate drops an orb,
-alternating damper and spare life, within half a unit of the conduit's centre. The first
-damper and the first spare you collect pause the run under an explainer card;
+rotating damper, spare life, and shunt, within half a unit of the conduit's centre. The first
+damper, spare, and shunt you collect each pause the run under an explainer card;
 tap to continue, then jump to resume. MENU (bottom right) or Esc leaves the
 tutorial at any time.
 

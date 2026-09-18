@@ -26,11 +26,13 @@ test('tutorial gates introduce every hazard in order, then repeat', () => {
   assert.equal(tutorialGateType(13), 'pylon')
 })
 
-test('tutorial orbs alternate damper and spare life on every gate', () => {
+test('tutorial orbs rotate through damper, spare life, and shunt on every gate', () => {
   assert.equal(tutorialOrbType(0), 'damper')
   assert.equal(tutorialOrbType(1), 'life')
-  assert.equal(tutorialOrbType(2), 'damper')
-  assert.equal(tutorialOrbType(9), 'life')
+  assert.equal(tutorialOrbType(2), 'shunt')
+  assert.equal(tutorialOrbType(3), 'damper')
+  assert.equal(tutorialOrbType(5), 'shunt')
+  assert.equal(tutorialOrbType(9), 'damper')
 })
 
 test('tutorial dampers trim speed down to a floor', () => {

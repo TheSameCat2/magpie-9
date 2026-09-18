@@ -10,7 +10,11 @@ export const TUTORIAL_ORB_SPREAD = 0.5
 // next one shows up; after one lap the sequence simply repeats.
 const GATE_ORDER = ['bulkhead', 'bulkhead', 'bulkhead', 'laser-bar', 'laser-bar', 'pylon', 'pylon']
 
-export const LESSONS = ['damper', 'life']
+// Orbs rotate through every type so the tutorial meets each one; the first
+// pickup of each pauses under an explainer card.
+const ORB_ORDER = ['damper', 'life', 'shunt']
+
+export const LESSONS = ['damper', 'life', 'shunt']
 
 export function tutorialDifficulty() {
   return { speed: TUTORIAL_SPEED, spacing: TUTORIAL_SPACING, offset: 0 }
@@ -21,7 +25,7 @@ export function tutorialGateType(spawnIndex) {
 }
 
 export function tutorialOrbType(spawnIndex) {
-  return spawnIndex % 2 === 0 ? 'damper' : 'life'
+  return ORB_ORDER[spawnIndex % ORB_ORDER.length]
 }
 
 export function tutorialSpeed(slow) {

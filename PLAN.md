@@ -68,7 +68,7 @@ Pin exact `three` version. `WebGLRenderer`, `SRGBColorSpace`, `ACESFilmicToneMap
 
 **Start:** MENU, gravity off. NEW GAME (or TUTORIAL) drops into PLAYING held on jump-to-begin.
 
-**Tutorial:** fixed speed 9 (dampers trim 0.5 each, floor 7), spacing 34, offset 0, hazards in a fixed order, an orb after every gate alternating damper / life, no gate counter, no best, no sectors. First pickup of each orb type pauses under an explainer card; closing it holds the run on jump-to-resume.
+**Tutorial:** fixed speed 9 (dampers trim 0.5 each, floor 7; shunt overdrive adds its boost on top), spacing 34, offset 0, hazards in a fixed order, an orb after every gate rotating damper / life / shunt, no gate counter, no best, no sectors. First pickup of each orb type pauses under an explainer card; closing it holds the run on jump-to-resume.
 
 ## Tunnel
 

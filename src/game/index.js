@@ -377,8 +377,6 @@ export function createGame({
 
   function onOrbCollected(orb) {
     if (orb.type === 'shunt') {
-      // Tutorials never drop shunts; ignore one defensively if it arrives.
-      if (run.tutorial) return
       run.engageShunt()
       syncSpeed()
       orbPickup(orb, {
@@ -388,6 +386,7 @@ export function createGame({
         tone: 'ice',
         sound: audio.shunt,
       })
+      triggerLesson('shunt')
       return
     }
     if (orb.type === 'life') {

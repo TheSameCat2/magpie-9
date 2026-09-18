@@ -136,7 +136,8 @@ export function createRun({ startLives = 1 } = {}) {
      */
     recomputeSpeed({ withShunt = true } = {}) {
       if (run.tutorial) {
-        speed = tutorialSpeed(damperTrim)
+        const shunt = withShunt && shuntLeft > 0 ? SHUNT_SPEED : 0
+        speed = tutorialSpeed(damperTrim) + shunt
       } else {
         const shunt = withShunt && shuntLeft > 0 ? SHUNT_SPEED : 0
         speed = Math.max(BASE_SPEED, difficulty(score).speed - damperTrim + shunt)
@@ -152,7 +153,7 @@ export function createRun({ startLives = 1 } = {}) {
       gatesCleared += 1
       score += 1
       let shuntSpent = false
-      if (!run.tutorial && shuntLeft > 0) {
+      if (shuntLeft > 0) {
         score += 1
         shuntLeft -= 1
         shuntSpent = shuntLeft === 0

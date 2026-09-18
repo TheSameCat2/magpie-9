@@ -404,14 +404,23 @@ test('a spare hit burns the shunt charge', () => {
   assert.equal(h.game.shuntLeft, 0)
 })
 
-test('tutorial shunts are ignored without an explainer card', () => {
-  const { game, powerups, select, tap } = harness('tutorial')
+test('tutorial shunts engage overdrive behind an explainer card', () => {
+  const { game, powerups, gates, select, tap } = harness('tutorial')
   select()
   tap()
   collectOnce(powerups, { type: 'shunt', x: 0, y: 0, z: 0 })
   game.update(1 / 60)
+  assert.equal(game.shuntLeft, SHUNT_GATES)
+  assert.equal(game.lesson, 'shunt')
+  assert.equal(game.paused, true)
+  assert.equal(game.pauseReason, 'lesson')
+  tap()
+  tap()
+  assert.equal(game.paused, false)
+  gatePerFrame(gates)
+  for (let i = 0; i < SHUNT_GATES; i++) game.update(1 / 60)
   assert.equal(game.shuntLeft, 0)
-  assert.equal(game.lesson, null)
+  assert.equal(game.score, SHUNT_GATES * 2)
 })
 
 test('CHALLENGE waits for the daily course then holds', async () => {

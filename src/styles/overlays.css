@@ -26,11 +26,18 @@
   color: var(--green);
   text-shadow: 0 0 18px rgba(61, 255, 138, 0.55);
 }
+#lesson .lesson.shunt .overlay-title {
+  color: var(--ice);
+  text-shadow: 0 0 18px rgba(61, 224, 255, 0.55);
+}
 #lesson .lesson.damper svg {
   filter: drop-shadow(0 0 16px rgba(255, 209, 102, 0.6));
 }
 #lesson .lesson.life svg {
   filter: drop-shadow(0 0 16px rgba(61, 255, 138, 0.6));
+}
+#lesson .lesson.shunt svg {
+  filter: drop-shadow(0 0 16px rgba(61, 224, 255, 0.6));
 }
 #lesson .lesson p {
   margin: 14px 0 0;

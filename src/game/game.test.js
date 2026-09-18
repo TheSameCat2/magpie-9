@@ -653,6 +653,8 @@ test('CHALLENGE time excludes the begin wait and every pause, and the board hear
   assert.equal(game.extracted, true)
   assert.equal(game.extractTime, 5_000)
   assert.equal(game.state, 'entry')
+  advance(8_000)
+  assert.equal(game.extractTime, 5_000, 'typing initials must not move the extract clock')
   for (let i = 0; i < 3; i++) select()
   assert.equal(submitted.length, 1)
   assert.equal(submitted[0].token, 'challenge-token')

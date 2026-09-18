@@ -36,10 +36,11 @@ export function timeFromRank(z) {
 }
 
 /**
- * Challenge time actually played: wall-clock since the token minus the time
- * the client held the run. The client's claim is only sanity-checked here;
- * the physics floor in the score handler is what keeps it honest.
- * Returns null when the claim cannot be a real pause.
+ * Token-clock ceiling for a challenge extract: wall-clock since the token
+ * minus the time the client held the run. The ranked time is the client's
+ * frozen extract; this bound is what keeps a forged (too-fast) claim from
+ * beating a clock that has not existed long enough. Returns null when the
+ * pause claim cannot be a real hold.
  */
 export function playedMs(elapsedMs, pausedMs = 0) {
   const paused = pausedMs === undefined || pausedMs === null ? 0 : Number(pausedMs)

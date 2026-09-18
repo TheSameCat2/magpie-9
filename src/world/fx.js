@@ -18,11 +18,13 @@ const DUST_NEAR = 8
 const DUST_SPAN = 78
 
 /** Edge spark pops per second from a gate right in front of the bird at phase 0. */
-const EDGE_RATE = 70
+const EDGE_RATE = 110
 /** Rate, size, and speed growth of edge sparks per phase. */
-const EDGE_PHASE_GAIN = 0.28
+const EDGE_PHASE_GAIN = 0.35
 /** Depth over which a gate's edge sparks fade in as it approaches. */
-const EDGE_RANGE = 44
+const EDGE_RANGE = 54
+/** World-unit point size at phase 0; the shader still shrinks this with distance. */
+const EDGE_SIZE = 0.18
 /** Gates this far past the bird stop sparking (the frame fades over the same distance). */
 const EDGE_PASS_Z = 4.2
 /** Share of rectangular-opening sparks that fly outward across the plate rather than into the hole. */
@@ -270,7 +272,7 @@ export function createFx(scene) {
     const pops = rollCount(EDGE_RATE * gain * density * prox * dt)
     if (pops === 0) return
     const tint = rampColor(phase)
-    const popSize = phase >= 3 ? 4 : 3
+    const popSize = phase >= 3 ? 5 : 4
     for (let p = 0; p < pops; p++) {
       let px, py, dx, dy
       if (edges === OPENING_EDGES.vertical) {
@@ -293,17 +295,17 @@ export function createFx(scene) {
       for (let i = 0; i < n; i++) {
         const speed = (0.8 + Math.random() * 2.2) * (1 + phase * 0.15)
         const slide = (Math.random() - 0.5) * 1.6
-        _c.copy(tint).lerp(white, Math.random() * 0.25)
+        _c.copy(tint).lerp(white, Math.random() * 0.14)
         particles.emit(
           px,
           py,
           z,
           dx * speed + dy * slide,
           dy * speed + dx * slide,
-          0.6 + Math.random() * 2.4,
+          0.5 + Math.random() * 2.0,
           _c,
-          0.3 + Math.random() * 0.4,
-          (0.1 + Math.random() * 0.1) * (1 + phase * 0.1),
+          0.4 + Math.random() * 0.45,
+          (EDGE_SIZE + Math.random() * 0.16) * (1 + phase * 0.14),
           1.6,
         )
       }

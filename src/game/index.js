@@ -324,7 +324,9 @@ export function createGame({
       kind: run.extracted ? 'challenge' : 'run',
       score: run.extracted ? run.extractTime : run.score,
       token,
-      // The board clocks challenge runs from the token; it needs the held time to take it back off.
+      // Challenge rank is `score` (the frozen extract). pausedMs lets the
+      // server bound that claim against the token clock so a pause cannot
+      // shrink the ceiling below a real run.
       pausedMs: Math.round(clock.pausedMs),
     })
   }

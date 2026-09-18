@@ -18,6 +18,13 @@ import { secret, verify } from './_lib/token.js'
 
 /** Tolerance on the physics floor, for clock skew and a generous frame clamp. */
 const MIN_FACTOR = 0.9
+/**
+ * A claimed extract may beat the token clock by this much: the client starts
+ * its run clock from the server `now` in the token response, then reads
+ * `Date.now()` locally, so a fast machine clock plus a quick initials confirm
+ * can land slightly above `playedMs`.
+ */
+export const EXTRACT_SKEW_MS = 10_000
 /** Tokens older than this can no longer post. */
 const MAX_RUN_SECONDS = 86400
 
@@ -39,7 +46,7 @@ export async function GET(request) {
  * Validate a submission without touching Redis. Returns `{ error, status }`
  * or `{ initials, parsed, score, timeMs }` ready to write.
  */
-function validateSubmission(body, nowMs = Date.now()) {
+export function validateSubmission(body, nowMs = Date.now()) {
   const initials = normalizeInitials(body?.initials)
   if (!acceptableInitials(initials)) return { error: 'BAD INITIALS', status: 400 }
 
@@ -50,12 +57,16 @@ function validateSubmission(body, nowMs = Date.now()) {
   if (elapsedMs / 1000 > MAX_RUN_SECONDS) return { error: 'EXPIRED', status: 400 }
 
   if (parsed.mode === 'challenge') {
-    // Challenge rank is the time played, not the time since the token was
-    // issued: the client reports how long it held the run so pauses stop the clock.
-    const timeMs = playedMs(elapsedMs, body?.pausedMs ?? 0)
-    if (timeMs === null) return { error: 'BAD PAUSE', status: 400 }
+    // Rank the extract time frozen when the last gate cleared (what EXTRACT
+    // and initials entry already showed). The token clock minus holds is only
+    // a ceiling — initials entry happens after extract and must not be scored.
+    const wallMs = playedMs(elapsedMs, body?.pausedMs ?? 0)
+    if (wallMs === null) return { error: 'BAD PAUSE', status: 400 }
+    const timeMs = Math.round(Number(body?.score))
+    if (!Number.isSafeInteger(timeMs) || timeMs < 0) return { error: 'BAD SCORE', status: 400 }
     if (timeMs / 1000 < minChallengeSeconds(parsed.target) * MIN_FACTOR)
       return { error: 'TOO FAST', status: 400 }
+    if (timeMs > wallMs + EXTRACT_SKEW_MS) return { error: 'BAD TIME', status: 400 }
     return { initials, parsed, timeMs }
   }
 

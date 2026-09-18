@@ -11,14 +11,14 @@ import { OPENING_EDGES } from './gates/layout.js'
 // walls, and ambient dust. Nothing here allocates per frame.
 
 // Sized so the continuous streams cannot lap a live crash burst in the ring.
-const MAX_PARTICLES = 2048
+const MAX_PARTICLES = 4096
 const STREAKS = 140
 const DUST = 360
 const DUST_NEAR = 8
 const DUST_SPAN = 78
 
-/** Edge sparks per second from a gate right in front of the bird at phase 0. */
-const EDGE_RATE = 22
+/** Edge spark pops per second from a gate right in front of the bird at phase 0. */
+const EDGE_RATE = 70
 /** Rate, size, and speed growth of edge sparks per phase. */
 const EDGE_PHASE_GAIN = 0.28
 /** Depth over which a gate's edge sparks fade in as it approaches. */
@@ -28,9 +28,14 @@ const EDGE_PASS_Z = 4.2
 /** Share of rectangular-opening sparks that fly outward across the plate rather than into the hole. */
 const EDGE_OUTWARD = 0.7
 /** Afterburner particles per second at full level between flaps. */
-const BURNER_RATE = 110
+const BURNER_RATE = 140
 /** Extra afterburner density at the peak of a flap pulse. */
 const BURNER_PULSE_GAIN = 1.6
+/**
+ * Exhaust cancels this much of the scroll so the plume hangs behind the
+ * bird instead of streaking straight into the lens with the conduit.
+ */
+const BURNER_DRAG = 0.65
 
 const _c = new THREE.Color()
 const _tint = new THREE.Color()
@@ -240,6 +245,8 @@ export function createFx(scene) {
   let kick = 0
   /** Quality-ladder multiplier on the continuous streams. */
   let density = 1
+  /** Scroll speed seen by the last update; the afterburner leans on it. */
+  let scrollSpeed = 0
 
   function rampColor(phase) {
     return ramp[Math.min(Math.max(0, phase), ramp.length - 1)]
@@ -263,7 +270,7 @@ export function createFx(scene) {
     const pops = rollCount(EDGE_RATE * gain * density * prox * dt)
     if (pops === 0) return
     const tint = rampColor(phase)
-    const popSize = phase >= 3 ? 3 : 2
+    const popSize = phase >= 3 ? 4 : 3
     for (let p = 0; p < pops; p++) {
       let px, py, dx, dy
       if (edges === OPENING_EDGES.vertical) {
@@ -284,9 +291,9 @@ export function createFx(scene) {
       }
       const n = 1 + Math.floor(Math.random() * popSize)
       for (let i = 0; i < n; i++) {
-        const speed = (0.6 + Math.random() * 1.6) * (1 + phase * 0.15)
-        const slide = (Math.random() - 0.5) * 1.4
-        _c.copy(tint).lerp(white, Math.random() * 0.35)
+        const speed = (0.8 + Math.random() * 2.2) * (1 + phase * 0.15)
+        const slide = (Math.random() - 0.5) * 1.6
+        _c.copy(tint).lerp(white, Math.random() * 0.25)
         particles.emit(
           px,
           py,
@@ -295,8 +302,8 @@ export function createFx(scene) {
           dy * speed + dx * slide,
           0.6 + Math.random() * 2.4,
           _c,
-          0.28 + Math.random() * 0.34,
-          (0.045 + Math.random() * 0.05) * (1 + phase * 0.1),
+          0.3 + Math.random() * 0.4,
+          (0.1 + Math.random() * 0.1) * (1 + phase * 0.1),
           1.6,
         )
       }
@@ -314,19 +321,20 @@ export function createFx(scene) {
     const count = rollCount(BURNER_RATE * density * level * (1 + pulse * BURNER_PULSE_GAIN) * dt)
     if (count === 0) return
     const tint = rampColor(phase)
+    const drag = -scrollSpeed * BURNER_DRAG
     for (let i = 0; i < count; i++) {
       const core = Math.random()
       _c.copy(tint).lerp(white, 0.15 + core * 0.55)
       particles.emit(
-        x + (Math.random() - 0.5) * 0.14,
-        y + (Math.random() - 0.5) * 0.14,
+        x + (Math.random() - 0.5) * 0.16,
+        y + (Math.random() - 0.5) * 0.16,
         z + Math.random() * 0.2,
-        -vx * 0.25 + (Math.random() - 0.5) * 1.4,
-        (Math.random() - 0.5) * 1.4 - 0.4,
-        1.5 + Math.random() * 3.5,
+        -vx * 0.25 + (Math.random() - 0.5) * 1.6,
+        (Math.random() - 0.5) * 1.6 - 0.4,
+        drag * (0.7 + Math.random() * 0.5) + 1.5,
         _c,
-        0.22 + Math.random() * 0.28,
-        (0.07 + core * 0.08) * (0.7 + level * 0.3),
+        0.28 + Math.random() * 0.32,
+        (0.1 + core * 0.1) * (0.7 + level * 0.3),
         0,
       )
     }
@@ -429,6 +437,7 @@ export function createFx(scene) {
 
   function update(dt, speed) {
     kick = Math.max(0, kick - dt * 3)
+    scrollSpeed = speed
     streaks.update(dt, speed, kick)
   }
 

@@ -54,10 +54,12 @@ const quality = createQualityGovernor({
   pinned: params.has('q'),
   onChange(level) {
     postfx.applyQuality(level)
+    fx.setDensity(QUALITY[level].particles)
     applySize()
   },
 })
 postfx.applyQuality(quality.level)
+fx.setDensity(QUALITY[quality.level].particles)
 UNIFORMS.uPixelRatio.value = renderer.getPixelRatio()
 
 let last = performance.now()

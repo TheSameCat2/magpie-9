@@ -19,6 +19,7 @@ import { createHold } from './hold.js'
 import { createRun, rewindDistance } from './run.js'
 import { createScoreboard } from './scoreboard.js'
 import { createSpawner } from './spawner.js'
+import { createSparks } from './sparks.js'
 
 export { RESUME_COUNTDOWN, heldPauseReason, pauseTapAction } from './hold.js'
 export { rewindDistance } from './run.js'
@@ -70,6 +71,7 @@ export function createGame({
   const run = createRun({ startLives })
   const rig = createCameraRig({ camera, bird, reduceMotion })
   const spawner = createSpawner({ gates, powerups, run })
+  const sparks = createSparks({ fx, gates, bird, run })
   const scoreboard = createScoreboard({ api, hud, isShowing: () => scene === 'scores' })
   const hold = createHold({
     clock,
@@ -151,6 +153,7 @@ export function createGame({
     gates.reset()
     powerups.reset()
     spawner.reset()
+    sparks.reset()
     hud.setLives(run.lives)
     hud.hideRespawn()
     spawner.spawnAhead()
@@ -200,6 +203,7 @@ export function createGame({
     gates.reset()
     powerups.reset()
     tunnel.reset()
+    sparks.reset()
     rewindLeft = rewindTotal = 0
     rig.reset()
     hud.setScore(0)
@@ -579,6 +583,7 @@ export function createGame({
     hud.updateTouch(input)
     const live = scene === 'playing' && !hold.paused
     fx.update(dt, live ? run.speed : IDLE_SPEED)
+    sparks.update(dt, live)
     postfx.update(hold.paused ? 0 : realDt)
     rig.update(hold.paused ? 0 : realDt, { follow: !MENU_SCENES.has(scene), banking: scene === 'playing' })
   }

@@ -1,9 +1,13 @@
+import { TUNNEL_APOTHEM } from '../../config/world.js'
 import { clamp } from '../../lib/math.js'
 
 // Pure gate placement: which hazard spawns and where its opening sits. No
 // Three.js here so the challenge generator and the tests can share it.
 
 export const GATE_TYPES = ['bulkhead', 'laser-bar', 'pylon', 'sled']
+
+/** Which sides of an opening shed sparks. */
+export const OPENING_EDGES = { all: 0, horizontal: 1, vertical: 2 }
 
 export const HOLE_W = 2.8
 export const HOLE_H = 3.2
@@ -65,6 +69,38 @@ function layoutPylon(rand) {
   const side = rand() < 0.5 ? 'left' : 'right'
   const px = side === 'left' ? -PYLON_PX : PYLON_PX
   return { side, px, edge: side === 'left' ? px + PYLON_W * 0.5 : px - PYLON_W * 0.5 }
+}
+
+/**
+ * The whole perimeter of a live gate's opening, for sparks that ride the
+ * edge rather than erupt where the bird threaded it. Writes into `shape`:
+ * centre, half extents, which edges apply, and (for a pylon) the normal
+ * pointing into the gap. Reads `hole` live so a sled's sparks ride the hatch.
+ */
+export function openingShape(gate, shape) {
+  if (gate.type === 'laser-bar') {
+    shape.x = 0
+    shape.y = gate.gapY
+    shape.hw = TUNNEL_APOTHEM
+    shape.hh = gate.gapH * 0.5
+    shape.edges = OPENING_EDGES.horizontal
+    shape.nx = 0
+  } else if (gate.type === 'pylon') {
+    shape.x = gate.edge
+    shape.y = 0
+    shape.hw = 0
+    shape.hh = TUNNEL_APOTHEM * 0.85
+    shape.edges = OPENING_EDGES.vertical
+    shape.nx = gate.side === 'left' ? 1 : -1
+  } else {
+    shape.x = gate.hole.x
+    shape.y = gate.hole.y
+    shape.hw = HOLE_W * 0.5
+    shape.hh = HOLE_H * 0.5
+    shape.edges = OPENING_EDGES.all
+    shape.nx = 0
+  }
+  return shape
 }
 
 /** X/Y placement for a gate of `type`. Injectable RNG so layout is unit-testable. */

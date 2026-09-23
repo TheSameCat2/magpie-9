@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
-import { createBird } from './bird.js'
+import { createBird, nearestWallClearance } from './bird.js'
 import { BIRD_VISUAL_SCALE } from '../config/world.js'
 
 function dummyMaterials() {
@@ -113,4 +113,56 @@ test('wing hierarchy has articulated shoulder, elbow, and wrist joints', () => {
   assert.ok(leftWing.rotation.z !== 0, 'shoulder should flap')
   assert.ok(elbow.rotation.z !== 0, 'elbow should articulate')
   assert.ok(wrist.rotation.z !== 0, 'wrist should articulate')
+})
+
+test('nearestWallClearance computes signed distance from hull extents to hex walls', () => {
+  const centerClearance = nearestWallClearance(0, 0)
+  assert.ok(centerClearance > 3.8 && centerClearance < 4.1, 'center clearance should be near 3.85')
+
+  const nearTopClearance = nearestWallClearance(0, 3.8)
+  assert.ok(nearTopClearance < 0.25, 'clearance should decrease as bird approaches top wall')
+
+  const nearSideClearance = nearestWallClearance(4.0, 0)
+  assert.ok(nearSideClearance < 0.45, 'clearance should decrease as bird approaches side wall')
+})
+
+test('proxLight engages contact wash and hazard strobe when near conduit walls', () => {
+  const scene = new THREE.Scene()
+  const bird = createBird(scene, dummyMaterials())
+
+  const proxLight = bird.group.children.find((c) => c instanceof THREE.PointLight && c.position.z === 0)
+  assert.ok(proxLight, 'proxLight point light should exist in bird group')
+  assert.equal(proxLight.intensity, 0, 'proxLight should be dark at center')
+
+  // Move bird near top wall to trigger proximity wash
+  bird.pos.set(0, 3.2, 0)
+  bird.updatePlay(0.016, { strafe: 0 }, 0.1)
+  assert.ok(proxLight.intensity > 0, 'proxLight should glow when clearance < 1.4')
+  assert.ok(bird.clearance < 1.0, 'clearance getter should reflect current position')
+
+  // Move bird dangerously close to trigger strobe
+  bird.pos.set(0, 3.85, 0)
+  bird.updatePlay(0.016, { strafe: 0 }, 0.1)
+  assert.ok(proxLight.intensity > 1.5, 'proxLight should strobe with high intensity in hazard zone')
+
+  // Reset turns it off
+  bird.reset()
+  assert.equal(proxLight.intensity, 0, 'reset turns off proxLight')
+})
+
+test('thruster light expands distance and intensity on flap pulse', () => {
+  const scene = new THREE.Scene()
+  const bird = createBird(scene, dummyMaterials())
+
+  const thrusterLight = bird.group.children.find((c) => c instanceof THREE.PointLight && c.position.z > 0.2)
+  assert.ok(thrusterLight, 'thruster point light should exist at rear nozzle')
+
+  bird.updateIdle(0.016, 0.1)
+  const idleDistance = thrusterLight.distance
+  const idleIntensity = thrusterLight.intensity
+
+  bird.flap()
+  bird.updatePlay(0.016, { strafe: 0 }, 0.1)
+  assert.ok(thrusterLight.distance > idleDistance, 'thruster backwash distance should expand on flap')
+  assert.ok(thrusterLight.intensity > idleIntensity, 'thruster intensity should flare on flap')
 })

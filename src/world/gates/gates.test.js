@@ -193,3 +193,44 @@ test('a sled is never followed directly by another sled', () => {
     assert.equal(pickGateType(9, 20, lo, prev), 'sled', `prev=${prev}`)
   }
 })
+
+test('createGateSlot allocates pooled mechanical details and configureGate positions them', async () => {
+  const THREE = await import('three')
+  const { createGateSlot, configureGate } = await import('./slot.js')
+  const m = new THREE.MeshBasicMaterial()
+  const materials = {
+    plate: m,
+    hatch: m,
+    laserTop: m,
+    laserBot: m,
+    pylon: m,
+    pylonEdge: m,
+    metalHi: m,
+    beak: m,
+  }
+  const slot = createGateSlot(materials)
+  assert.equal(slot.pistons.length, 2, 'should have 2 hydraulic piston barrels')
+  assert.equal(slot.pistonRods.length, 2, 'should have 2 chrome piston rods')
+  assert.equal(slot.clamps.length, 4, 'should have 4 corner clamp dogs')
+  assert.equal(slot.nozzles.length, 2, 'should have 2 laser emitter nozzles')
+  assert.equal(slot.pylonBrackets.length, 2, 'should have 2 pylon wall brackets')
+
+  // Bulkhead configuration activates pistons and clamps
+  configureGate(slot, 'bulkhead', -10, 20, { hole: { x: 0.2, y: 0.4 } })
+  assert.equal(slot.pistons[0].visible, true)
+  assert.equal(slot.pistonRods[0].visible, true)
+  assert.equal(slot.clamps[0].visible, true)
+  assert.equal(slot.nozzles[0].visible, false)
+
+  // Laser-bar configuration activates emitter nozzles and deactivates pistons
+  configureGate(slot, 'laser-bar', -10, 20, { gapY: 0.5 })
+  assert.equal(slot.pistons[0].visible, false)
+  assert.equal(slot.nozzles[0].visible, true)
+  assert.equal(slot.nozzles[1].visible, true)
+
+  // Pylon configuration activates wall brackets
+  configureGate(slot, 'pylon', -10, 20, { side: 'left', px: -1.5, edge: -0.2 })
+  assert.equal(slot.nozzles[0].visible, false)
+  assert.equal(slot.pylonBrackets[0].visible, true)
+  assert.equal(slot.pylonBrackets[1].visible, true)
+})

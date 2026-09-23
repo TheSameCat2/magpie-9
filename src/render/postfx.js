@@ -24,6 +24,8 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
       uGlitch: { value: 0 },
       uVignette: { value: 0.55 },
       uGrain: { value: 0.028 },
+      uWarp: { value: 0 },
+      uWarpCenter: { value: new THREE.Vector2(0.5, 0.5) },
       uRes: { value: new THREE.Vector2(1, 1) },
     },
     vertexShader: SCREEN_VERT,
@@ -38,6 +40,7 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
   let kick = 0
   let flash = 0
   let glitch = 0
+  let warp = 0
   let bloomScale = 0.5
   const initial = renderer.getSize(new THREE.Vector2())
   let width = initial.x
@@ -70,11 +73,13 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     kick = Math.max(0, kick - dt * 3.4)
     flash = Math.max(0, flash - dt * 2.6)
     glitch = Math.max(0, glitch - dt * 1.7)
+    warp = Math.max(0, warp - dt * 2.8)
     const motion = reduceMotion ? 0 : 1
     screen.uniforms.uAberration.value = kick * motion
     screen.uniforms.uZoom.value = kick * kick * motion
     screen.uniforms.uFlash.value = flash * (reduceMotion ? 0.35 : 1)
     screen.uniforms.uGlitch.value = glitch * glitch * motion
+    screen.uniforms.uWarp.value = warp * motion
   }
 
   return {
@@ -94,6 +99,11 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     },
     glitch(amount) {
       glitch = Math.max(glitch, amount)
+    },
+    warp(cx = 0.5, cy = 0.5, strength = 1.0) {
+      if (reduceMotion) return
+      screen.uniforms.uWarpCenter.value.set(cx, cy)
+      warp = Math.min(1.2, Math.max(warp, strength))
     },
     setBloomStrength(v) {
       bloom.strength = v

@@ -374,6 +374,31 @@ export function createFx(scene) {
     particles.flush()
   }
 
+  // Violent shower of friction sparks along the exact edge scraped during a close call.
+  function scrapeSparks(x, y, z, nx, ny, count = 38) {
+    for (let i = 0; i < count; i++) {
+      const speed = 4 + Math.random() * 8
+      const perpX = -ny
+      const perpY = nx
+      const jitter = (Math.random() - 0.5) * 6
+      const tangent = (Math.random() - 0.5) * 4
+      _c.copy(sodium).lerp(white, 0.4 + Math.random() * 0.6)
+      particles.emit(
+        x + (Math.random() - 0.5) * 0.15,
+        y + (Math.random() - 0.5) * 0.15,
+        z + (Math.random() - 0.5) * 0.2,
+        nx * speed + perpX * tangent,
+        ny * speed + perpY * tangent + jitter,
+        8 + Math.random() * 18,
+        _c,
+        0.2 + Math.random() * 0.35,
+        0.1 + Math.random() * 0.12,
+        6,
+      )
+    }
+    particles.flush()
+  }
+
   function puff(x, y, z, count) {
     for (let i = 0; i < count; i++) {
       _c.copy(ice).lerp(white, Math.random() * 0.7)
@@ -447,6 +472,7 @@ export function createFx(scene) {
     gateBurst,
     edgeSparks,
     afterburner,
+    scrapeSparks,
     puff,
     orbBurst,
     explode,

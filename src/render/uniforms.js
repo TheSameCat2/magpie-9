@@ -9,6 +9,8 @@ export const UNIFORMS = {
   uKick: { value: 0 },
   /** Approaching hazard proximity (0..1) driving environmental warning strobes. */
   uHazard: { value: 0 },
+  /** Shunt overdrive active state (0..1) driving environmental surges and supersonic effects. */
+  uOverdrive: { value: 0 },
   uFogDensity: { value: FOG_DENSITY },
   uPixelRatio: { value: 1 },
 }

@@ -13,7 +13,10 @@ const ORB_R = 0.42
 const HALO_SCALE = 1.9
 const unitPlane = new THREE.PlaneGeometry(1, 1)
 const shellGeometry = new THREE.SphereGeometry(ORB_R, 24, 16)
-const iconGeometry = new THREE.PlaneGeometry(0.5, 0.5)
+const coreGeometry = new THREE.OctahedronGeometry(0.18, 0)
+const ringOuterGeometry = new THREE.TorusGeometry(0.28, 0.013, 6, 24)
+const ringInnerGeometry = new THREE.TorusGeometry(0.22, 0.011, 6, 24)
+const iconGeometry = new THREE.PlaneGeometry(0.38, 0.38)
 
 export const ORB_TYPES = ['damper', 'life', 'shunt']
 
@@ -27,12 +30,37 @@ function createIconMaterial(map) {
   })
 }
 
-/** Shell + halo + spinning icon materials for one orb type. */
+function createCrystalMaterial(color) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    emissive: color,
+    emissiveIntensity: 0.85,
+    roughness: 0.15,
+    metalness: 0.8,
+    flatShading: true,
+    transparent: true,
+    opacity: 0.92,
+  })
+}
+
+function createRingMaterial(color) {
+  return new THREE.MeshStandardMaterial({
+    color: 0xdce8f0,
+    emissive: color,
+    emissiveIntensity: 0.45,
+    roughness: 0.22,
+    metalness: 0.9,
+  })
+}
+
+/** Shell + halo + crystal + gimbal rings + rune materials for one orb type. */
 function createLook(color, iconTexture) {
   return {
     shell: createOrbMaterial(color),
     halo: createHaloMaterial(color),
     icon: createIconMaterial(iconTexture),
+    crystal: createCrystalMaterial(color),
+    ring: createRingMaterial(color),
   }
 }
 
@@ -44,11 +72,36 @@ function createOrbSlot(look) {
   const halo = new THREE.Mesh(unitPlane, look.halo)
   halo.scale.setScalar(HALO_SCALE)
   halo.renderOrder = 7
-  const icon = new THREE.Mesh(iconGeometry, look.icon)
-  icon.renderOrder = 8
-  group.add(shell, halo, icon)
 
-  return { active: false, type: 'damper', x: 0, y: 0, z: 0, r: ORB_R, seed: 0, group, shell, halo, icon }
+  const ringOuter = new THREE.Mesh(ringOuterGeometry, look.ring)
+  ringOuter.renderOrder = 8
+  const ringInner = new THREE.Mesh(ringInnerGeometry, look.ring)
+  ringInner.renderOrder = 8
+
+  const crystal = new THREE.Mesh(coreGeometry, look.crystal)
+  crystal.renderOrder = 9
+
+  const icon = new THREE.Mesh(iconGeometry, look.icon)
+  icon.renderOrder = 10
+
+  group.add(shell, halo, ringOuter, ringInner, crystal, icon)
+
+  return {
+    active: false,
+    type: 'damper',
+    x: 0,
+    y: 0,
+    z: 0,
+    r: ORB_R,
+    seed: 0,
+    group,
+    shell,
+    halo,
+    ringOuter,
+    ringInner,
+    crystal,
+    icon,
+  }
 }
 
 export function createPowerups(scene) {
@@ -84,6 +137,9 @@ export function createPowerups(scene) {
     orb.shell.material = look.shell
     orb.halo.material = look.halo
     orb.icon.material = look.icon
+    orb.crystal.material = look.crystal
+    orb.ringOuter.material = look.ring
+    orb.ringInner.material = look.ring
   }
 
   /**
@@ -106,7 +162,10 @@ export function createPowerups(scene) {
     orb.group.visible = true
     orb.group.position.set(orb.x, orb.y, orb.z)
     orb.group.scale.setScalar(1)
-    orb.icon.rotation.y = 0
+    orb.ringOuter.rotation.set(0, 0, 0)
+    orb.ringInner.rotation.set(0, 0, 0)
+    orb.crystal.rotation.set(0, 0, 0)
+    orb.icon.rotation.set(0, 0, 0)
     return orb
   }
 
@@ -123,6 +182,18 @@ export function createPowerups(scene) {
       const pulse = 1 + 0.06 * Math.sin(t * 3.1 + orb.seed)
       orb.group.position.set(orb.x, orb.y + bob, orb.z)
       orb.group.scale.setScalar(pulse)
+
+      // Gyroscopic gimbal counter-rotations
+      orb.ringOuter.rotation.x += dt * 1.9
+      orb.ringOuter.rotation.z += dt * 1.3
+      orb.ringInner.rotation.y -= dt * 2.4
+      orb.ringInner.rotation.x += dt * 0.9
+
+      // Faceted crystal tumble
+      orb.crystal.rotation.x += dt * 1.4
+      orb.crystal.rotation.y += dt * 2.1
+
+      // Central rune glyph
       orb.icon.rotation.y += dt * 3.2
     }
   }
@@ -146,5 +217,5 @@ export function createPowerups(scene) {
     }
   }
 
-  return { reset, spawn, scroll, collect, cullBehind }
+  return { reset, spawn, scroll, collect, cullBehind, pool }
 }

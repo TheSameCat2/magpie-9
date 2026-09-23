@@ -166,3 +166,19 @@ test('thruster light expands distance and intensity on flap pulse', () => {
   assert.ok(thrusterLight.distance > idleDistance, 'thruster backwash distance should expand on flap')
   assert.ok(thrusterLight.intensity > idleIntensity, 'thruster intensity should flare on flap')
 })
+
+test('shockCone is attached to drone, toggled on reset/kill, and references uOverdrive', () => {
+  const scene = new THREE.Scene()
+  const bird = createBird(scene, dummyMaterials())
+
+  assert.ok(bird.shockCone, 'shockCone mesh should exist on bird')
+  assert.equal(bird.shockCone.name, 'shockCone')
+  assert.equal(bird.shockCone.visible, true, 'shockCone visible by default')
+  assert.ok(bird.shockCone.material.uniforms.uOverdrive, 'shockCone material binds uOverdrive')
+
+  bird.kill()
+  assert.equal(bird.shockCone.visible, false, 'shockCone hidden on kill')
+
+  bird.reset()
+  assert.equal(bird.shockCone.visible, true, 'shockCone restored on reset')
+})

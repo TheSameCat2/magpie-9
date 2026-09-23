@@ -17,6 +17,8 @@ import {
   HALO_FRAG,
   SHAFT_VERT,
   SHAFT_FRAG,
+  SHOCK_CONE_VERT,
+  SHOCK_CONE_FRAG,
 } from './shaders.js'
 
 /** Additive, non-depth-writing glow material: the default look for every emissive overlay. */
@@ -101,12 +103,27 @@ export function createRibMaterial(color, base, pulseScale) {
       uTime: UNIFORMS.uTime,
       uKick: UNIFORMS.uKick,
       uHazard: UNIFORMS.uHazard,
+      uOverdrive: UNIFORMS.uOverdrive,
       uFogDensity: UNIFORMS.uFogDensity,
       uColor: colorUniform(color),
       uBase: { value: base },
       uPulseScale: { value: pulseScale },
     },
   })
+}
+
+export function createShockConeMaterial(color = THEME.ice) {
+  return glowMaterial(
+    SHOCK_CONE_VERT,
+    SHOCK_CONE_FRAG,
+    {
+      uTime: UNIFORMS.uTime,
+      uOverdrive: UNIFORMS.uOverdrive,
+      uFogDensity: UNIFORMS.uFogDensity,
+      uColor: colorUniform(color),
+    },
+    { side: THREE.DoubleSide },
+  )
 }
 
 export function createShaftMaterial(color = THEME.ice, intensity = 0.28) {

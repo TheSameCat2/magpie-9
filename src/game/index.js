@@ -115,7 +115,17 @@ export function createGame({
 
   function orbPickup(orb, { color, flash, toast, tone, sound }) {
     hud.toast(toast, tone)
-    fx.orbBurst(orb.x, orb.y, orb.z, color)
+    if (orb.type === 'damper') {
+      fx.damperBurst(orb.x, orb.y, orb.z)
+      postfx.warp(0.5, 0.5, 1.25)
+    } else if (orb.type === 'life') {
+      fx.lifeBurst(orb.x, orb.y, orb.z)
+    } else if (orb.type === 'shunt') {
+      fx.shuntBurst(orb.x, orb.y, orb.z)
+      rig.punch(3.8)
+    } else {
+      fx.orbBurst(orb.x, orb.y, orb.z, color, orb.type)
+    }
     sound()
     postfx.flash(color, flash)
     kickUniform(0.4)
@@ -143,6 +153,7 @@ export function createGame({
     sessionGen += 1
     scene = 'playing'
     UNIFORMS.uHazard.value = 0
+    UNIFORMS.uOverdrive.value = 0
     run.begin(mode, session)
     if (session.day) scoreboard.challengeDay = session.day
     hud.setGameMode(mode)
@@ -199,6 +210,7 @@ export function createGame({
     run.end()
     hold.clear()
     UNIFORMS.uHazard.value = 0
+    UNIFORMS.uOverdrive.value = 0
     hud.setGameMode(run.mode)
     hud.hideRespawn()
     bird.reset()
@@ -243,6 +255,7 @@ export function createGame({
     scene = 'dead'
     hold.clear()
     UNIFORMS.uHazard.value = 0
+    UNIFORMS.uOverdrive.value = 0
     hud.hideRespawn()
   }
 
@@ -417,6 +430,7 @@ export function createGame({
     const back = anchor ? rewindDistance(anchor.z, anchor.gap) : 0
     powerups.cullBehind(anchor ? anchor.z : 0)
     bird.reset()
+    UNIFORMS.uOverdrive.value = 0
     // Speed goes to the HUD only: audio.setSpeed would re-assert the drone that crash() silences.
     syncSpeed({ toAudio: false })
     audio.crash()
@@ -490,6 +504,7 @@ export function createGame({
     if (hold.paused) {
       audio.clearHazard()
       UNIFORMS.uHazard.value = 0
+      UNIFORMS.uOverdrive.value = 0
       if (hold.reason === 'countdown') {
         if (pauseKey) hold.pause('menu')
         else hold.tickCountdown()
@@ -521,6 +536,8 @@ export function createGame({
     if (powerups.collect(bird.pos, BIRD_HIT, collectedOrbs)) {
       for (const orb of collectedOrbs) onOrbCollected(orb)
     }
+    const targetOverdrive = run.shuntLeft > 0 ? 1 : 0
+    UNIFORMS.uOverdrive.value += (targetOverdrive - UNIFORMS.uOverdrive.value) * Math.min(1, dt * 7.0)
     const next = gates.nearestAhead()
     if (next) {
       const prox = next.z < 0 ? Math.max(0, Math.min(1, 1 + next.z / HAZARD_RANGE)) : 1
@@ -583,6 +600,8 @@ export function createGame({
     // While the manual is open, flaps must not start or reset a run.
     const blocked = screen.needsRotate || hud.helpOpen
     const frame = { tapped, blocked }
+
+    if (scene !== 'playing') UNIFORMS.uOverdrive.value = 0
 
     if (MENU_SCENES.has(scene)) updateMenus(dt, frame)
     else if (scene === 'playing') updatePlaying(dt, frame)

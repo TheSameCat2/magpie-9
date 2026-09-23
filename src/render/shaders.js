@@ -523,10 +523,31 @@ varying vec2 vUv;
 
 void main() {
   float along = vUv.y;
-  float flicker = 0.85 + 0.15 * sin(uTime * 53.0 + along * 20.0) * sin(uTime * 31.0);
-  float body = pow(1.0 - along, 2.2) * 0.7;
-  float ring = smoothstep(0.35, 0.0, abs(fract(along * 4.0 - uTime * 6.0) - 0.5)) * 0.15;
-  vec3 col = mix(mix(uColor, vec3(1.0), 0.35), uColor, clamp(along * 1.6, 0.0, 1.0)) * (body + ring) * flicker * uIntensity;
+  float flicker = 0.88 + 0.12 * sin(uTime * 47.0 + along * 19.0) * sin(uTime * 31.0);
+
+  // Supersonic shock diamond cells moving down the exhaust plume
+  float cell = fract(along * 6.5 - uTime * 13.0);
+  float diamond = 1.0 - abs(cell - 0.5) * 2.0;
+  diamond = pow(diamond, 3.2);
+
+  // Exponential attenuation along the plume length
+  float cellEnvelope = exp(-along * 3.6);
+  float shockDiamonds = diamond * cellEnvelope;
+
+  // Razor-hot central supersonic core needle
+  float coreNeedle = exp(-along * 5.2) * 1.6;
+
+  // Ionized plasma mantle
+  float mantle = pow(1.0 - along, 2.0) * 0.72;
+
+  // Expansion shock wave rings
+  float shockRing = smoothstep(0.2, 0.0, abs(cell - 0.5)) * cellEnvelope * 0.35;
+
+  // White-hot color core transitioning to neon plume sheath
+  vec3 hotCore = mix(uColor, vec3(1.0), 0.78);
+  vec3 col = uColor * (mantle + shockRing) + hotCore * (shockDiamonds * 1.5 + coreNeedle);
+
+  col *= flicker * uIntensity;
   col *= fogAtten(vDepth);
   gl_FragColor = vec4(col, 1.0);
 }

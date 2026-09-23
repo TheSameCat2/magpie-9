@@ -174,7 +174,8 @@ function createStreaks(scene) {
 
   function update(dt, speed, kick) {
     const dz = speed * 1.6 * dt
-    const len = 0.5 + speed * 0.13 + kick * 3.5
+    const overdrive = UNIFORMS.uOverdrive.value
+    const len = 0.5 + speed * 0.13 + kick * 3.5 + overdrive * 2.2
     for (let i = 0; i < STREAKS; i++) {
       sz[i] += dz
       if (sz[i] > 8) {
@@ -190,7 +191,7 @@ function createStreaks(scene) {
       pos[o + 5] = sz[i] - len
     }
     aPos.needsUpdate = true
-    mat.opacity = THREE.MathUtils.clamp((speed - 6) / 16, 0.08, 0.6) + kick * 0.5
+    mat.opacity = THREE.MathUtils.clamp((speed - 6) / 16, 0.08, 0.6) + kick * 0.5 + overdrive * 0.35
   }
 
   return { update }
@@ -243,6 +244,8 @@ export function createFx(scene) {
   const mag = new THREE.Color(THEME.mag)
   const sodium = new THREE.Color(THEME.sodium)
   const ramp = SPARK_RAMP.map((hex) => new THREE.Color(hex))
+  const gold = new THREE.Color(THEME.gold)
+  const green = new THREE.Color(THEME.green)
 
   let kick = 0
   /** Quality-ladder multiplier on the continuous streams. */
@@ -418,8 +421,79 @@ export function createFx(scene) {
     particles.flush()
   }
 
-  /** Pickup sparkle: a radial spray in the orb's colour, drifting toward the camera. */
-  function orbBurst(x, y, z, color = THEME.gold) {
+  /** Damper pickup: chronological deceleration ring on the XY plane with gold-white embers. */
+  function damperBurst(x, y, z) {
+    for (let i = 0; i < 56; i++) {
+      const angle = (i / 56) * Math.PI * 2 + (Math.random() - 0.5) * 0.12
+      const speed = 3.5 + Math.random() * 4.5
+      _c.copy(gold).lerp(white, Math.random() * 0.45)
+      particles.emit(
+        x + Math.cos(angle) * 0.08,
+        y + Math.sin(angle) * 0.08,
+        z,
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
+        2 + Math.random() * 4,
+        _c,
+        0.4 + Math.random() * 0.35,
+        0.1 + Math.random() * 0.08,
+        -7,
+      )
+    }
+    particles.flush()
+  }
+
+  /** Spare Life pickup: bio-digital matrix streaming columns rising upward in green and matrix white. */
+  function lifeBurst(x, y, z) {
+    for (let i = 0; i < 54; i++) {
+      const colX = (Math.random() - 0.5) * 1.5
+      const colZ = (Math.random() - 0.5) * 1.0
+      const riseSpeed = 3.2 + Math.random() * 5.0
+      _c.copy(green).lerp(white, Math.random() < 0.35 ? 0.8 : 0.1)
+      particles.emit(
+        x + colX,
+        y - 0.3 + Math.random() * 0.6,
+        z + colZ,
+        (Math.random() - 0.5) * 0.5,
+        riseSpeed,
+        1 + Math.random() * 3,
+        _c,
+        0.45 + Math.random() * 0.35,
+        0.08 + Math.random() * 0.08,
+        -3,
+      )
+    }
+    particles.flush()
+  }
+
+  /** Shunt pickup: erratic high-voltage lightning tendrils discharging toward conduit walls. */
+  function shuntBurst(x, y, z) {
+    for (let i = 0; i < 68; i++) {
+      const angle = Math.random() * Math.PI * 2
+      const speed = 6.5 + Math.random() * 8.5
+      const arcSpread = (Math.random() - 0.5) * 2.8
+      _c.copy(ice).lerp(white, Math.random() * 0.85)
+      particles.emit(
+        x,
+        y,
+        z,
+        Math.cos(angle) * speed - Math.sin(angle) * arcSpread,
+        Math.sin(angle) * speed + Math.cos(angle) * arcSpread,
+        3 + Math.random() * 8,
+        _c,
+        0.28 + Math.random() * 0.28,
+        0.11 + Math.random() * 0.1,
+        1,
+      )
+    }
+    particles.flush()
+  }
+
+  /** Pickup sparkle: dispatches to tailored burst if type is given, or default spray. */
+  function orbBurst(x, y, z, color = THEME.gold, type) {
+    if (type === 'damper') return damperBurst(x, y, z)
+    if (type === 'life') return lifeBurst(x, y, z)
+    if (type === 'shunt') return shuntBurst(x, y, z)
     _tint.set(color)
     for (let i = 0; i < 48; i++) {
       randomOnSphere(2 + Math.random() * 6, _v)
@@ -475,6 +549,9 @@ export function createFx(scene) {
     scrapeSparks,
     puff,
     orbBurst,
+    damperBurst,
+    lifeBurst,
+    shuntBurst,
     explode,
     update,
     kick(v) {

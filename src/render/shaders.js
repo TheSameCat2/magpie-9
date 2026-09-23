@@ -118,6 +118,7 @@ ${FOG}
 uniform float uTime;
 uniform float uKick;
 uniform float uHazard;
+uniform float uOverdrive;
 uniform vec3 uColor;
 uniform float uBase;
 uniform float uPulseScale;
@@ -138,6 +139,16 @@ void main() {
   float i = uBase + wave * 1.4 + wave2 + uKick * 1.8 + strobe;
   vec3 col = uColor * i;
   col = mix(col, vec3(1.0), clamp(uKick * 0.35 * wave + strobe * 0.45, 0.0, 1.0));
+
+  // Shunt overdrive energy surge: conduit neon ribs pulse with high-frequency ice-cyan waves
+  if (uOverdrive > 0.001) {
+    float drivePhase = vWorld.z * (uPulseScale * 1.8) - uTime * 3.6;
+    float driveWave = pow(0.5 + 0.5 * sin(drivePhase * 6.2831), 4.0);
+    vec3 iceCyan = vec3(0.24, 0.88, 1.0);
+    col = mix(col, iceCyan * (i + 1.2), uOverdrive * 0.75);
+    col += vec3(0.55, 0.95, 1.0) * driveWave * uOverdrive * 2.2;
+  }
+
   col *= fogAtten(vDepth);
   gl_FragColor = vec4(col, 1.0);
 }
@@ -526,14 +537,71 @@ ${FOG}
 uniform vec3 uColor;
 uniform float uIntensity;
 uniform float uTime;
+uniform float uOverdrive;
 varying float vT;
 
 void main() {
   float fade = pow(1.0 - vT, 2.4) * smoothstep(0.0, 0.08, vT);
   float ripple = 0.8 + 0.2 * sin(vT * 30.0 - uTime * 24.0);
-  vec3 col = mix(uColor, vec3(1.0), 0.2 * (1.0 - vT)) * fade * ripple * uIntensity;
+  vec3 tint = mix(uColor, vec3(1.0), 0.2 * (1.0 - vT));
+  if (uOverdrive > 0.001) {
+    float flicker = fract(sin(vT * 110.0 + uTime * 65.0) * 43758.5453);
+    vec3 cyan = vec3(0.24, 0.88, 1.0);
+    tint = mix(tint, mix(cyan, vec3(1.0), flicker * 0.65), uOverdrive * 0.85);
+  }
+  vec3 col = tint * fade * ripple * uIntensity;
   col *= fogAtten(vDepth);
   gl_FragColor = vec4(col, 1.0);
+}
+`
+
+// ---------------------------------------------------------------------------
+// Supersonic Prandtl-Glauert shock wave vapor cone: translucent aerodynamic shroud
+// forming over swept wings during high-velocity Shunt overdrive.
+// ---------------------------------------------------------------------------
+export const SHOCK_CONE_VERT = /* glsl */ `
+varying vec3 vPosition;
+varying vec3 vViewNormal;
+varying vec3 vViewPos;
+varying float vDepth;
+void main() {
+  vPosition = position;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vViewNormal = normalize(normalMatrix * normal);
+  vViewPos = mv.xyz;
+  vDepth = -mv.z;
+  gl_Position = projectionMatrix * mv;
+}
+`
+
+export const SHOCK_CONE_FRAG = /* glsl */ `
+precision highp float;
+${FOG}
+uniform float uTime;
+uniform float uOverdrive;
+uniform vec3 uColor;
+varying vec3 vPosition;
+varying vec3 vViewNormal;
+varying vec3 vViewPos;
+varying float vDepth;
+
+void main() {
+  if (uOverdrive <= 0.001) discard;
+
+  vec3 V = normalize(-vViewPos);
+  float fresnel = pow(1.0 - abs(dot(vViewNormal, V)), 2.6);
+
+  float normZ = vPosition.z / 0.525;
+  float axial = smoothstep(-1.0, -0.6, normZ) * smoothstep(1.0, 0.45, normZ);
+
+  float ripple = 0.8 + 0.2 * sin(vPosition.z * 32.0 - uTime * 34.0);
+  float radial = 0.88 + 0.12 * cos(atan(vPosition.y, vPosition.x) * 10.0 + uTime * 12.0);
+
+  float alpha = fresnel * axial * ripple * radial * uOverdrive * 0.72;
+  vec3 col = mix(uColor, vec3(1.0), fresnel * 0.6) * (1.1 + fresnel * 0.8);
+  col *= fogAtten(vDepth);
+
+  gl_FragColor = vec4(col * alpha, alpha);
 }
 `
 

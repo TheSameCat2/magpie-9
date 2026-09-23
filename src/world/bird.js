@@ -11,6 +11,7 @@ import {
 } from '../config/world.js'
 import { UNIFORMS } from '../render/uniforms.js'
 import { FRAME_VERT, THRUST_FRAG, TRAIL_VERT, TRAIL_FRAG } from '../render/shaders.js'
+import { createShockConeMaterial } from '../render/materials.js'
 
 // Hex conduit wall normals (flat-topped hex faces at 30° + 60°·i)
 const HEX_NORMALS = []
@@ -76,6 +77,10 @@ function facetedMesh(positions, indices, material) {
   return mesh
 }
 
+// Supersonic Prandtl-Glauert shock wave vapor cone geometry
+const shockConeGeometry = new THREE.ConeGeometry(0.68, 1.05, 24, 1, true)
+shockConeGeometry.rotateX(-Math.PI / 2)
+
 // Ribbon of TRAIL_N samples streaming back from a wingtip. Samples live in
 // world space and recede with the conduit scroll.
 function createTrail(scene, color) {
@@ -103,6 +108,7 @@ function createTrail(scene, color) {
     uniforms: {
       uTime: UNIFORMS.uTime,
       uFogDensity: UNIFORMS.uFogDensity,
+      uOverdrive: UNIFORMS.uOverdrive,
       uColor: { value: new THREE.Color(color) },
       uIntensity: { value: 0.6 },
     },
@@ -540,6 +546,13 @@ export function createBird(scene, materials) {
   collider.visible = false
   group.add(collider)
 
+  // Supersonic Prandtl-Glauert shock wave vapor cone
+  const shockCone = new THREE.Mesh(shockConeGeometry, createShockConeMaterial(THEME.ice))
+  shockCone.position.set(0, 0.02, 0.08)
+  shockCone.name = 'shockCone'
+  shockCone.frustumCulled = false
+  group.add(shockCone)
+
   scene.add(group)
 
   const trailL = createTrail(scene, THEME.mag)
@@ -570,8 +583,9 @@ export function createBird(scene, materials) {
     trailL.push(tip.x, tip.y, tip.z, dz)
     tip = tipWorld(rightWing)
     trailR.push(tip.x, tip.y, tip.z, dz)
-    trailL.setIntensity(intensity)
-    trailR.setIntensity(intensity)
+    const overdriveBoost = UNIFORMS.uOverdrive.value * 0.95
+    trailL.setIntensity(intensity + overdriveBoost)
+    trailR.setIntensity(intensity + overdriveBoost)
   }
 
   function reset() {
@@ -583,6 +597,7 @@ export function createBird(scene, materials) {
     afterburner = 0
     t = 0
     proxLight.intensity = 0
+    shockCone.visible = true
     group.position.set(0, 0, 0)
     group.rotation.set(0, 0, 0)
     deadSpin.set(0, 0, 0)
@@ -615,6 +630,7 @@ export function createBird(scene, materials) {
     thruster.material.uniforms.uIntensity.value = 0
     thruster.light.intensity = 0
     thruster.cone.visible = false
+    shockCone.visible = false
     proxLight.intensity = 0
     trailL.setVisible(false)
     trailR.setVisible(false)
@@ -770,6 +786,9 @@ export function createBird(scene, materials) {
     exhaust,
     get clearance() {
       return nearestWallClearance(pos.x, pos.y)
+    },
+    get shockCone() {
+      return shockCone
     },
     reset,
     flap,

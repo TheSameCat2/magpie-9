@@ -388,6 +388,21 @@ test('shunt engages overdrive: double gates for five gates at +2 speed', () => {
   assert.ok(Math.abs(game.speed - difficulty(game.score).speed) < 1e-9)
 })
 
+test('UNIFORMS.uOverdrive activates with shunt and clears when exhausted or reset', () => {
+  const { game, powerups, gates, select, tap } = harness('new')
+  select()
+  tap()
+  assert.equal(UNIFORMS.uOverdrive.value, 0)
+  collectOnce(powerups, { type: 'shunt', x: 0, y: 0, z: 0 })
+  game.update(1 / 60)
+  assert.ok(UNIFORMS.uOverdrive.value > 0, 'uOverdrive should increase during shunt boost')
+  gatePerFrame(gates)
+  for (let i = 0; i < SHUNT_GATES; i++) game.update(1 / 60)
+  assert.equal(game.shuntLeft, 0)
+  for (let i = 0; i < 20; i++) game.update(1 / 60)
+  assert.ok(UNIFORMS.uOverdrive.value < 0.1, 'uOverdrive ramps down after shunt ends')
+})
+
 test('a spare hit burns the shunt charge', () => {
   const h = harness('new', false)
   h.select()

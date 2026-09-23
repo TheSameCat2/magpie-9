@@ -5,9 +5,9 @@ import { clamp } from '../lib/math.js'
  * long. `particles` scales the continuous spark streams (fx.setDensity).
  */
 export const QUALITY = [
-  { dpr: 1, bloom: false, bloomScale: 0.5, particles: 0.45 },
-  { dpr: 1.25, bloom: true, bloomScale: 0.35, particles: 0.75 },
-  { dpr: 2, bloom: true, bloomScale: 0.5, particles: 1 },
+  { dpr: 1, bloom: false, bloomScale: 0.5, flare: false, particles: 0.45 },
+  { dpr: 1.25, bloom: true, bloomScale: 0.35, flare: true, particles: 0.75 },
+  { dpr: 2, bloom: true, bloomScale: 0.5, flare: true, particles: 1 },
 ]
 
 const TOP = QUALITY.length - 1

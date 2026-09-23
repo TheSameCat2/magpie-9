@@ -726,6 +726,9 @@ uniform float uVignette;
 uniform float uGrain;
 uniform float uWarp;
 uniform vec2 uWarpCenter;
+uniform float uFlare;
+uniform float uCurvature;
+uniform float uScanlines;
 uniform vec2 uRes;
 varying vec2 vUv;
 
@@ -745,6 +748,13 @@ vec3 sampleZoom(vec2 uv, vec2 c, float r2) {
 
 void main() {
   vec2 uv = vUv;
+
+  // Optical visor barrel curvature
+  vec2 c0 = uv - 0.5;
+  float r0_2 = dot(c0, c0);
+  if (uCurvature > 0.001) {
+    uv = uv + c0 * (r0_2 * uCurvature);
+  }
 
   if (uWarp > 0.002) {
     vec2 dWarp = uv - uWarpCenter;
@@ -778,10 +788,41 @@ void main() {
   col.r = mix(col.r, texture2D(tDiffuse, uv + c * ab).r, 0.85);
   col.b = mix(col.b, texture2D(tDiffuse, uv - c * ab).b, 0.85);
 
+  // Anamorphic horizontal lens flare streaks across bright highlights
+  if (uFlare > 0.001) {
+    vec3 flare = vec3(0.0);
+    float dx = 1.0 / max(uRes.x, 1.0);
+    for (int i = 1; i <= 5; i++) {
+      float fi = float(i);
+      float off = fi * fi * 4.2 * dx;
+      vec3 s1 = texture2D(tDiffuse, uv + vec2(off, 0.0)).rgb;
+      vec3 s2 = texture2D(tDiffuse, uv - vec2(off, 0.0)).rgb;
+      vec3 b1 = max(vec3(0.0), s1 - 0.82);
+      vec3 b2 = max(vec3(0.0), s2 - 0.82);
+      float w = 1.0 / (fi * 1.5);
+      flare += (b1 + b2) * w;
+    }
+    vec3 flareTint = vec3(0.35, 0.78, 1.0);
+    col += flare * flareTint * uFlare * 0.55;
+  }
+
   if (uGlitch > 0.002) {
     float line = step(0.985, hash21(vec2(floor(uv.y * uRes.y * 0.5), floor(uTime * 60.0))));
     col += vec3(0.24, 0.88, 1.0) * line * uGlitch * 0.6;
     col = mix(col, col.gbr, uGlitch * 0.12 * step(0.5, hash21(vec2(floor(uTime * 30.0), 1.0))));
+  }
+
+  // Filmic black-depth calibration & neon vibrance preservation
+  col = max(vec3(0.0), col);
+  col = pow(col, vec3(1.06));
+  float luma = dot(col, vec3(0.2126, 0.7152, 0.0722));
+  float satMask = smoothstep(0.06, 0.65, luma) * (1.0 - smoothstep(0.85, 1.0, luma));
+  col = mix(vec3(luma), col, 1.0 + 0.18 * satMask);
+
+  // Visor phosphor scanline grid
+  if (uScanlines > 0.001) {
+    float scan = 1.0 - uScanlines * (0.5 + 0.5 * sin(uv.y * uRes.y * 1.5 + uTime * 4.0));
+    col *= scan;
   }
 
   float g = hash21(uv * uRes + fract(uTime) * 100.0) - 0.5;

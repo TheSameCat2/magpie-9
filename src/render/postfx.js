@@ -26,6 +26,9 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
       uGrain: { value: 0.028 },
       uWarp: { value: 0 },
       uWarpCenter: { value: new THREE.Vector2(0.5, 0.5) },
+      uFlare: { value: 1 },
+      uCurvature: { value: 0.025 },
+      uScanlines: { value: 0.03 },
       uRes: { value: new THREE.Vector2(1, 1) },
     },
     vertexShader: SCREEN_VERT,
@@ -63,7 +66,9 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     const q = QUALITY[THREE.MathUtils.clamp(level, 0, QUALITY.length - 1)]
     bloom.enabled = q.bloom && !reduceMotion
     bloomScale = q.bloomScale
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, q.dpr))
+    screen.uniforms.uFlare.value = q.flare && !reduceMotion ? 1.0 : 0.0
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1
+    renderer.setPixelRatio(Math.min(dpr, q.dpr))
     renderer.setSize(width, height, false)
     setSize(width, height)
   }
@@ -80,6 +85,8 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     screen.uniforms.uFlash.value = flash * (reduceMotion ? 0.35 : 1)
     screen.uniforms.uGlitch.value = glitch * glitch * motion
     screen.uniforms.uWarp.value = warp * motion
+    screen.uniforms.uCurvature.value = 0.025 * motion
+    screen.uniforms.uScanlines.value = 0.03 * motion
   }
 
   return {
@@ -110,6 +117,12 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     },
     get bloomEnabled() {
       return bloom.enabled
+    },
+    get flareEnabled() {
+      return screen.uniforms.uFlare.value > 0
+    },
+    get screen() {
+      return screen
     },
   }
 }

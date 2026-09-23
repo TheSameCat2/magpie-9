@@ -55,6 +55,7 @@ function segmentGeometry() {
       rib: ringOf(WALL_WIDTH * 0.97, 0.08, 0.08, TUNNEL_APOTHEM - 0.05, SEGMENT_LENGTH * 0.5 - 0.05),
       strip: ringOf(0.055, 0.055, SEGMENT_LENGTH, TUNNEL_VERTEX_RADIUS - 0.09, 0, true),
       gantry: ringOf(WALL_WIDTH * 0.9, 0.3, 0.34, TUNNEL_APOTHEM - 0.14, SEGMENT_LENGTH * 0.5 - 0.3),
+      shaft: new THREE.CylinderGeometry(0.35, 1.5, 5.2, 16, 1, true),
     }
   }
   return sharedGeometry
@@ -79,6 +80,11 @@ function createSegment(materials, index) {
   gantry.visible = even
   group.add(gantry)
 
+  const shaft = new THREE.Mesh(geo.shaft, materials.volumetricShaft)
+  shaft.position.set(0, 1.3, SEGMENT_LENGTH * 0.5 - 0.3)
+  shaft.visible = even && index % 4 === 0
+  group.add(shaft)
+
   const cable = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, SEGMENT_LENGTH * 0.85), materials.metalHi)
   const cableTheta = faceAngle(index)
   cable.position.set(
@@ -100,13 +106,14 @@ function createSegment(materials, index) {
   panel.visible = even
   group.add(panel)
 
-  return { group, gantry, cable, panel }
+  return { group, gantry, shaft, cable, panel }
 }
 
 /** Randomise the detail props when a segment wraps to the back. */
 function rerollDetails(segment) {
   segment.cable.visible = Math.random() > 0.35
   segment.gantry.visible = Math.random() > 0.5
+  segment.shaft.visible = segment.gantry.visible && Math.random() > 0.35
   segment.panel.visible = Math.random() > 0.45
   segment.panel.position.z = (Math.random() - 0.5) * 4
 }

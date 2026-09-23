@@ -142,6 +142,7 @@ export function createGame({
   function beginSession(mode = 'run', session = {}) {
     sessionGen += 1
     scene = 'playing'
+    UNIFORMS.uHazard.value = 0
     run.begin(mode, session)
     if (session.day) scoreboard.challengeDay = session.day
     hud.setGameMode(mode)
@@ -197,6 +198,7 @@ export function createGame({
     scene = 'menu'
     run.end()
     hold.clear()
+    UNIFORMS.uHazard.value = 0
     hud.setGameMode(run.mode)
     hud.hideRespawn()
     bird.reset()
@@ -240,6 +242,7 @@ export function createGame({
   function endRun() {
     scene = 'dead'
     hold.clear()
+    UNIFORMS.uHazard.value = 0
     hud.hideRespawn()
   }
 
@@ -482,6 +485,7 @@ export function createGame({
 
     if (hold.paused) {
       audio.clearHazard()
+      UNIFORMS.uHazard.value = 0
       if (hold.reason === 'countdown') {
         if (pauseKey) hold.pause('menu')
         else hold.tickCountdown()
@@ -516,9 +520,12 @@ export function createGame({
     const next = gates.nearestAhead()
     if (next) {
       const prox = next.z < 0 ? Math.max(0, Math.min(1, 1 + next.z / HAZARD_RANGE)) : 1
-      audio.hazard(next.type, prox * prox)
+      const hazardIntensity = prox * prox
+      audio.hazard(next.type, hazardIntensity)
+      UNIFORMS.uHazard.value = hazardIntensity
     } else {
       audio.clearHazard()
+      UNIFORMS.uHazard.value = 0
     }
   }
 

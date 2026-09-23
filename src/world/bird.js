@@ -1,9 +1,42 @@
 import * as THREE from 'three'
 import { THEME } from '../config/theme.js'
 import { SPARK_RAMP } from '../config/fx.js'
-import { BIRD_BODY_D, BIRD_BODY_H, BIRD_BODY_W, BIRD_VISUAL_SCALE, TUNNEL_APOTHEM } from '../config/world.js'
+import {
+  BIRD_BODY_D,
+  BIRD_BODY_H,
+  BIRD_BODY_W,
+  BIRD_HIT,
+  BIRD_VISUAL_SCALE,
+  TUNNEL_APOTHEM,
+} from '../config/world.js'
 import { UNIFORMS } from '../render/uniforms.js'
 import { FRAME_VERT, THRUST_FRAG, TRAIL_VERT, TRAIL_FRAG } from '../render/shaders.js'
+
+// Hex conduit wall normals (flat-topped hex faces at 30° + 60°·i)
+const HEX_NORMALS = []
+for (let i = 0; i < 6; i++) {
+  const theta = (i * Math.PI) / 3 + Math.PI / 6
+  HEX_NORMALS.push({
+    x: Math.cos(theta),
+    y: Math.sin(theta),
+    absX: Math.abs(Math.cos(theta)),
+    absY: Math.abs(Math.sin(theta)),
+  })
+}
+
+/** Signed clearance from the bird's bounding box extents to the nearest conduit wall. */
+export function nearestWallClearance(px, py) {
+  let min = 999
+  for (let i = 0; i < 6; i++) {
+    const n = HEX_NORMALS[i]
+    const d = TUNNEL_APOTHEM - (px * n.x + py * n.y + BIRD_HIT.x * n.absX + BIRD_HIT.y * n.absY)
+    if (d < min) min = d
+  }
+  return min
+}
+
+const COLOR_ICE = new THREE.Color(THEME.ice)
+const COLOR_SODIUM = new THREE.Color(THEME.sodium)
 
 // Flight feel (PLAN.md "Feel"). Units per second / per second squared.
 const GRAVITY = -28
@@ -494,6 +527,11 @@ export function createBird(scene, materials) {
   const thruster = createThruster(materials)
   group.add(thruster.collar, thruster.cone, thruster.light)
 
+  // Dynamic proximity warning / contact light against conduit walls
+  const proxLight = new THREE.PointLight(THEME.ice, 0, 7.5, 2)
+  proxLight.position.set(0, 0, 0)
+  group.add(proxLight)
+
   // Physical hit-box reference wireframe (PLAN.md rail 91: KeyB toggles)
   const collider = new THREE.Mesh(
     new THREE.BoxGeometry(BIRD_BODY_W, BIRD_BODY_H, BIRD_BODY_D),
@@ -544,6 +582,7 @@ export function createBird(scene, materials) {
     thrustPulse = 0
     afterburner = 0
     t = 0
+    proxLight.intensity = 0
     group.position.set(0, 0, 0)
     group.rotation.set(0, 0, 0)
     deadSpin.set(0, 0, 0)
@@ -576,6 +615,7 @@ export function createBird(scene, materials) {
     thruster.material.uniforms.uIntensity.value = 0
     thruster.light.intensity = 0
     thruster.cone.visible = false
+    proxLight.intensity = 0
     trailL.setVisible(false)
     trailR.setVisible(false)
   }
@@ -617,7 +657,7 @@ export function createBird(scene, materials) {
     tail.rotation.y = -vx * 0.035
     tail.rotation.z = -vx * 0.025
 
-    // Thruster flare & Mach diamonds
+    // Thruster flare & Mach diamonds: backwash casts light down conduit on flap
     const glow = 0.65 + thrustPulse * 1.6 + Math.sin(t * 23) * 0.05 + afterburner * 0.5
     thruster.cone.visible = true
     const girth = 1 + thrustPulse * 0.35 + afterburner * 0.25
@@ -625,7 +665,8 @@ export function createBird(scene, materials) {
     thruster.material.uniforms.uIntensity.value = glow * 1.7
     thruster.material.uniforms.uColor.value.copy(thrustCold).lerp(thrustHot, afterburner)
     thruster.light.color.copy(thruster.material.uniforms.uColor.value)
-    thruster.light.intensity = 0.9 + thrustPulse * 2.8 + afterburner * 1.5
+    thruster.light.intensity = 0.9 + thrustPulse * 3.6 + afterburner * 1.5
+    thruster.light.distance = 5.5 + thrustPulse * 8.5
   }
 
   /** 0..1 ignition level; the game ramps it once the run passes the afterburner score. */
@@ -636,6 +677,7 @@ export function createBird(scene, materials) {
   /** Menu / held bob: gravity off, gentle sine. */
   function updateIdle(dt, dz) {
     animateWings(dt)
+    proxLight.intensity = 0
     const bob = Math.sin(t * 2.2) * 0.12
     group.position.set(0, bob, 0)
     pos.set(0, bob, 0)
@@ -664,11 +706,27 @@ export function createBird(scene, materials) {
     group.rotation.z = THREE.MathUtils.damp(group.rotation.z, -vx * 0.09, 12, dt)
     group.rotation.x = THREE.MathUtils.damp(group.rotation.x, -vy * 0.035, 10, dt)
     animateWings(dt)
+
+    // Dynamic proximity warning wash against conduit walls
+    const clear = nearestWallClearance(pos.x, pos.y)
+    if (clear > 1.4) {
+      proxLight.intensity = 0
+    } else if (clear > 0.45) {
+      const factor = (1.4 - clear) / (1.4 - 0.45)
+      proxLight.color.copy(COLOR_ICE)
+      proxLight.intensity = factor * 2.4
+    } else {
+      const strobe = Math.sin(t * 38) > 0 ? 1 : 0.2
+      proxLight.color.copy(COLOR_SODIUM)
+      proxLight.intensity = (2.2 + (0.45 - clear) * 3.5) * strobe
+    }
+
     syncTrails(dz, 0.35 + wingPulse * 1.4 + Math.abs(vx) * 0.06)
   }
 
   /** Tumbling wreck after a crash. */
   function updateDead(dt) {
+    proxLight.intensity = 0
     group.rotation.x += deadSpin.x * dt
     group.rotation.y += deadSpin.y * dt
     group.rotation.z += deadSpin.z * dt
@@ -710,6 +768,9 @@ export function createBird(scene, materials) {
       return thrustPulse
     },
     exhaust,
+    get clearance() {
+      return nearestWallClearance(pos.x, pos.y)
+    },
     reset,
     flap,
     kill,

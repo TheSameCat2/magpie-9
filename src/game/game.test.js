@@ -9,6 +9,7 @@ import {
   rollOrbType,
   stageDelta,
 } from '../config/rules.js'
+import { UNIFORMS } from '../render/uniforms.js'
 
 test('difficulty at score 0 is the base speed', () => {
   assert.equal(difficulty(0).speed, 12)
@@ -669,4 +670,31 @@ test('CHALLENGE time excludes the begin wait and every pause, and the board hear
   assert.equal(submitted[0].token, 'challenge-token')
   assert.equal(submitted[0].score, 5_000)
   assert.equal(submitted[0].pausedMs, 38_000)
+})
+
+test('UNIFORMS.uHazard tracks approaching gate proximity and resets on hold or menu', () => {
+  const { game, gates, select, tap, pressPause } = harness('new', true)
+  select()
+  assert.equal(UNIFORMS.uHazard.value, 0, 'uHazard should be 0 while held at begin')
+
+  tap()
+  assert.equal(game.paused, false)
+
+  // Gate ahead at -19z (halfway through 38z HAZARD_RANGE)
+  gates.nearestAhead = () => ({ type: 'bulkhead', z: -19 })
+  game.update(1 / 60)
+  assert.ok(UNIFORMS.uHazard.value > 0.2 && UNIFORMS.uHazard.value < 0.3, 'uHazard should track ~0.5^2')
+
+  // Gate passed / no gate ahead
+  gates.nearestAhead = () => null
+  game.update(1 / 60)
+  assert.equal(UNIFORMS.uHazard.value, 0, 'uHazard should clear when no gate is ahead')
+
+  // Approaching gate then pausing
+  gates.nearestAhead = () => ({ type: 'bulkhead', z: -10 })
+  game.update(1 / 60)
+  assert.ok(UNIFORMS.uHazard.value > 0.5)
+  pressPause()
+  game.update(1 / 60)
+  assert.equal(UNIFORMS.uHazard.value, 0, 'uHazard should clear on pause hold')
 })

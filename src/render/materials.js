@@ -15,6 +15,8 @@ import {
   ORB_VERT,
   ORB_FRAG,
   HALO_FRAG,
+  SHAFT_VERT,
+  SHAFT_FRAG,
 } from './shaders.js'
 
 /** Additive, non-depth-writing glow material: the default look for every emissive overlay. */
@@ -98,12 +100,27 @@ export function createRibMaterial(color, base, pulseScale) {
     uniforms: {
       uTime: UNIFORMS.uTime,
       uKick: UNIFORMS.uKick,
+      uHazard: UNIFORMS.uHazard,
       uFogDensity: UNIFORMS.uFogDensity,
       uColor: colorUniform(color),
       uBase: { value: base },
       uPulseScale: { value: pulseScale },
     },
   })
+}
+
+export function createShaftMaterial(color = THEME.ice, intensity = 0.28) {
+  return glowMaterial(
+    SHAFT_VERT,
+    SHAFT_FRAG,
+    {
+      uTime: UNIFORMS.uTime,
+      uFogDensity: UNIFORMS.uFogDensity,
+      uColor: colorUniform(color),
+      uIntensity: { value: intensity },
+    },
+    { side: THREE.DoubleSide },
+  )
 }
 
 export function createLaserMaterial(color, edgeSign) {
@@ -149,11 +166,12 @@ export function createMaterials() {
       map: wall.map,
       bumpMap: wall.bump,
       bumpScale: 0.035,
+      roughnessMap: wall.roughness,
       emissiveMap: wall.emissive,
       emissive: 0xffffff,
       emissiveIntensity: 0.9,
-      roughness: 0.58,
-      metalness: 0.3,
+      roughness: 0.85,
+      metalness: 0.35,
     }),
     metalHi: new THREE.MeshStandardMaterial({
       color: 0x7a8494,
@@ -173,6 +191,7 @@ export function createMaterials() {
     ribIce: createRibMaterial(THEME.ice, 0.5, 0.09),
     ribSodium: createRibMaterial(THEME.sodium, 0.45, 0.09),
     stripIce: createRibMaterial(THEME.ice, 0.18, 0.05),
+    volumetricShaft: createShaftMaterial(THEME.ice, 0.26),
     laserTop: createLaserMaterial(THEME.mag, -1),
     laserBot: createLaserMaterial(THEME.mag, 1),
     hatch: emissiveMetal(THEME.ice, 0.65, 0.35, 0.15),

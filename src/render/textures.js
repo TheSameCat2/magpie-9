@@ -47,6 +47,7 @@ export function createConduitTextures() {
   const [canvas, g] = createCanvas(W, H)
   const [bumpCanvas, bg] = createCanvas(W, H)
   const [emissiveCanvas, eg] = createCanvas(W, H)
+  const [roughCanvas, rg] = createCanvas(W, H)
 
   g.fillStyle = '#3a4252'
   g.fillRect(0, 0, W, H)
@@ -54,6 +55,9 @@ export function createConduitTextures() {
   bg.fillRect(0, 0, W, H)
   eg.fillStyle = '#000'
   eg.fillRect(0, 0, W, H)
+  // Base metal roughness (~0.42 smooth brushed alloy)
+  rg.fillStyle = '#686868'
+  rg.fillRect(0, 0, W, H)
 
   // brushed streaks
   for (let i = 0; i < 900; i++) {
@@ -61,12 +65,20 @@ export function createConduitTextures() {
     const l = 20 + Math.random() * 140
     g.fillStyle = `rgba(255,255,255,${0.015 + Math.random() * 0.03})`
     g.fillRect(Math.random() * W, y, l, 1)
+    rg.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'
+    rg.fillRect(Math.random() * W, y, l, 1)
   }
   paintGrime(g, W, H, 60, 0.18)
+  // Grime patches are matte and rough
+  paintGrime(rg, W, H, 45, 0.25)
 
   // recessed side channels
   fillBoth(g, bg, '#232a35', '#404040', 0, 0, 20, H)
   fillBoth(g, bg, '#232a35', '#404040', W - 20, 0, 20, H)
+  rg.fillStyle = '#8e8e8e'
+  rg.fillRect(0, 0, 20, H)
+  rg.fillRect(W - 20, 0, 20, H)
+
   g.fillStyle = 'rgba(0,0,0,0.5)'
   g.fillRect(20, 0, 2, H)
   g.fillRect(W - 22, 0, 2, H)
@@ -74,13 +86,16 @@ export function createConduitTextures() {
   g.fillRect(23, 0, 1, H)
   g.fillRect(W - 24, 0, 1, H)
 
-  // ice trim lines running the length
+  // ice trim lines running the length (polished glass/conduit)
   g.fillStyle = 'rgba(61,224,255,0.22)'
   g.fillRect(26, 0, 2, H)
   g.fillRect(W - 28, 0, 2, H)
   eg.fillStyle = 'rgba(61,224,255,0.55)'
   eg.fillRect(26, 0, 2, H)
   eg.fillRect(W - 28, 0, 2, H)
+  rg.fillStyle = '#303030'
+  rg.fillRect(26, 0, 2, H)
+  rg.fillRect(W - 28, 0, 2, H)
 
   for (let y = 0; y < H; y += 64) {
     const row = y / 64
@@ -92,11 +107,17 @@ export function createConduitTextures() {
     g.fillRect(30, y + 53, W - 60, 1)
     bg.fillStyle = '#303030'
     bg.fillRect(30, y + 49, W - 60, 4)
+    rg.fillStyle = '#a8a8a8'
+    rg.fillRect(30, y + 49, W - 60, 4)
 
-    // bolts
+    // bolts (polished chrome heads with dark sockets)
     for (const bx of [40, W - 50]) {
       fillBoth(g, bg, '#5a6574', '#c0c0c0', bx, y + 12, 10, 10)
       fillBoth(g, bg, '#1a1f28', '#303030', bx + 3, y + 15, 4, 4)
+      rg.fillStyle = '#222222'
+      rg.fillRect(bx, y + 12, 10, 10)
+      rg.fillStyle = '#b0b0b0'
+      rg.fillRect(bx + 3, y + 15, 4, 4)
     }
 
     // sodium indicator slit
@@ -107,14 +128,22 @@ export function createConduitTextures() {
       eg.fillStyle = 'rgba(232,160,48,0.9)'
       eg.fillRect(124, y + 8, 3, 40)
     }
+    rg.fillStyle = lit ? '#2c2c2c' : '#777777'
+    rg.fillRect(124, y + 8, 3, 40)
 
     // vent grille
     if (row % 2 === 0) {
       for (let k = 0; k < 6; k++) {
         fillBoth(g, bg, 'rgba(0,0,0,0.55)', '#404040', 70, y + 18 + k * 5, 40, 2)
+        rg.fillStyle = '#9e9e9e'
+        rg.fillRect(70, y + 18 + k * 5, 40, 2)
       }
       g.fillStyle = 'rgba(0,0,0,0.55)'
-      for (let k = 0; k < 6; k++) g.fillRect(W - 110, y + 18 + k * 5, 40, 2)
+      for (let k = 0; k < 6; k++) {
+        g.fillRect(W - 110, y + 18 + k * 5, 40, 2)
+        rg.fillStyle = '#9e9e9e'
+        rg.fillRect(W - 110, y + 18 + k * 5, 40, 2)
+      }
     }
 
     // tiny status LEDs
@@ -125,11 +154,14 @@ export function createConduitTextures() {
       eg.fillStyle = '#3de0ff'
       eg.fillRect(W - 62, y + 40, 4, 4)
     }
+    rg.fillStyle = ledOn ? '#282828' : '#606060'
+    rg.fillRect(W - 62, y + 40, 4, 4)
   }
 
   return {
     map: toTexture(canvas, { srgb: true }),
     bump: toTexture(bumpCanvas),
+    roughness: toTexture(roughCanvas),
     emissive: toTexture(emissiveCanvas, { srgb: true }),
   }
 }

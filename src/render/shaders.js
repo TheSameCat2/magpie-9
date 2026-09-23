@@ -117,6 +117,7 @@ precision highp float;
 ${FOG}
 uniform float uTime;
 uniform float uKick;
+uniform float uHazard;
 uniform vec3 uColor;
 uniform float uBase;
 uniform float uPulseScale;
@@ -126,9 +127,17 @@ void main() {
   float phase = vWorld.z * uPulseScale - uTime * 1.15;
   float wave = pow(0.5 + 0.5 * sin(phase * 6.2831), 6.0);
   float wave2 = pow(0.5 + 0.5 * sin(phase * 6.2831 * 0.37 + 1.7), 3.0) * 0.35;
-  float i = uBase + wave * 1.4 + wave2 + uKick * 1.8;
+
+  // Approaching hazard triggers a warning strobe wave accelerating down the ribs
+  float strobe = 0.0;
+  if (uHazard > 0.001) {
+    float strobeWave = sin(uTime * (14.0 + uHazard * 18.0) - vWorld.z * 0.4);
+    strobe = smoothstep(0.4, 0.95, strobeWave) * uHazard * 2.4;
+  }
+
+  float i = uBase + wave * 1.4 + wave2 + uKick * 1.8 + strobe;
   vec3 col = uColor * i;
-  col = mix(col, vec3(1.0), uKick * 0.35 * wave);
+  col = mix(col, vec3(1.0), clamp(uKick * 0.35 * wave + strobe * 0.45, 0.0, 1.0));
   col *= fogAtten(vDepth);
   gl_FragColor = vec4(col, 1.0);
 }
@@ -505,6 +514,59 @@ void main() {
   float fade = pow(1.0 - vT, 2.4) * smoothstep(0.0, 0.08, vT);
   float ripple = 0.8 + 0.2 * sin(vT * 30.0 - uTime * 24.0);
   vec3 col = mix(uColor, vec3(1.0), 0.2 * (1.0 - vT)) * fade * ripple * uIntensity;
+  col *= fogAtten(vDepth);
+  gl_FragColor = vec4(col, 1.0);
+}
+`
+
+// ---------------------------------------------------------------------------
+// Volumetric light shafts: soft additive beams cast downward from ceiling gantries.
+// ---------------------------------------------------------------------------
+export const SHAFT_VERT = /* glsl */ `
+varying vec2 vUv;
+varying vec3 vWorld;
+varying vec3 vViewNormal;
+varying vec3 vViewPos;
+varying float vDepth;
+void main() {
+  vUv = uv;
+  vec4 w = modelMatrix * vec4(position, 1.0);
+  vWorld = w.xyz;
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vViewNormal = normalize(normalMatrix * normal);
+  vViewPos = mv.xyz;
+  vDepth = -mv.z;
+  gl_Position = projectionMatrix * mv;
+}
+`
+
+export const SHAFT_FRAG = /* glsl */ `
+precision highp float;
+${FOG}
+uniform float uTime;
+uniform vec3 uColor;
+uniform float uIntensity;
+varying vec2 vUv;
+varying vec3 vWorld;
+varying vec3 vViewNormal;
+varying vec3 vViewPos;
+varying float vDepth;
+
+void main() {
+  // vUv.y: 1 at ceiling emitter, 0 at bottom
+  float along = vUv.y;
+  float verticalFade = pow(along, 1.3) * smoothstep(1.0, 0.9, along) * smoothstep(0.0, 0.22, along);
+
+  // Soft edge from view angle (fades at grazing silhouette angles so no sharp geometry edge is seen)
+  vec3 viewDir = normalize(-vViewPos);
+  float edge = clamp(abs(dot(vViewNormal, viewDir)), 0.0, 1.0);
+  float radial = smoothstep(0.0, 0.45, edge);
+
+  // Particulate motes drifting through the beam
+  float dust = 0.88 + 0.12 * sin(vWorld.z * 1.8 + uTime * 2.2) * cos(vWorld.y * 2.4 - uTime * 1.6);
+
+  float beam = verticalFade * radial * dust * uIntensity;
+  vec3 col = uColor * beam;
   col *= fogAtten(vDepth);
   gl_FragColor = vec4(col, 1.0);
 }

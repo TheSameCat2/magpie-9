@@ -6,6 +6,7 @@ export const PLATE_DEPTH = 0.3
 
 export const unitPlane = new THREE.PlaneGeometry(1, 1)
 export const unitBox = new THREE.BoxGeometry(1, 1, 1)
+export const unitCylinder = new THREE.CylinderGeometry(0.5, 0.5, 1, 10, 1)
 
 function hexShape() {
   const shape = new THREE.Shape()

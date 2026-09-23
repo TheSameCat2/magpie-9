@@ -9,7 +9,7 @@ import { createRng } from '../lib/rng.js'
 import { formatTime } from '../lib/time.js'
 import { loadBest, loadChallengeBest, saveBest, saveChallengeBest } from '../lib/storage.js'
 import { UNIFORMS, kickUniform } from '../render/uniforms.js'
-import { hitTunnel, passMargin } from '../world/collision.js'
+import { hitTunnel, passMargin, passContact } from '../world/collision.js'
 import { createHud } from '../hud/index.js'
 import { scoreApi } from './api.js'
 import { createCameraRig } from './camera.js'
@@ -338,7 +338,8 @@ export function createGame({
 
   function onGatePassed(gate) {
     const { shuntSpent, extract: reached } = run.clearGate()
-    const close = passMargin(bird.pos, BIRD_HIT, gate) < NEAR_MISS
+    const contact = passContact(bird.pos, BIRD_HIT, gate)
+    const close = contact.margin < NEAR_MISS
     const milestone = run.scored && run.score % SECTOR === 0
 
     showScoreReadout(true)
@@ -347,11 +348,14 @@ export function createGame({
     fx.gateBurst(burst.x, burst.y, gate.z, burst.hw, burst.hh, burst.color, close ? 70 : 42)
     fx.kick(close ? 1 : 0.6)
     postfx.kick(close ? 1.1 : 0.55)
+    postfx.warp(0.5, 0.5, close ? 1.1 : 0.7)
     kickUniform(close ? 1 : 0.55)
     rig.punch(close ? 6 : 3.2)
     audio.gate(run.score)
 
     if (close) {
+      fx.scrapeSparks(contact.x, contact.y, gate.z, contact.nx, contact.ny)
+      rig.jolt(0.12)
       hud.toast('CLOSE CALL', 'mag')
       hud.hot()
       audio.nearMiss()

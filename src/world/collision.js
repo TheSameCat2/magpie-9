@@ -69,6 +69,59 @@ export function passMargin(pos, hit, gate) {
   return Infinity
 }
 
+/**
+ * Returns exact contact location and spray normal for a near miss.
+ */
+export function passContact(pos, hit, gate) {
+  if (hasHatch(gate)) {
+    const dx = pos.x - gate.hole.x
+    const dy = pos.y - gate.hole.y
+    const mx = gate.hole.w * 0.5 - Math.abs(dx) - hit.x
+    const my = gate.hole.h * 0.5 - Math.abs(dy) - hit.y
+    if (mx < my) {
+      const signX = dx >= 0 ? 1 : -1
+      return {
+        margin: mx,
+        x: pos.x + signX * hit.x,
+        y: pos.y,
+        nx: -signX,
+        ny: 0,
+      }
+    }
+    const signY = dy >= 0 ? 1 : -1
+    return {
+      margin: my,
+      x: pos.x,
+      y: pos.y + signY * hit.y,
+      nx: 0,
+      ny: -signY,
+    }
+  }
+  if (gate.type === 'laser-bar') {
+    const dy = pos.y - gate.gapY
+    const signY = dy >= 0 ? 1 : -1
+    return {
+      margin: gate.gapH * 0.5 - Math.abs(dy) - hit.y,
+      x: pos.x,
+      y: pos.y + signY * hit.y,
+      nx: 0,
+      ny: -signY,
+    }
+  }
+  if (gate.type === 'pylon') {
+    const dx = pos.x - gate.edge
+    const signX = dx >= 0 ? 1 : -1
+    return {
+      margin: Math.abs(dx) - hit.x,
+      x: pos.x - signX * hit.x,
+      y: pos.y,
+      nx: signX,
+      ny: 0,
+    }
+  }
+  return { margin: Infinity, x: pos.x, y: pos.y, nx: 0, ny: 0 }
+}
+
 /** Sphere (orb) vs the bird's box. */
 export function hitOrb(pos, hit, orb) {
   const dx = orb.x - clamp(orb.x, pos.x - hit.x, pos.x + hit.x)

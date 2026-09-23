@@ -174,12 +174,30 @@ varying float vScaleY;
 
 void main() {
   float edgeWorld = (0.5 - vLocal.y * uEdgeSign) * vScaleY;
-  float flow = 0.5 + 0.5 * sin(vWorld.x * 2.3 - uTime * 7.5 + vWorld.y * 2.0);
-  float scan = smoothstep(0.82, 1.0, fract(vWorld.y * 3.0 + uTime * 2.6));
-  float flicker = 0.92 + 0.08 * sin(uTime * 41.0 + vWorld.x * 0.7);
-  float body = 0.38 + flow * 0.22 + scan * 0.25;
-  float hot = exp(-edgeWorld * 5.5) * 2.6;
-  vec3 col = uColor * body * flicker + mix(uColor, vec3(1.0), 0.65) * hot;
+  
+  // High-frequency electrical plasma filament arcing along the lethal edge
+  float arc1 = sin(vWorld.x * 24.0 + uTime * 47.0);
+  float arc2 = sin(vWorld.x * 9.0 - uTime * 29.0 + arc1 * 1.5);
+  float noiseArc = sin(vWorld.x * 48.0 + uTime * 63.0 + arc2 * 2.0);
+  float edgeJitter = 0.032 * arc1 * noiseArc;
+  
+  // Dancing coronal tendrils leaping into the clearance gap
+  float tendril = pow(max(0.0, sin(vWorld.x * 16.0 + sin(uTime * 34.0) * 3.5)), 7.0);
+  float corona = exp(-edgeWorld * 4.5) * tendril * 1.6;
+
+  // Internal plasma currents
+  float flow = 0.5 + 0.5 * sin(vWorld.x * 3.2 - uTime * 12.0 + vWorld.y * 2.5);
+  float scan = smoothstep(0.80, 1.0, fract(vWorld.y * 3.0 + uTime * 3.2));
+  float microFlicker = 0.90 + 0.10 * sin(uTime * 59.0 + vWorld.x * 3.7);
+
+  float body = 0.36 + flow * 0.24 + scan * 0.22;
+  float core = exp(-max(0.0, edgeWorld + edgeJitter) * 8.8) * 3.4;
+
+  vec3 mantle = uColor * body * microFlicker;
+  vec3 plasmaFringe = mix(uColor, vec3(1.0, 0.45, 0.85), 0.55) * corona;
+  vec3 hotCore = mix(uColor, vec3(1.0), 0.88) * core;
+
+  vec3 col = mantle + plasmaFringe + hotCore;
   col *= fogAtten(vDepth);
   gl_FragColor = vec4(col, 1.0);
 }
@@ -638,6 +656,8 @@ uniform vec3 uFlashColor;
 uniform float uGlitch;
 uniform float uVignette;
 uniform float uGrain;
+uniform float uWarp;
+uniform vec2 uWarpCenter;
 uniform vec2 uRes;
 varying vec2 vUv;
 
@@ -657,6 +677,20 @@ vec3 sampleZoom(vec2 uv, vec2 c, float r2) {
 
 void main() {
   vec2 uv = vUv;
+
+  if (uWarp > 0.002) {
+    vec2 dWarp = uv - uWarpCenter;
+    dWarp.x *= uRes.x / max(uRes.y, 1.0);
+    float dist = length(dWarp);
+    float rippleRadius = (1.0 - uWarp) * 0.95;
+    float ringWidth = 0.12;
+    float ringDelta = abs(dist - rippleRadius);
+    float ringMask = smoothstep(ringWidth, 0.0, ringDelta);
+    float wave = sin((dist - rippleRadius) / ringWidth * 3.14159);
+    vec2 dir = dist > 1e-4 ? normalize(dWarp) : vec2(0.0);
+    dir.x /= uRes.x / max(uRes.y, 1.0);
+    uv += dir * wave * ringMask * uWarp * 0.038;
+  }
 
   if (uGlitch > 0.002) {
     float band = floor(uv.y * 28.0 + uTime * 37.0);

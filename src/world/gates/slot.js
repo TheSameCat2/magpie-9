@@ -3,7 +3,7 @@ import { THEME } from '../../config/theme.js'
 import { TUNNEL_APOTHEM, TUNNEL_VERTEX_RADIUS } from '../../config/world.js'
 import { createFrameMaterial, createRingMaterial } from '../../render/materials.js'
 import { HOLE_H, HOLE_W, LASER_GAP, PYLON_W } from './layout.js'
-import { PLATE_DEPTH, createBulkheadGeometry, unitBox, unitPlane } from './geometry.js'
+import { PLATE_DEPTH, createBulkheadGeometry, unitBox, unitCylinder, unitPlane } from './geometry.js'
 
 // One pooled gate slot owns a mesh for every hazard type and shows only the
 // set its current type needs. Rebuilding meshes per spawn would allocate in
@@ -52,6 +52,14 @@ export function createGateSlot(materials) {
   const sledTop = hiddenMesh(unitBox, materials.plate)
   const sledBot = hiddenMesh(unitBox, materials.plate)
   const shutters = hiddenMeshes(2, unitBox, materials.plate)
+
+  // Heavy industrial mechanics
+  const pistons = hiddenMeshes(2, unitCylinder, materials.metalHi)
+  const pistonRods = hiddenMeshes(2, unitCylinder, materials.beak)
+  const clamps = hiddenMeshes(4, unitBox, materials.metalHi)
+  const nozzles = hiddenMeshes(2, unitBox, materials.metalHi)
+  const pylonBrackets = hiddenMeshes(2, unitBox, materials.metalHi)
+
   const frame = hiddenMesh(unitPlane, createFrameMaterial(THEME.ice))
   frame.renderOrder = 5
   const ring = hiddenMesh(unitPlane, createRingMaterial(THEME.ice))
@@ -67,6 +75,11 @@ export function createGateSlot(materials) {
     sledTop,
     sledBot,
     ...shutters,
+    ...pistons,
+    ...pistonRods,
+    ...clamps,
+    ...nozzles,
+    ...pylonBrackets,
     frame,
     ring,
   )
@@ -99,6 +112,11 @@ export function createGateSlot(materials) {
     sledTop,
     sledBot,
     shutters,
+    pistons,
+    pistonRods,
+    clamps,
+    nozzles,
+    pylonBrackets,
     frame,
     ring,
     geometry: null,
@@ -116,6 +134,11 @@ function hideParts(gate) {
     gate.sledTop,
     gate.sledBot,
     ...gate.shutters,
+    ...gate.pistons,
+    ...gate.pistonRods,
+    ...gate.clamps,
+    ...gate.nozzles,
+    ...gate.pylonBrackets,
     gate.frame,
     gate.ring,
   ]
@@ -123,6 +146,46 @@ function hideParts(gate) {
   gate.sled = null
   gate.ringT = -1
   gate.hit = 0
+}
+
+function placeHatchMechanics(gate, ox, oy) {
+  const hw = HOLE_W * 0.5
+  const hh = HOLE_H * 0.5
+
+  // 4 corner locking clamp dogs
+  const clampOffsets = [
+    { x: ox - hw - 0.05, y: oy - hh - 0.05 },
+    { x: ox + hw + 0.05, y: oy - hh - 0.05 },
+    { x: ox - hw - 0.05, y: oy + hh + 0.05 },
+    { x: ox + hw + 0.05, y: oy + hh + 0.05 },
+  ]
+  clampOffsets.forEach((co, i) => {
+    const clamp = gate.clamps[i]
+    clamp.visible = true
+    clamp.scale.set(0.18, 0.18, 0.22)
+    clamp.position.set(co.x, co.y, SLAB_LIFT + 0.02)
+  })
+
+  // 2 vertical hydraulic pistons (top & bottom)
+  const pTop = gate.pistons[0]
+  pTop.visible = true
+  pTop.scale.set(0.13, 0.48, 0.13)
+  pTop.position.set(ox, oy + hh + 0.4, SLAB_LIFT + 0.04)
+
+  const rodTop = gate.pistonRods[0]
+  rodTop.visible = true
+  rodTop.scale.set(0.065, 0.32, 0.065)
+  rodTop.position.set(ox, oy + hh + 0.16, SLAB_LIFT + 0.04)
+
+  const pBot = gate.pistons[1]
+  pBot.visible = true
+  pBot.scale.set(0.13, 0.48, 0.13)
+  pBot.position.set(ox, oy - hh - 0.4, SLAB_LIFT + 0.04)
+
+  const rodBot = gate.pistonRods[1]
+  rodBot.visible = true
+  rodBot.scale.set(0.065, 0.32, 0.065)
+  rodBot.position.set(ox, oy - hh - 0.16, SLAB_LIFT + 0.04)
 }
 
 function placeRims(gate, ox, oy) {
@@ -140,6 +203,7 @@ function placeRims(gate, ox, oy) {
     rim.scale.set(s.w, s.h, SLAB_THICKNESS)
     rim.position.set(s.x, s.y, 0)
   })
+  placeHatchMechanics(gate, ox, oy)
 }
 
 /**
@@ -220,6 +284,18 @@ function configureLaserBar(gate, layout) {
   gate.gapH = LASER_GAP
   gate.depth = LASER_DEPTH
   placeSlabs(gate.laserTop, gate.laserBot, gate.gapY, LASER_GAP, 0)
+
+  // Ceramic emitter nozzle rails
+  const topNozzle = gate.nozzles[0]
+  topNozzle.visible = true
+  topNozzle.scale.set(TUNNEL_VERTEX_RADIUS * 2, 0.12, LASER_DEPTH + 0.08)
+  topNozzle.position.set(0, gate.gapY + LASER_GAP * 0.5 + 0.06, 0)
+
+  const botNozzle = gate.nozzles[1]
+  botNozzle.visible = true
+  botNozzle.scale.set(TUNNEL_VERTEX_RADIUS * 2, 0.12, LASER_DEPTH + 0.08)
+  botNozzle.position.set(0, gate.gapY - LASER_GAP * 0.5 - 0.06, 0)
+
   setFrame(gate, {
     mode: FRAME_MODE.band,
     x: 0,
@@ -262,6 +338,18 @@ function configurePylon(gate, layout) {
   gate.depth = PYLON_D
   gate.pylon.visible = true
   gate.pylonEdge.visible = true
+
+  // Wall anchor brackets
+  const topBracket = gate.pylonBrackets[0]
+  topBracket.visible = true
+  topBracket.scale.set(0.48, 0.22, PYLON_D + 0.06)
+  topBracket.position.set(px, 3.8, 0)
+
+  const botBracket = gate.pylonBrackets[1]
+  botBracket.visible = true
+  botBracket.scale.set(0.48, 0.22, PYLON_D + 0.06)
+  botBracket.position.set(px, -3.8, 0)
+
   // Negative X scale points local +X at the gap so the shared shader
   // can heat the open-edge bus without a per-slot uniform.
   gate.pylon.scale.set(side === 'left' ? PYLON_W : -PYLON_W, PYLON_H, PYLON_D)

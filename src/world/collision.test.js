@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { BIRD_HIT } from '../config/world.js'
-import { hitOrb, hitObstacle, hitTunnel, passMargin } from './collision.js'
+import { hitOrb, hitObstacle, hitTunnel, passMargin, passContact } from './collision.js'
 
 const HIT = BIRD_HIT
 const origin = { x: 0, y: 0, z: 0 }
@@ -85,4 +85,23 @@ test('hitTunnel uses the hull half-extents, not a surrounding sphere', () => {
   // +Y faces a flat of the hex, so the wall is exactly R - hit.y from centre.
   assert.equal(hitTunnel({ x: 0, y: 4.2 - HIT.y + 0.01, z: 0 }, HIT), true)
   assert.equal(hitTunnel({ x: 0, y: 4.2 - HIT.y - 0.01, z: 0 }, HIT), false)
+})
+
+test('passContact calculates contact location and spray normal for near misses', () => {
+  const obs = bulkhead({ x: 0, y: 0, w: 2.8, h: 3.2 })
+  // Near miss on right vertical hatch edge
+  const nearRightPos = { x: 1.4 - HIT.x - 0.1, y: 0, z: 0 }
+  const contactRight = passContact(nearRightPos, HIT, obs)
+  assert.ok(Math.abs(contactRight.margin - 0.1) < 1e-5)
+  assert.ok(contactRight.x > nearRightPos.x)
+  assert.equal(contactRight.nx, -1)
+  assert.equal(contactRight.ny, 0)
+
+  // Near miss on top laser edge
+  const obsLaser = laser(0, 3)
+  const nearTopLaserPos = { x: 0, y: 1.5 - HIT.y - 0.08, z: 0 }
+  const contactLaser = passContact(nearTopLaserPos, HIT, obsLaser)
+  assert.ok(Math.abs(contactLaser.margin - 0.08) < 1e-5)
+  assert.equal(contactLaser.nx, 0)
+  assert.equal(contactLaser.ny, -1)
 })

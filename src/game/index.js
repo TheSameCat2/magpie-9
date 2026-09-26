@@ -111,10 +111,18 @@ export function createGame({
     fx.puff(bird.x, bird.y, 0, strength)
   }
 
-  /** A focused HUD button would swallow the next Space/Enter instead of flapping. */
+  /**
+   * A focused HUD button swallows the next Space/Enter. Blur now and again on
+   * the next frame: a click focuses the button on pointerup, after beginSession
+   * has already run. Lesson cards are not buttons, so they keep focus.
+   */
   function blurHudFocus() {
-    const active = globalThis.document?.activeElement
-    if (active?.closest?.('#hud')) active.blur()
+    const blur = () => {
+      const active = globalThis.document?.activeElement
+      if (active?.closest?.('#hud button')) active.blur()
+    }
+    blur()
+    if (typeof globalThis.requestAnimationFrame === 'function') globalThis.requestAnimationFrame(blur)
   }
 
   /** The run is live again after any hold: restore the drone and tell the loop. */

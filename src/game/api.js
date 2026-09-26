@@ -2,8 +2,13 @@
 // or rejects with the server's error message.
 
 async function readJson(res) {
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+  // A 200 that is not JSON (the dev server serving the function source, an
+  // HTML error page) is a failure. Swallowing the parse used to look like a
+  // board that was still loading.
+  const data = await res.json().catch(() => null)
+  if (!res.ok || data == null || typeof data !== 'object') {
+    throw new Error(data?.error || `HTTP ${res.status}`)
+  }
   return data
 }
 

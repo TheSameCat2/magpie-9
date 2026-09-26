@@ -3,8 +3,8 @@
 // what is visible from the shared HUD state and is called after every change.
 
 import { rotateFsAction } from '../platform/screen.js'
-import { byId, onPress, setToggleButton, setVisible } from './dom.js'
-import { sceneHint } from './copy.js'
+import { byId, onPress, query, setToggleButton, setVisible } from './dom.js'
+import { keysHint, lessonHint, pauseCopy, sceneHint, screenHint } from './copy.js'
 
 export function createChrome(state, { help }) {
   const sub = byId('sub')
@@ -14,6 +14,9 @@ export function createChrome(state, { help }) {
   const pauseBtn = byId('pause')
   const exitBtn = byId('exit')
   const tutorialTag = byId('tutorialTag')
+  const lessonTap = byId('lessonTap')
+  const pausedEl = byId('paused')
+  const pausedSub = query('.overlay-sub', pausedEl)
   const muteBtn = byId('btnMute')
   const fsBtn = byId('btnFs')
   const rotateFsBtn = byId('btnRotateFs')
@@ -40,6 +43,15 @@ export function createChrome(state, { help }) {
 
     const hint = sceneHint(scene, inputMode)
     if (hint != null) sub.textContent = hint
+    keysEl.textContent = keysHint(scene)
+    lessonTap.textContent = lessonHint(inputMode)
+    const back = screenHint(scene, inputMode)
+    const backEl = back != null ? document.querySelector(`#${scene} .back-hint`) : null
+    if (backEl) backEl.textContent = back
+    // Begin hint follows the input device even if the hold was already showing.
+    if (!pausedEl.classList.contains('hidden') && pausedEl.dataset.reason === 'begin') {
+      pausedSub.textContent = pauseCopy('begin', 0, inputMode).sub
+    }
   }
 
   function setMuted(muted) {

@@ -4,6 +4,22 @@
   top: 46%;
   transform: translate(-50%, -50%);
   text-align: center;
+  isolation: isolate;
+  max-width: calc(100vw - 48px - var(--sal) - var(--sar));
+}
+/* Soft void behind the card so title and menu stay readable over the conduit. */
+#center::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: -18% -12%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(7, 8, 12, 0.82) 0%,
+    rgba(7, 8, 12, 0.46) 52%,
+    transparent 74%
+  );
+  pointer-events: none;
 }
 #center.rise {
   animation: rise 0.5s ease-out both;
@@ -103,7 +119,7 @@
 }
 #prompt {
   margin-top: 18px;
-  font-size: 13px;
+  font-size: var(--fs-md);
   letter-spacing: 0.34em;
   color: var(--ice);
   animation: blink 1.6s ease-in-out infinite;
@@ -111,7 +127,7 @@
 #center.dead #prompt {
   animation: none;
   color: var(--ink);
-  font-size: 15px;
+  font-size: var(--fs-md);
 }
 @keyframes blink {
   0%,
@@ -124,7 +140,7 @@
 }
 #sub {
   margin-top: 10px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   letter-spacing: 0.18em;
   color: var(--muted);
 }
@@ -139,12 +155,12 @@
 }
 #menu button {
   position: relative;
-  min-height: 44px;
+  min-height: var(--hit);
   padding: 8px 26px;
-  border: 1px solid rgba(61, 224, 255, 0.22);
-  background: rgba(7, 8, 12, 0.5);
+  border: 1px solid rgba(61, 224, 255, 0.28);
+  background: rgba(7, 8, 12, 0.72);
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-lg);
   letter-spacing: 0.34em;
   transition:
     color 0.15s,
@@ -173,4 +189,13 @@ body[data-input='keys'] #menu button:hover {
 #menu button.sel::before {
   opacity: 1;
   animation: blink 1.6s ease-in-out infinite;
+}
+#blurb {
+  margin-top: 12px;
+  min-height: 3em;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  line-height: 1.5;
+  color: var(--ink);
+  text-shadow: var(--shadow-ink);
 }

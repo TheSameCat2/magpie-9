@@ -1,6 +1,13 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createGame, rewindDistance, pauseTapAction, heldPauseReason, RESUME_COUNTDOWN } from './index.js'
+import {
+  createGame,
+  rewindDistance,
+  pauseTapAction,
+  heldPauseReason,
+  RESUME_COUNTDOWN,
+  DEAD_GRACE,
+} from './index.js'
 import {
   SHUNT_GATES,
   SHUNT_SPEED,
@@ -196,6 +203,10 @@ function harness(menuItem = 'new', god = true, api) {
   hud.bindPause = (handlers) => {
     pauseUi = handlers
   }
+  let entryUi = {}
+  hud.bindEntry = (handlers) => {
+    entryUi = handlers
+  }
   const powerups = stub()
   powerups.collect = (_pos, _r, out) => {
     out.length = 0
@@ -291,6 +302,8 @@ function harness(menuItem = 'new', god = true, api) {
     screen,
     pressPause: () => pauseUi.onPause?.(),
     pressContinue: () => pauseUi.onContinue?.(),
+    pressQuit: () => pauseUi.onQuit?.(),
+    pressEntry: (action) => entryUi.onAction?.(action),
   }
 }
 
@@ -310,18 +323,25 @@ test('NEW GAME drops into a held run until the first jump', () => {
   assert.equal(shown.at(-1), 'hide')
 })
 
-test('TUTORIAL also waits for jump to begin', () => {
-  const { game, shown, select } = harness('tutorial')
+test('TUTORIAL opens on the flight card, then waits for jump to begin', () => {
+  const { game, shown, select, tap } = harness('tutorial')
   select()
   assert.equal(game.mode, 'tutorial')
   assert.equal(game.paused, true)
+  assert.equal(game.lesson, 'flight')
+  assert.equal(game.pauseReason, 'lesson')
+  tap()
+  assert.equal(game.lesson, null)
   assert.equal(game.pauseReason, 'begin')
   assert.equal(shown.at(-1), 'begin')
+  tap()
+  assert.equal(game.paused, false)
 })
 
 test('closing a tutorial explainer holds the run on jump to resume', () => {
   const { game, powerups, shown, select, tap } = harness('tutorial')
   select()
+  tap()
   tap()
   assert.equal(game.paused, false)
   powerups.collect = (_pos, _r, out) => {
@@ -424,6 +444,7 @@ test('tutorial shunts engage overdrive behind an explainer card', () => {
   const { game, powerups, gates, select, tap } = harness('tutorial')
   select()
   tap()
+  tap()
   collectOnce(powerups, { type: 'shunt', x: 0, y: 0, z: 0 })
   game.update(1 / 60)
   assert.equal(game.shuntLeft, SHUNT_GATES)
@@ -480,7 +501,89 @@ test('CHALLENGE stays offline when the board is down', async () => {
   await Promise.resolve()
   assert.equal(game.state, 'menu')
   assert.equal(game.mode, 'run')
+  assert.equal(toasts[0], 'CONNECTING')
   assert.equal(toasts.at(-1), 'BOARD OFFLINE')
+})
+
+test('QUIT from the pause menu leaves the run', () => {
+  const { game, select, tap, pressPause, pressQuit } = harness('new')
+  select()
+  tap()
+  pressPause()
+  assert.equal(game.pauseReason, 'menu')
+  pressQuit()
+  assert.equal(game.state, 'menu')
+  assert.equal(game.paused, false)
+})
+
+test('the end card ignores a tap until the grace has passed', () => {
+  const { game, gates, select, tap, advance } = harness('new', false)
+  select()
+  tap()
+  gates.hits = () => ({ z: 0, gap: 1 })
+  game.update(1 / 60)
+  assert.equal(game.state, 'dead')
+  tap()
+  assert.equal(game.state, 'dead', 'the flap that killed the run must not also dismiss the card')
+  advance(DEAD_GRACE * 1000)
+  tap()
+  assert.equal(game.state, 'menu')
+})
+
+test('SKIP leaves initials entry for the end card', async () => {
+  const { game, gates, select, tap, advance, pressEntry } = harness(
+    'challenge',
+    true,
+    mockApi({
+      fetchBoard: async (mode = 'run') =>
+        mode === 'challenge' ? { board: [], day: '2026-09-14', now: 1_000 } : { board: [] },
+    }),
+  )
+  select()
+  await Promise.resolve()
+  tap()
+  advance(1_000)
+  gatePerFrame(gates)
+  for (let i = 0; i < 3; i++) game.update(1 / 60)
+  assert.equal(game.state, 'entry')
+  pressEntry('skip')
+  assert.equal(game.state, 'dead')
+  assert.equal(game.extracted, true)
+})
+
+test('SCORES says LOADING, then NO ENTRIES YET, and OFFLINE when the fetch fails', async () => {
+  const paints = []
+  const resolvers = []
+  const pending = harness(
+    'scores',
+    true,
+    mockApi({
+      fetchBoard: () => new Promise((resolve) => resolvers.push(resolve)),
+    }),
+  )
+  pending.hud.showScores = (_board, _rank, status) => paints.push(status)
+  pending.select()
+  assert.equal(paints.at(-1), 'LOADING')
+  for (const resolve of resolvers.splice(0)) resolve({ board: [], day: '2026-09-14' })
+  await Promise.resolve()
+  assert.equal(paints.at(-1), 'NO ENTRIES YET')
+
+  const offline = []
+  const down = harness(
+    'scores',
+    true,
+    mockApi({
+      fetchBoard: async () => {
+        throw new Error('offline')
+      },
+    }),
+  )
+  down.hud.showScores = (_board, _rank, status) => offline.push(status)
+  down.select()
+  assert.equal(offline.at(-1), 'LOADING')
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.equal(offline.at(-1), 'BOARD OFFLINE')
 })
 
 test('PAUSE holds a live run behind the pause menu until CONTINUE', () => {

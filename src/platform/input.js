@@ -65,6 +65,15 @@ function fromButton(el) {
 }
 
 /**
+ * Enter/Space on a focused button belong to that button. The game must not
+ * preventDefault them or they never activate CONTINUE, BACK, or a menu row.
+ */
+export function keyActivatesButton(target, key) {
+  const name = normalizeKey(String(key ?? ''))
+  return (name === 'enter' || name === 'space') && fromButton(target)
+}
+
+/**
  * @param onGesture   fired on any key or pointer press; the audio unlock hook
  * @param onModeChange fired when the player switches between 'keys' and 'touch'
  */
@@ -87,6 +96,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
     if (e.repeat) return
     onGesture?.()
     setMode('keys')
+    if (keyActivatesButton(e.target, e.key)) return
     const k = normalizeKey(e.key)
     if (FLAP_KEYS.has(k)) {
       e.preventDefault()

@@ -47,6 +47,8 @@ export function createReadouts() {
       glyph.textContent = '+'
       livesEl.appendChild(glyph)
     }
+    const noun = spares === 1 ? 'life' : 'lives'
+    livesEl.setAttribute('aria-label', `${spares} spare ${noun}`)
     setVisible(livesEl, spares > 0)
     if (animate && spares > 0) retrigger(livesEl, 'pop')
   }

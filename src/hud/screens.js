@@ -3,8 +3,8 @@
 
 import { BOARD_SIZE } from '../config/rules.js'
 import { formatTime } from '../lib/time.js'
-import { byId, hide, queryAll, retrigger, setVisible, show } from './dom.js'
-import { MENU_ITEMS, endCopy, entryCopy, stepMenu } from './copy.js'
+import { byId, hide, onPress, queryAll, retrigger, setVisible, show } from './dom.js'
+import { MENU_BLURBS, MENU_ITEMS, endCopy, entryCopy, stepMenu } from './copy.js'
 
 /**
  * `state` is the HUD's shared scene/mode record; `refresh` re-applies the
@@ -28,6 +28,7 @@ export function createScreens(state, { refresh, help }) {
   const lessonEl = byId('lesson')
   const lessonBlocks = queryAll('.lesson', lessonEl)
   const backBtns = queryAll('.screen .back')
+  const blurb = byId('blurb')
 
   let menuIndex = 0
 
@@ -59,9 +60,18 @@ export function createScreens(state, { refresh, help }) {
     }
   }
 
-  function setMenuIndex(i) {
+  function setMenuIndex(i, { focus = false } = {}) {
     menuIndex = stepMenu(i, 0, menuBtns.length)
-    menuBtns.forEach((b, k) => b.classList.toggle('sel', k === menuIndex))
+    menuBtns.forEach((b, k) => {
+      const on = k === menuIndex
+      b.classList.toggle('sel', on)
+      b.tabIndex = on ? 0 : -1
+      if (on) b.setAttribute('aria-current', 'true')
+      else b.removeAttribute('aria-current')
+    })
+    const item = menuBtns[menuIndex]?.dataset.item
+    blurb.textContent = MENU_BLURBS[item] ?? ''
+    if (focus && state.inputMode !== 'touch') menuBtns[menuIndex]?.focus({ preventScroll: true })
   }
 
   function showMenu() {
@@ -118,6 +128,7 @@ export function createScreens(state, { refresh, help }) {
     hideEntry()
     hide(center)
     show(creditsEl)
+    creditsEl.querySelector('.back')?.focus({ preventScroll: true })
     refresh()
   }
 
@@ -133,7 +144,19 @@ export function createScreens(state, { refresh, help }) {
       place.textContent = String(i + 1).padStart(2, '0')
       const name = document.createElement('span')
       name.className = 'initials'
-      name.textContent = item ? item.initials : '---'
+      if (rank === i + 1) {
+        const mark = document.createElement('span')
+        mark.className = 'you-mark'
+        mark.setAttribute('aria-hidden', 'true')
+        mark.textContent = '▸'
+        name.append(mark, document.createTextNode(` ${item ? item.initials : '---'}`))
+        const you = document.createElement('span')
+        you.className = 'sr-only'
+        you.textContent = ', your score'
+        name.append(you)
+      } else {
+        name.textContent = item ? item.initials : '---'
+      }
       const pts = document.createElement('span')
       pts.className = 'pts'
       pts.textContent = item ? (asTime ? formatTime(item.score) : String(item.score)) : '---'
@@ -143,6 +166,7 @@ export function createScreens(state, { refresh, help }) {
   }
 
   function showScores(board, rank, status, view = {}) {
+    const opening = scoresEl.classList.contains('hidden')
     state.scene = 'scores'
     hidePanels()
     hideEntry()
@@ -157,54 +181,60 @@ export function createScreens(state, { refresh, help }) {
       scoresDay.textContent = day
       setVisible(scoresDay, !!day)
     }
-    scoresTabs.forEach((btn) => btn.classList.toggle('sel', btn.dataset.board === kind))
+    scoresTabs.forEach((btn) => {
+      const on = btn.dataset.board === kind
+      btn.classList.toggle('sel', on)
+      btn.setAttribute('aria-selected', on ? 'true' : 'false')
+    })
     renderScoreRows(board, rank, kind)
+    if (opening) scoresTabs.find((btn) => btn.classList.contains('sel'))?.focus({ preventScroll: true })
     refresh()
   }
 
   function showLesson(type) {
-    for (const block of lessonBlocks) setVisible(block, block.dataset.lesson === type)
+    for (const block of lessonBlocks) {
+      const on = block.dataset.lesson === type
+      setVisible(block, on)
+      if (on) {
+        const title = block.querySelector('.overlay-title')
+        if (title?.id) lessonEl.setAttribute('aria-labelledby', title.id)
+      }
+    }
     show(lessonEl)
+    lessonEl.tabIndex = -1
+    lessonEl.focus({ preventScroll: true })
   }
 
   // Menu / screen buttons do not stop propagation: the input layer already
   // ignores pointerdown on buttons, and letting it through unlocks audio.
+  // onPress also fires for a keyboard click (detail 0) once Enter/Space is
+  // allowed to reach a focused button.
   function bindMenu({ onSelect, onBack, onExit, onBoard }) {
     menuBtns.forEach((btn, i) => {
-      btn.addEventListener('pointerdown', (e) => {
-        e.preventDefault()
+      onPress(btn, () => {
         setMenuIndex(i)
         onSelect?.(btn.dataset.item)
       })
     })
-    for (const btn of backBtns) {
-      btn.addEventListener('pointerdown', (e) => {
-        e.preventDefault()
-        onBack?.()
-      })
-    }
-    byId('exit').addEventListener('pointerdown', (e) => {
-      e.preventDefault()
-      onExit?.()
-    })
+    for (const btn of backBtns) onPress(btn, () => onBack?.())
+    onPress(byId('exit'), () => onExit?.())
     scoresTabs.forEach((btn) => {
-      btn.addEventListener('pointerdown', (e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        onBoard?.(btn.dataset.board)
-      })
+      onPress(btn, () => onBoard?.(btn.dataset.board), { stopPropagation: true })
     })
   }
 
   function bindEntry({ onAction }) {
-    entryEl.addEventListener('pointerdown', (e) => {
-      const btn = e.target.closest('[data-entry]')
-      if (!btn) return
-      e.preventDefault()
-      e.stopPropagation()
-      if (btn.dataset.entry === 'select') onAction?.('select')
-      else onAction?.({ slot: Number(btn.dataset.slot), dir: Number(btn.dataset.dir) })
-    })
+    for (const btn of queryAll('[data-entry]', entryEl)) {
+      onPress(
+        btn,
+        () => {
+          if (btn.dataset.entry === 'select') onAction?.('select')
+          else if (btn.dataset.entry === 'skip') onAction?.('skip')
+          else onAction?.({ slot: Number(btn.dataset.slot), dir: Number(btn.dataset.dir) })
+        },
+        { stopPropagation: true },
+      )
+    }
   }
 
   return {
@@ -221,7 +251,7 @@ export function createScreens(state, { refresh, help }) {
     bindMenu,
     bindEntry,
     moveMenu(dir) {
-      setMenuIndex(stepMenu(menuIndex, dir, menuBtns.length))
+      setMenuIndex(stepMenu(menuIndex, dir, menuBtns.length), { focus: true })
     },
     get menuItem() {
       return menuBtns[menuIndex]?.dataset.item ?? MENU_ITEMS[0]

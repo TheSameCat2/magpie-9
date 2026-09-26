@@ -14,7 +14,7 @@ const GATE_ORDER = ['bulkhead', 'bulkhead', 'bulkhead', 'laser-bar', 'laser-bar'
 // pickup of each pauses under an explainer card.
 const ORB_ORDER = ['damper', 'life', 'shunt']
 
-export const LESSONS = ['damper', 'life', 'shunt']
+export const LESSONS = ['flight', 'damper', 'life', 'shunt']
 
 export function tutorialDifficulty() {
   return { speed: TUTORIAL_SPEED, spacing: TUTORIAL_SPACING, offset: 0 }

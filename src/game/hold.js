@@ -46,6 +46,8 @@ export function createHold({ clock, hud, audio, now, isLive, isBlocked, onReleas
   // crawl on weak GPUs, so summing it would stretch the count; read the clock.
   let countdownEnd = 0
   let countdownDigit = 0
+  // A lesson opened over JUMP TO BEGIN should return there, not to JUMP TO RESUME.
+  let afterLesson = 'resume'
 
   function pause(next) {
     reason = heldPauseReason(reason, next)
@@ -62,6 +64,7 @@ export function createHold({ clock, hud, audio, now, isLive, isBlocked, onReleas
     paused = false
     reason = null
     lesson = null
+    afterLesson = 'resume'
     clock.release()
     hud.hidePaused()
     hud.hideLesson()
@@ -72,6 +75,7 @@ export function createHold({ clock, hud, audio, now, isLive, isBlocked, onReleas
     paused = false
     reason = null
     lesson = null
+    afterLesson = 'resume'
     hud.hidePaused()
     hud.hideLesson()
   }
@@ -122,6 +126,7 @@ export function createHold({ clock, hud, audio, now, isLive, isBlocked, onReleas
 
   /** Freeze the run under a tutorial explainer card. */
   function showLesson(type) {
+    afterLesson = reason === 'begin' ? 'begin' : 'resume'
     lesson = type
     pause('lesson')
     hud.showLesson(type)
@@ -149,7 +154,7 @@ export function createHold({ clock, hud, audio, now, isLive, isBlocked, onReleas
     if (action === 'hold') {
       lesson = null
       hud.hideLesson()
-      pause('resume')
+      pause(afterLesson)
       return 'hold'
     }
     const was = reason

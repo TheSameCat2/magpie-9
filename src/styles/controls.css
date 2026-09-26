@@ -11,13 +11,13 @@
   position: absolute;
   z-index: 3;
   min-width: 48px;
-  min-height: 44px;
+  min-height: var(--hit);
   padding: 6px 14px;
   border: 1px solid rgba(61, 224, 255, 0.35);
-  background: rgba(7, 8, 12, 0.55);
+  background: rgba(7, 8, 12, 0.72);
   color: var(--ice);
-  font-size: 10px;
-  letter-spacing: 0.26em;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
 }
 /* Tutorial hides the gate counter, so PAUSE sits under the TUTORIAL tag instead. */
 body[data-mode='tutorial'] #pause {
@@ -27,10 +27,12 @@ body[data-mode='tutorial'] #pause {
   position: absolute;
   top: calc(30px + var(--sat));
   left: calc(36px + var(--sal));
-  font-size: 11px;
+  font-size: var(--fs-xs);
   letter-spacing: 0.34em;
   color: var(--sodium);
-  text-shadow: 0 0 12px rgba(232, 160, 48, 0.55);
+  text-shadow:
+    var(--shadow-ink),
+    0 0 12px rgba(232, 160, 48, 0.55);
 }
 body[data-mode='tutorial'] #score,
 body[data-mode='tutorial'] #scoreLabel,
@@ -39,7 +41,7 @@ body[data-mode='tutorial'] #keys {
   display: none;
 }
 body[data-mode='challenge'] #score {
-  font-size: 36px;
+  font-size: calc(var(--fs-num) * 0.78);
 }
 
 #sys {
@@ -64,10 +66,10 @@ body[data-mode='challenge'] #score {
   justify-content: center;
   gap: 3px;
   border: 1px solid rgba(61, 224, 255, 0.35);
-  background: rgba(7, 8, 12, 0.55);
+  background: rgba(7, 8, 12, 0.72);
   color: var(--ice);
-  font-size: 8px;
-  letter-spacing: 0.22em;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
 }
 #sys button.on {
   border-color: var(--sodium);
@@ -93,18 +95,18 @@ body[data-mode='challenge'] #score {
   align-items: flex-end;
   justify-content: center;
   padding-bottom: calc(64px + var(--sab));
-  letter-spacing: 0.38em;
-  font-size: 11px;
-  color: rgba(61, 224, 255, 0.55);
-  text-shadow: 0 0 12px rgba(61, 224, 255, 0.35);
+  letter-spacing: 0.28em;
+  font-size: var(--fs-xs);
+  color: var(--ice);
+  text-shadow: var(--shadow-ink);
 }
 #zones .zone.left {
   border-right: 1px dashed rgba(61, 224, 255, 0.28);
   background: linear-gradient(to right, rgba(61, 224, 255, 0.07), transparent 72%);
 }
 #zones .zone.right {
-  color: rgba(255, 42, 109, 0.6);
-  text-shadow: 0 0 12px rgba(255, 42, 109, 0.35);
+  color: var(--mag);
+  text-shadow: var(--shadow-ink);
   background: linear-gradient(to left, rgba(255, 42, 109, 0.07), transparent 72%);
 }
 

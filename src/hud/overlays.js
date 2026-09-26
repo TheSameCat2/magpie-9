@@ -9,6 +9,7 @@ export function createOverlays(state, { refresh }) {
   const pausedTitle = query('.overlay-title', pausedEl)
   const pausedSub = query('.overlay-sub', pausedEl)
   const continueBtn = byId('btnContinue')
+  const quitBtn = byId('btnQuit')
   const pauseBtn = byId('pause')
   const respawnEl = byId('respawn')
   const rotateEl = byId('rotate')
@@ -20,10 +21,13 @@ export function createOverlays(state, { refresh }) {
   function showPaused(reason, left = 0) {
     state.held = true
     refresh()
-    const copy = pauseCopy(reason, left)
+    pausedEl.dataset.reason = reason
+    const copy = pauseCopy(reason, left, state.inputMode)
     if (!copy) {
       hide(pausedEl)
       pausedEl.classList.remove('countdown')
+      hide(continueBtn)
+      hide(quitBtn)
       return
     }
     const menu = reason === 'menu'
@@ -35,9 +39,13 @@ export function createOverlays(state, { refresh }) {
     setVisible(pausedSub, !!copy.sub)
     pausedEl.classList.toggle('countdown', counting)
     setVisible(continueBtn, menu)
+    setVisible(quitBtn, menu)
     show(pausedEl)
     if (menu) continueBtn.focus({ preventScroll: true })
-    else blurContinue()
+    else {
+      blurContinue()
+      if (document.activeElement === quitBtn) quitBtn.blur()
+    }
   }
 
   function hidePaused() {
@@ -47,7 +55,10 @@ export function createOverlays(state, { refresh }) {
     pausedEl.classList.remove('countdown')
     pausedTitle.classList.remove('pop')
     hide(continueBtn)
+    hide(quitBtn)
     blurContinue()
+    if (document.activeElement === quitBtn) quitBtn.blur()
+    delete pausedEl.dataset.reason
   }
 
   function showRespawn() {
@@ -70,9 +81,10 @@ export function createOverlays(state, { refresh }) {
 
   // No stopPropagation: the tap still unlocks audio while the input layer
   // skips it as a flap / stick origin because it landed on a button.
-  function bindPause({ onPause, onContinue }) {
+  function bindPause({ onPause, onContinue, onQuit }) {
     onPress(pauseBtn, onPause)
     onPress(continueBtn, onContinue)
+    onPress(quitBtn, onQuit)
   }
 
   return { showPaused, hidePaused, showRespawn, hideRespawn, setRotate, bindPause }

@@ -1,6 +1,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { MENU_ITEMS, endCopy, entryCopy, pauseCopy, sceneHint, stepMenu } from './copy.js'
+import {
+  MENU_BLURBS,
+  MENU_ITEMS,
+  endCopy,
+  entryCopy,
+  keysHint,
+  lessonHint,
+  pauseCopy,
+  sceneHint,
+  screenHint,
+  stepMenu,
+} from './copy.js'
 
 test('menu lists the six entries in order', () => {
   assert.deepEqual(MENU_ITEMS, ['new', 'challenge', 'tutorial', 'scores', 'help', 'credits'])
@@ -19,8 +30,23 @@ test('stepMenu clamps an out-of-range index back into the list', () => {
   assert.equal(stepMenu(0, 1, 0), 0)
 })
 
-test('pauseCopy prompts a jump to begin a fresh run', () => {
-  assert.deepEqual(pauseCopy('begin'), { title: 'JUMP TO BEGIN', sub: '' })
+test('pauseCopy prompts a jump to begin a fresh run, naming the device', () => {
+  assert.deepEqual(pauseCopy('begin'), { title: 'JUMP TO BEGIN', sub: 'SPACE · CLICK · ↑' })
+  assert.deepEqual(pauseCopy('begin', 0, 'touch'), { title: 'JUMP TO BEGIN', sub: 'TAP THE RIGHT HALF' })
+})
+
+test('lesson, screen, and key hints follow the input device', () => {
+  assert.equal(lessonHint('keys'), 'SPACE TO CONTINUE')
+  assert.equal(lessonHint('touch'), 'TAP TO CONTINUE')
+  assert.equal(screenHint('credits', 'keys'), 'ESC TO RETURN')
+  assert.equal(screenHint('credits', 'touch'), 'TAP TO RETURN')
+  assert.equal(screenHint('scores', 'keys'), '← → BOARD · ESC RETURN')
+  assert.equal(screenHint('scores', 'touch'), 'TAP TO RETURN')
+  assert.equal(screenHint('menu', 'keys'), null)
+  assert.equal(keysHint('menu'), 'H HELP · M MUTE')
+  assert.equal(keysHint('playing'), 'P PAUSE · M MUTE')
+  assert.equal(keysHint('respawn'), 'P PAUSE · M MUTE')
+  assert.equal(MENU_BLURBS.challenge, "TODAY'S 40-GATE COURSE · RANKED BY TIME")
 })
 
 test('pauseCopy prompts a jump to resume after an interrupt', () => {
@@ -77,6 +103,7 @@ test('sceneHint swaps key names for taps on touch and stays quiet mid-run', () =
   assert.equal(sceneHint('menu', 'keys'), '↑ ↓ SELECT · ENTER · H HELP')
   assert.equal(sceneHint('menu', 'touch'), 'TAP TO SELECT')
   assert.equal(sceneHint('dead', 'touch'), 'TAP FOR MENU')
-  assert.equal(sceneHint('entry', 'keys'), 'TYPE OR ↑ ↓ · ENTER')
+  assert.equal(sceneHint('entry', 'keys'), 'TYPE OR ↑ ↓ · ENTER · ESC SKIP')
+  assert.equal(sceneHint('entry', 'touch'), 'TAP ARROWS · ENTER OR SKIP')
   assert.equal(sceneHint('playing', 'keys'), null)
 })

@@ -1,6 +1,6 @@
 // The field manual: a modal over whatever scene is showing, not a scene itself.
 
-import { byId, hide, onPress, query, retrigger, show } from './dom.js'
+import { byId, hide, onPress, query, queryAll, retrigger, show } from './dom.js'
 
 export function createHelp() {
   const helpEl = byId('help')
@@ -41,6 +41,12 @@ export function createHelp() {
     closeLabel.textContent = inputMode === 'touch' ? 'CLOSE' : 'CLOSE · ESC'
   }
 
+  function focusables() {
+    return queryAll('button, [href], [tabindex]:not([tabindex="-1"])', card).filter(
+      (el) => !el.disabled && !el.classList.contains('hidden'),
+    )
+  }
+
   function bind({ onToggle }) {
     onPress(helpBtn, onToggle, { stopPropagation: true })
     onPress(closeBtn, onToggle, { stopPropagation: true })
@@ -50,6 +56,23 @@ export function createHelp() {
     helpEl.addEventListener('pointerdown', (e) => {
       e.stopPropagation()
       if (e.target === helpEl) onToggle?.()
+    })
+    // Keep Tab inside the card. The manual is long, but the only control is CLOSE
+    // until more buttons land here; wrapping still stops focus escaping to the HUD.
+    card.addEventListener('keydown', (e) => {
+      if (!open || e.key !== 'Tab') return
+      const items = focusables()
+      if (!items.length) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      const active = document.activeElement
+      if (e.shiftKey && (active === first || !card.contains(active))) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && (active === last || !card.contains(active))) {
+        e.preventDefault()
+        first.focus()
+      }
     })
   }
 

@@ -27,13 +27,74 @@
       <div id="score">0</div>
       <div id="scoreLabel">GATES</div>
       <div id="best">BEST 0</div>
-      <div id="lives" class="hidden"></div>
+      <div id="lives" class="hidden" aria-label="No spare lives"></div>
       <div id="vel">VEL <b>12.0</b></div>
-      <div id="velBar"><i></i></div>
-      <div id="keys">H HELP · M MUTE · B COLLIDER</div>
+      <div id="velBar" aria-hidden="true"><i></i></div>
+      <div id="keys">H HELP · M MUTE</div>
       <div id="tutorialTag" class="hidden">TUTORIAL</div>
       <button type="button" id="pause" class="hidden" aria-label="Pause run">PAUSE</button>
       <button type="button" id="exit" class="hidden" aria-label="Exit tutorial to menu">MENU</button>
+      <div id="zones" class="hidden" aria-hidden="true">
+        <div class="zone left"><span>STRAFE</span></div>
+        <div class="zone right"><span>FLAP</span></div>
+      </div>
+      <div id="touch" aria-hidden="true">
+        <div class="stick hidden">
+          <div class="stick-ring"></div>
+          <div class="stick-nub"></div>
+        </div>
+        <div class="tapring hidden"></div>
+      </div>
+      <div id="center">
+        <h1 id="title">MAGPIE<span>-9</span></h1>
+        <div id="rule"></div>
+        <nav id="menu" aria-label="Main menu">
+          <button type="button" data-item="new" class="sel" aria-current="true" aria-describedby="blurb">
+            NEW GAME
+          </button>
+          <button type="button" data-item="challenge" aria-describedby="blurb" tabindex="-1">
+            CHALLENGE
+          </button>
+          <button type="button" data-item="tutorial" aria-describedby="blurb" tabindex="-1">TUTORIAL</button>
+          <button type="button" data-item="scores" aria-describedby="blurb" tabindex="-1">SCORES</button>
+          <button type="button" data-item="help" aria-describedby="blurb" tabindex="-1">HELP</button>
+          <button type="button" data-item="credits" aria-describedby="blurb" tabindex="-1">CREDITS</button>
+        </nav>
+        <div id="blurb">AN OPEN RUN · EVERY GATE COUNTS</div>
+        <div id="prompt" class="hidden">FLAP TO ARM</div>
+        <div id="entry" class="hidden">
+          <div class="entry-slots" aria-live="polite">
+            <div class="slot" data-slot="0">
+              <button type="button" data-entry data-slot="0" data-dir="1" aria-label="Letter 1 up">▲</button>
+              <b>A</b>
+              <button type="button" data-entry data-slot="0" data-dir="-1" aria-label="Letter 1 down">
+                ▼
+              </button>
+            </div>
+            <div class="slot" data-slot="1">
+              <button type="button" data-entry data-slot="1" data-dir="1" aria-label="Letter 2 up">▲</button>
+              <b>A</b>
+              <button type="button" data-entry data-slot="1" data-dir="-1" aria-label="Letter 2 down">
+                ▼
+              </button>
+            </div>
+            <div class="slot" data-slot="2">
+              <button type="button" data-entry data-slot="2" data-dir="1" aria-label="Letter 3 up">▲</button>
+              <b>A</b>
+              <button type="button" data-entry data-slot="2" data-dir="-1" aria-label="Letter 3 down">
+                ▼
+              </button>
+            </div>
+          </div>
+          <div class="entry-actions">
+            <button type="button" id="btnEnter" data-entry="select">ENTER</button>
+            <button type="button" id="btnSkip" data-entry="skip" aria-label="Skip saving initials">
+              SKIP
+            </button>
+          </div>
+        </div>
+        <div id="sub">SPACE / CLICK · A D STRAFE</div>
+      </div>
       <div id="sys">
         <button type="button" id="btnMute" aria-label="Mute" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -61,61 +122,16 @@
           <span class="label">HELP</span>
         </button>
       </div>
-      <div id="zones" class="hidden" aria-hidden="true">
-        <div class="zone left"><span>STRAFE</span></div>
-        <div class="zone right"><span>FLAP</span></div>
-      </div>
-      <div id="touch" aria-hidden="true">
-        <div class="stick hidden">
-          <div class="stick-ring"></div>
-          <div class="stick-nub"></div>
-        </div>
-        <div class="tapring hidden"></div>
-      </div>
-      <div id="center">
-        <div id="title">MAGPIE<span>-9</span></div>
-        <div id="rule"></div>
-        <nav id="menu" aria-label="Main menu">
-          <button type="button" data-item="new" class="sel">NEW GAME</button>
-          <button type="button" data-item="challenge">CHALLENGE</button>
-          <button type="button" data-item="tutorial">TUTORIAL</button>
-          <button type="button" data-item="scores">SCORES</button>
-          <button type="button" data-item="help">HELP</button>
-          <button type="button" data-item="credits">CREDITS</button>
-        </nav>
-        <div id="prompt" class="hidden">FLAP TO ARM</div>
-        <div id="entry" class="hidden">
-          <div class="entry-slots">
-            <div class="slot" data-slot="0">
-              <button type="button" data-entry data-slot="0" data-dir="1" aria-label="Letter 1 up">▲</button>
-              <b>A</b>
-              <button type="button" data-entry data-slot="0" data-dir="-1" aria-label="Letter 1 down">
-                ▼
-              </button>
-            </div>
-            <div class="slot" data-slot="1">
-              <button type="button" data-entry data-slot="1" data-dir="1" aria-label="Letter 2 up">▲</button>
-              <b>A</b>
-              <button type="button" data-entry data-slot="1" data-dir="-1" aria-label="Letter 2 down">
-                ▼
-              </button>
-            </div>
-            <div class="slot" data-slot="2">
-              <button type="button" data-entry data-slot="2" data-dir="1" aria-label="Letter 3 up">▲</button>
-              <b>A</b>
-              <button type="button" data-entry data-slot="2" data-dir="-1" aria-label="Letter 3 down">
-                ▼
-              </button>
-            </div>
-          </div>
-          <button type="button" id="btnEnter" data-entry="select">ENTER</button>
-        </div>
-        <div id="sub">SPACE / CLICK · A D STRAFE</div>
-      </div>
-      <div id="toast"></div>
-      <div id="credits" class="overlay screen hidden">
+      <div id="toast" role="status" aria-live="polite"></div>
+      <div
+        id="credits"
+        class="overlay screen hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="creditsTitle"
+      >
         <div class="overlay-card">
-          <div class="overlay-title">CREDITS</div>
+          <div id="creditsTitle" class="overlay-title">CREDITS</div>
           <dl>
             <dt>DESIGN</dt>
             <dd>TheSameCat</dd>
@@ -125,26 +141,54 @@
             <dd>TitanVern</dd>
             <dd>Rinzler</dd>
           </dl>
-          <div class="overlay-sub">TAP OR ESC TO RETURN</div>
+          <div class="overlay-sub back-hint">ESC TO RETURN</div>
           <button type="button" class="back" data-back>BACK</button>
         </div>
       </div>
-      <div id="scores" class="overlay screen hidden">
+      <div
+        id="scores"
+        class="overlay screen hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scoresTitle"
+      >
         <div class="overlay-card">
-          <div class="overlay-title">TOP 10</div>
-          <div id="scoresTabs">
-            <button type="button" data-board="run" class="sel">ALL-TIME</button>
-            <button type="button" data-board="challenge">TODAY</button>
+          <div id="scoresTitle" class="overlay-title">TOP 10</div>
+          <div id="scoresTabs" role="tablist" aria-label="Leaderboards">
+            <button type="button" role="tab" data-board="run" class="sel" aria-selected="true">
+              ALL-TIME
+            </button>
+            <button type="button" role="tab" data-board="challenge" aria-selected="false">TODAY</button>
           </div>
           <div id="scoresDay" class="overlay-sub hidden"></div>
-          <div id="scoresStatus" class="overlay-sub hidden"></div>
+          <div id="scoresStatus" class="overlay-sub hidden" role="status"></div>
           <ol id="scoresList"></ol>
-          <div class="overlay-sub">TAP OR ESC TO RETURN</div>
+          <div class="overlay-sub back-hint">← → BOARD · ESC RETURN</div>
           <button type="button" class="back" data-back>BACK</button>
         </div>
       </div>
-      <div id="lesson" class="overlay hidden">
+      <div id="lesson" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="lessonFlight">
         <div class="overlay-card">
+          <div class="lesson flight hidden" data-lesson="flight">
+            <svg class="help-fig help-fig-flight" viewBox="0 0 200 124" aria-hidden="true">
+              <polygon class="fig-hex" points="112,6 182,44 182,80 112,118 42,80 42,44" />
+              <polygon class="fig-hex faint" points="112,24 166,53 166,71 112,100 58,71 58,53" />
+              <rect class="fig-hatch" x="116" y="40" width="40" height="34" />
+              <path class="fig-path" d="M8 100 C 50 100, 66 46, 90 56 S 124 44, 136 57" />
+              <path class="fig-grav" d="M20 40v22M15 57l5 5 5-5" />
+              <text class="fig-text mag" x="20" y="76">FALL</text>
+              <path class="fig-flap" d="M82 86V66M77 71l5-5 5 5" />
+              <text class="fig-text ice" x="82" y="98">FLAP</text>
+              <path class="fig-wing" d="M128 54l8 3 8-3" />
+              <circle class="fig-bird" cx="136" cy="57" r="4" />
+              <text class="fig-text gold" x="136" y="30">+1</text>
+            </svg>
+            <div id="lessonFlight" class="overlay-title">FLIGHT</div>
+            <p>
+              <b>Gravity pulls.</b> Idle and the drone drops. <b>Flap climbs</b> — each flap is a pulse, not a
+              hover. Strafe sideways to thread the hatch. Walls, plates, and beams end the run.
+            </p>
+          </div>
           <div class="lesson damper hidden" data-lesson="damper">
             <svg viewBox="0 0 120 120" aria-hidden="true">
               <defs>
@@ -175,7 +219,7 @@
                 stroke-linejoin="round"
               />
             </svg>
-            <div class="overlay-title">DAMPER</div>
+            <div id="lessonDamper" class="overlay-title">DAMPER</div>
             <p>
               The <b>gold orb</b> trims your scroll speed and the trim sticks for the rest of the run. Every
               gate you clear pushes the conduit faster, so a damper buys you back some reaction time. Steer
@@ -211,7 +255,7 @@
                 stroke-linecap="round"
               />
             </svg>
-            <div class="overlay-title">SPARE LIFE</div>
+            <div id="lessonLife" class="overlay-title">SPARE LIFE</div>
             <p>
               The <b>green orb</b> adds a spare, shown as a <b>+</b> at the top right. Crash with a spare and
               the run rewinds to just inside the last gate you cleared, then waits for your tap. In a real run
@@ -241,18 +285,18 @@
               <circle cx="60" cy="60" r="38" fill="url(#gShunt)" />
               <path d="M71 19 L41 66 H58 L49 101 L79 53 H62 Z" fill="#e8fbff" />
             </svg>
-            <div class="overlay-title">SHUNT</div>
+            <div id="lessonShunt" class="overlay-title">SHUNT</div>
             <p>
               The <b>blue orb</b> engages the shunt overdrive: the next <b>5 gates</b> count double while the
               conduit runs faster. A hit burns the whole charge, so spend it cleanly.
             </p>
           </div>
-          <div class="tap">TAP TO CONTINUE</div>
+          <div id="lessonTap" class="tap">SPACE TO CONTINUE</div>
         </div>
       </div>
-      <div id="paused" class="overlay hidden">
+      <div id="paused" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pausedTitle">
         <div class="overlay-card">
-          <div class="overlay-title">PAUSED</div>
+          <div id="pausedTitle" class="overlay-title" aria-live="polite">PAUSED</div>
           <div class="overlay-sub">JUMP TO RESUME</div>
           <button type="button" id="btnContinue" class="fs-btn hidden" aria-label="Continue run">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -260,18 +304,21 @@
             </svg>
             <span class="label">CONTINUE</span>
           </button>
+          <button type="button" id="btnQuit" class="fs-btn hidden" aria-label="Quit run and return to menu">
+            QUIT
+          </button>
         </div>
       </div>
-      <div id="respawn" class="overlay hidden">
+      <div id="respawn" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="respawnTitle">
         <div class="overlay-card">
-          <div class="overlay-title">SPARE ENGAGED</div>
+          <div id="respawnTitle" class="overlay-title">SPARE ENGAGED</div>
           <div class="overlay-sub">JUMP TO RESUME</div>
         </div>
       </div>
-      <div id="rotate" class="overlay hidden">
+      <div id="rotate" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="rotateTitle">
         <div class="overlay-card">
           <div class="overlay-glyph" aria-hidden="true"></div>
-          <div class="overlay-title">ROTATE TO LANDSCAPE</div>
+          <div id="rotateTitle" class="overlay-title">ROTATE TO LANDSCAPE</div>
           <div class="overlay-sub">MAGPIE-9 PLAYS SIDEWAYS</div>
           <button
             type="button"
@@ -294,7 +341,7 @@
       <div id="help" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
         <div class="help-card">
           <header class="help-head">
-            <div id="helpTitle" class="overlay-title">FIELD MANUAL</div>
+            <h2 id="helpTitle" class="overlay-title">FIELD MANUAL</h2>
             <div class="overlay-sub">MAGPIE-9 · SERVICE CONDUIT</div>
             <div class="help-rule"></div>
           </header>
@@ -376,13 +423,16 @@
                   <li><b>LEFT HALF.</b> Touch and drag sideways. A floating stick strafes the drone.</li>
                   <li><b>RIGHT HALF.</b> Tap to flap. Jump to begin a run or resume after a pause.</li>
                   <li><b>LANDSCAPE ONLY.</b> Portrait pauses. FULL goes fullscreen.</li>
-                  <li>
-                    <b>PAUSE.</b> Top left during a run. Only CONTINUE resumes, after a 3-2-1 countdown and
-                    with no automatic jump; a stray tap will not.
-                  </li>
                 </ul>
               </div>
             </div>
+            <ul class="help-list">
+              <li>
+                <b>PAUSE.</b> P, Esc, or the top-left button. CONTINUE counts down from 3 and the run goes
+                live without a jump. QUIT returns to the menu. A stray flap will not resume it.
+              </li>
+              <li><b>INITIALS.</b> ENTER files a score. SKIP or Esc leaves it off the board.</li>
+            </ul>
           </section>
 
           <section class="help-sec">

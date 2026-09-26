@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  LESSONS,
   TUTORIAL_SPEED,
   TUTORIAL_FLOOR,
   tutorialDifficulty,
@@ -33,6 +34,10 @@ test('tutorial orbs rotate through damper, spare life, and shunt on every gate',
   assert.equal(tutorialOrbType(3), 'damper')
   assert.equal(tutorialOrbType(5), 'shunt')
   assert.equal(tutorialOrbType(9), 'damper')
+})
+
+test('tutorial lessons start with flight, then each orb', () => {
+  assert.deepEqual(LESSONS, ['flight', 'damper', 'life', 'shunt'])
 })
 
 test('tutorial dampers trim speed down to a floor', () => {

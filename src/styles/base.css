@@ -3,7 +3,8 @@
   --ice: #3de0ff;
   --mag: #ff2a6d;
   --ink: #dce8f0;
-  --muted: #8a97a6;
+  /* Lifted so secondary text stays above 4.5:1 on both void and a lit plate. */
+  --muted: #a9b4c0;
   --sodium: #e8a030;
   --gold: #ffd166;
   --green: #3dff8a;
@@ -11,6 +12,14 @@
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
+  /* Floors keep phone landscape readable; caps keep 4K from ballooning. */
+  --fs-xs: clamp(11px, 8px + 0.4vmin, 14px);
+  --fs-sm: clamp(12px, 8.5px + 0.5vmin, 16px);
+  --fs-md: clamp(13px, 9px + 0.6vmin, 18px);
+  --fs-lg: clamp(15px, 10px + 0.8vmin, 22px);
+  --fs-num: clamp(32px, 20px + 2.4vmin, 56px);
+  --hit: 44px;
+  --shadow-ink: 0 1px 2px rgba(7, 8, 12, 0.95);
 }
 html,
 body {
@@ -20,6 +29,7 @@ body {
   background: var(--void);
   overflow: hidden;
   font-family: 'Share Tech Mono', ui-monospace, monospace;
+  font-size: var(--fs-sm);
   color: var(--ink);
   user-select: none;
   -webkit-user-select: none;
@@ -59,8 +69,23 @@ canvas {
   content: '';
   position: absolute;
   inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(7, 8, 12, 0.62) 0%,
+    transparent 16%,
+    transparent 80%,
+    rgba(7, 8, 12, 0.62) 100%
+  );
   box-shadow: inset 0 0 120px 30px rgba(7, 8, 12, 0.85);
   pointer-events: none;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
 }
 
 .corner {
@@ -103,8 +128,21 @@ canvas {
   -webkit-tap-highlight-color: transparent;
 }
 #hud button:focus-visible {
-  outline: 1px solid var(--ice);
-  outline-offset: 2px;
+  outline: 2px solid var(--ice);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(61, 224, 255, 0.28);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .hidden {

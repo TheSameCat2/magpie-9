@@ -14,18 +14,28 @@ import {
 
 export function createScoreboard({ api, hud, isShowing }) {
   const boards = { run: null, challenge: null }
+  const failed = { run: false, challenge: false }
   let challengeDay = null
   /** Which tab the SCORES screen is on. */
   let tab = 'run'
   let entry = null
 
+  function labelFor(kind, status) {
+    if (status) return status
+    const board = boards[kind]
+    if (board == null) return failed[kind] ? 'BOARD OFFLINE' : 'LOADING'
+    if (board.length === 0) return 'NO ENTRIES YET'
+    return ''
+  }
+
   function paint(rank = -1, status = '') {
     const day = tab === 'challenge' ? challengeDay : null
-    hud.showScores(boards[tab], rank, status, { kind: tab, day })
+    hud.showScores(boards[tab], rank, labelFor(tab, status), { kind: tab, day })
   }
 
   function absorb(kind, data) {
     boards[kind] = data.board
+    failed[kind] = false
     if (kind === 'challenge' && data.day) challengeDay = data.day
   }
 
@@ -38,7 +48,10 @@ export function createScoreboard({ api, hud, isShowing }) {
           absorb(kind, data)
           if (isShowing() && tab === kind) paint()
         })
-        .catch(() => {})
+        .catch(() => {
+          if (boards[kind] == null) failed[kind] = true
+          if (isShowing() && tab === kind) paint()
+        })
     }
   }
 

@@ -22,6 +22,9 @@ import { createSpawner } from './spawner.js'
 import { createSparks } from './sparks.js'
 
 export { RESUME_COUNTDOWN, heldPauseReason, pauseTapAction } from './hold.js'
+
+/** Seconds a crash card ignores taps, so the flap that killed you cannot dismiss it. */
+export const DEAD_GRACE = 0.6
 export { rewindDistance } from './run.js'
 
 /** Pass margin (world units) under which a gate counts as a close call. */
@@ -66,6 +69,7 @@ export function createGame({
   let rewindLeft = 0
   let rewindTotal = 0
   let hitStop = 0
+  let deadUntil = 0
 
   const clock = createRunClock(now)
   const run = createRun({ startLives })
@@ -107,8 +111,23 @@ export function createGame({
     fx.puff(bird.x, bird.y, 0, strength)
   }
 
+  /**
+   * A focused HUD button swallows the next Space/Enter. Blur now and again on
+   * the next frame: a click focuses the button on pointerup, after beginSession
+   * has already run. Lesson cards are not buttons, so they keep focus.
+   */
+  function blurHudFocus() {
+    const blur = () => {
+      const active = globalThis.document?.activeElement
+      if (active?.closest?.('#hud button')) active.blur()
+    }
+    blur()
+    if (typeof globalThis.requestAnimationFrame === 'function') globalThis.requestAnimationFrame(blur)
+  }
+
   /** The run is live again after any hold: restore the drone and tell the loop. */
   function goLive() {
+    blurHudFocus()
     audio.setSpeed(run.speed)
     onResume?.()
   }
@@ -151,6 +170,7 @@ export function createGame({
 
   function beginSession(mode = 'run', session = {}) {
     sessionGen += 1
+    blurHudFocus()
     scene = 'playing'
     UNIFORMS.uHazard.value = 0
     UNIFORMS.uOverdrive.value = 0
@@ -174,6 +194,7 @@ export function createGame({
     syncSpeed()
     hud.showPlaying()
     hold.pause('begin')
+    if (mode === 'tutorial') hold.showLesson('flight')
     if (mode === 'run') {
       api
         .startRun('run')
@@ -186,6 +207,7 @@ export function createGame({
 
   async function beginChallenge() {
     const gen = ++sessionGen
+    hud.toast('CONNECTING', 'ice')
     try {
       const data = await api.startRun('challenge')
       if (gen !== sessionGen || scene !== 'menu') return
@@ -253,6 +275,7 @@ export function createGame({
   /** Shared teardown when a run stops for any reason. */
   function endRun() {
     scene = 'dead'
+    deadUntil = now() + DEAD_GRACE * 1000
     hold.clear()
     UNIFORMS.uHazard.value = 0
     UNIFORMS.uOverdrive.value = 0
@@ -323,6 +346,10 @@ export function createGame({
 
   function editEntry(action) {
     if (scene !== 'entry') return
+    if (action === 'skip') {
+      skipEntry()
+      return
+    }
     if (scoreboard.editEntry(action)) submitEntry()
   }
 
@@ -608,7 +635,7 @@ export function createGame({
     else if (scene === 'respawn') updateRespawn(dt, frame)
     else if (scene === 'dead') {
       if (!run.extracted) bird.updateDead(dt)
-      if (tapped && !blocked) toMenu()
+      if (tapped && !blocked && now() >= deadUntil) toMenu()
     } else if (scene === 'entry') updateEntry(dt)
 
     hud.updateTouch(input)
@@ -655,7 +682,13 @@ export function createGame({
     },
   })
   hud.bindEntry({ onAction: editEntry })
-  hud.bindPause({ onPause: hold.openMenu, onContinue: hold.continueFromMenu })
+  hud.bindPause({
+    onPause: hold.openMenu,
+    onContinue: hold.continueFromMenu,
+    onQuit() {
+      if (scene === 'playing' && hold.inMenu) toMenu()
+    },
+  })
   scoreboard.refresh()
 
   return {

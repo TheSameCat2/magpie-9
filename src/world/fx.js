@@ -1,9 +1,9 @@
 import * as THREE from 'three'
 import { THEME } from '../config/theme.js'
-import { SPARK_RAMP } from '../config/fx.js'
+import { SPARK_RAMP, edgeProx, sparkGain } from '../config/fx.js'
 import { UNIFORMS } from '../render/uniforms.js'
 import { PARTICLE_VERT, PARTICLE_FRAG, DUST_VERT, DUST_FRAG } from '../render/shaders.js'
-import { clamp01, randomOnSphere } from '../lib/math.js'
+import { randomOnSphere } from '../lib/math.js'
 import { OPENING_EDGES } from './gates/layout.js'
 
 // Three GPU-resident systems: a ring buffer of sparks (one-shot bursts plus
@@ -19,14 +19,8 @@ const DUST_SPAN = 78
 
 /** Edge spark pops per second from a gate right in front of the bird at phase 0. */
 const EDGE_RATE = 110
-/** Rate, size, and speed growth of edge sparks per phase. */
-const EDGE_PHASE_GAIN = 0.35
-/** Depth over which a gate's edge sparks fade in as it approaches. */
-const EDGE_RANGE = 54
 /** World-unit point size at phase 0; the shader still shrinks this with distance. */
 const EDGE_SIZE = 0.18
-/** Gates this far past the bird stop sparking (the frame fades over the same distance). */
-const EDGE_PASS_Z = 4.2
 /** Share of rectangular-opening sparks that fly outward across the plate rather than into the hole. */
 const EDGE_OUTWARD = 0.7
 /** Afterburner particles per second at full level between flaps. */
@@ -266,16 +260,17 @@ export function createFx(scene) {
   /**
    * Continuous sparks popping off a gate opening's perimeter. `edges` and
    * `nx` come from `openingShape`; `phase` (sector) picks the ramp colour
-   * and scales density, size, and speed. Call once per live gate per frame.
+   * and scales density, size, and speed through the shared capped gain.
+   * Call once per live gate per frame; the caller normalises `dt` when
+   * several gates overlap so stacked gates cannot multiply the budget.
    */
   function edgeSparks(x, y, z, hw, hh, edges, nx, phase, dt) {
-    const prox = z < 0 ? clamp01(1 + z / EDGE_RANGE) : clamp01(1 - z / EDGE_PASS_Z)
+    const prox = edgeProx(z)
     if (prox <= 0 || dt <= 0) return
-    const gain = 1 + phase * EDGE_PHASE_GAIN
+    const gain = sparkGain(phase)
     const pops = rollCount(EDGE_RATE * gain * density * prox * dt)
     if (pops === 0) return
     const tint = rampColor(phase)
-    const popSize = phase >= 3 ? 5 : 4
     for (let p = 0; p < pops; p++) {
       let px, py, dx, dy
       if (edges === OPENING_EDGES.vertical) {
@@ -294,9 +289,9 @@ export function createFx(scene) {
         dx = horizontal ? 0 : sign * outward
         dy = horizontal ? sign * outward : 0
       }
-      const n = 1 + Math.floor(Math.random() * popSize)
+      const n = 1 + Math.floor(Math.random() * 4)
       for (let i = 0; i < n; i++) {
-        const speed = (0.8 + Math.random() * 2.2) * (1 + phase * 0.15)
+        const speed = (0.8 + Math.random() * 2.2) * gain
         const slide = (Math.random() - 0.5) * 1.6
         _c.copy(tint).lerp(white, Math.random() * 0.14)
         particles.emit(
@@ -308,7 +303,7 @@ export function createFx(scene) {
           0.5 + Math.random() * 2.0,
           _c,
           0.4 + Math.random() * 0.45,
-          (EDGE_SIZE + Math.random() * 0.16) * (1 + phase * 0.14),
+          (EDGE_SIZE + Math.random() * 0.16) * gain,
           1.6,
         )
       }

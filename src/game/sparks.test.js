@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { AFTERBURNER_SCORE, sparkPhase } from '../config/fx.js'
+import { AFTERBURNER_SCORE, edgeProx, sparkPhase } from '../config/fx.js'
 import { SECTOR } from '../config/rules.js'
 import { openingShape } from '../world/gates/layout.js'
 import { createSparks } from './sparks.js'
@@ -48,8 +48,12 @@ test('edge sparks fire once per active gate on the plate face, in the sector col
   assert.equal(hw, 1.4)
   assert.equal(hh, 1.6)
   assert.equal(phase, 2)
-  assert.equal(dt, 1 / 60)
+  // Both gates overlap in range, so the frame budget is normalised across them.
+  const proxSum = edgeProx(-20 + 0.15) + edgeProx(-8 + 0.21)
+  assert.ok(proxSum > 1)
+  assert.ok(Math.abs(dt - 1 / 60 / proxSum) < 1e-12)
   assert.equal(calls.edge[1][7], sparkPhase(SECTOR * 2 + 3))
+  assert.equal(calls.edge[1][8], dt)
 })
 
 test('a held frame (dt = 0) emits nothing', () => {
@@ -102,4 +106,24 @@ test('reset cools the burner immediately', () => {
   sparks.reset()
   assert.equal(sparks.afterburner, 0)
   assert.equal(calls.level.at(-1), 0)
+})
+
+test('a lone gate keeps the full frame budget', () => {
+  const { sparks, calls } = harness({ slots: [hatch(-10)] })
+  sparks.update(1 / 60, true)
+  assert.equal(calls.edge.length, 1)
+  assert.equal(calls.edge[0][8], 1 / 60)
+})
+
+test('stacked gates share one gate worth of proximity-weighted budget', () => {
+  const dt = 1 / 60
+  const { sparks, calls } = harness({ slots: [hatch(-2), hatch(-4), hatch(-6)] })
+  sparks.update(dt, true)
+  assert.equal(calls.edge.length, 3)
+  const faces = [-2 + 0.15, -4 + 0.15, -6 + 0.15]
+  const sum = faces.reduce((acc, z) => acc + edgeProx(z), 0)
+  assert.ok(sum > 1)
+  for (const args of calls.edge) assert.ok(Math.abs(args[8] - dt / sum) < 1e-12)
+  const weighted = calls.edge.reduce((acc, args) => acc + edgeProx(args[2]) * args[8], 0)
+  assert.ok(Math.abs(weighted - dt) < 1e-12)
 })

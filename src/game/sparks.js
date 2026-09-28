@@ -2,7 +2,7 @@
 // opening in the current sector's colour, and the afterburner behind the
 // magpie once the score passes the ignition threshold.
 
-import { afterburnerOn, sparkPhase } from '../config/fx.js'
+import { afterburnerOn, edgeProx, sparkPhase } from '../config/fx.js'
 
 /** Seconds for the afterburner to reach full burn after ignition, and to die after a spare. */
 const IGNITION_TIME = 1
@@ -12,6 +12,16 @@ export function createSparks({ fx, gates, bird, run }) {
   let level = 0
 
   function sparkGates(dt, phase) {
+    // One gate at full proximity owns the whole stream budget. When several
+    // gates overlap, normalise so their summed proximity never exceeds it.
+    // Two passes over the pool, no allocation.
+    let proxSum = 0
+    for (const gate of gates.slots) {
+      if (!gate.active) continue
+      proxSum += edgeProx(gate.z + gate.depth * 0.5)
+    }
+    if (proxSum <= 0) return
+    const step = proxSum > 1 ? dt / proxSum : dt
     for (const gate of gates.slots) {
       if (!gate.active) continue
       gates.edgeShape(gate, shape)
@@ -24,7 +34,7 @@ export function createSparks({ fx, gates, bird, run }) {
         shape.edges,
         shape.nx,
         phase,
-        dt,
+        step,
       )
     }
   }

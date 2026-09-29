@@ -155,18 +155,20 @@ void main() {
 `
 
 // ---------------------------------------------------------------------------
-// Laser slab: energy field with a white-hot edge facing the gap.
+// Laser slab: energy field with a white-hot edge facing the gap. Patterns run
+// in world units along the slab's own axes (vAxes.x parallel to the lethal
+// edge, vAxes.y toward it) so an upright slab arcs along its edge too.
 // ---------------------------------------------------------------------------
 export const LASER_VERT = /* glsl */ `
 varying vec3 vLocal;
-varying vec3 vWorld;
+varying vec2 vAxes;
 varying float vDepth;
 varying float vScaleY;
 void main() {
   vLocal = position;
   vScaleY = length(modelMatrix[1].xyz);
   vec4 w = modelMatrix * vec4(position, 1.0);
-  vWorld = w.xyz;
+  vAxes = vec2(dot(w.xy, normalize(modelMatrix[0].xy)), dot(w.xy, normalize(modelMatrix[1].xy)));
   vec4 mv = viewMatrix * w;
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
@@ -180,26 +182,28 @@ uniform float uTime;
 uniform vec3 uColor;
 uniform float uEdgeSign;
 varying vec3 vLocal;
-varying vec3 vWorld;
+varying vec2 vAxes;
 varying float vScaleY;
 
 void main() {
   float edgeWorld = (0.5 - vLocal.y * uEdgeSign) * vScaleY;
+  float along = vAxes.x;
+  float across = vAxes.y;
   
   // High-frequency electrical plasma filament arcing along the lethal edge
-  float arc1 = sin(vWorld.x * 24.0 + uTime * 47.0);
-  float arc2 = sin(vWorld.x * 9.0 - uTime * 29.0 + arc1 * 1.5);
-  float noiseArc = sin(vWorld.x * 48.0 + uTime * 63.0 + arc2 * 2.0);
+  float arc1 = sin(along * 24.0 + uTime * 47.0);
+  float arc2 = sin(along * 9.0 - uTime * 29.0 + arc1 * 1.5);
+  float noiseArc = sin(along * 48.0 + uTime * 63.0 + arc2 * 2.0);
   float edgeJitter = 0.032 * arc1 * noiseArc;
   
   // Dancing coronal tendrils leaping into the clearance gap
-  float tendril = pow(max(0.0, sin(vWorld.x * 16.0 + sin(uTime * 34.0) * 3.5)), 7.0);
+  float tendril = pow(max(0.0, sin(along * 16.0 + sin(uTime * 34.0) * 3.5)), 7.0);
   float corona = exp(-edgeWorld * 4.5) * tendril * 1.6;
 
   // Internal plasma currents
-  float flow = 0.5 + 0.5 * sin(vWorld.x * 3.2 - uTime * 12.0 + vWorld.y * 2.5);
-  float scan = smoothstep(0.80, 1.0, fract(vWorld.y * 3.0 + uTime * 3.2));
-  float microFlicker = 0.90 + 0.10 * sin(uTime * 59.0 + vWorld.x * 3.7);
+  float flow = 0.5 + 0.5 * sin(along * 3.2 - uTime * 12.0 + across * 2.5);
+  float scan = smoothstep(0.80, 1.0, fract(across * 3.0 + uTime * 3.2));
+  float microFlicker = 0.90 + 0.10 * sin(uTime * 59.0 + along * 3.7);
 
   float body = 0.36 + flow * 0.24 + scan * 0.22;
   float core = exp(-max(0.0, edgeWorld + edgeJitter) * 8.8) * 3.4;

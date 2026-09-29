@@ -57,6 +57,37 @@ test('laser-bar kills at the hull edge of the gap', () => {
   assert.equal(hitObstacle({ x: 0, y: edge, z: 0 }, HIT, obs), true)
 })
 
+function laserCol(gapX, gapW = 3, z = 0, depth = 0.16) {
+  return { type: 'laser-col', z, depth, gapX, gapW }
+}
+
+test('laser-col kills at the hull edge of the gap on X, at any height', () => {
+  const obs = laserCol(0.6, 3)
+  const right = 0.6 + 1.5 - HIT.x
+  const left = 0.6 - 1.5 + HIT.x
+  for (const y of [-3, 0, 3]) {
+    assert.equal(hitObstacle({ x: right - 1e-6, y, z: 0 }, HIT, obs), false)
+    assert.equal(hitObstacle({ x: right, y, z: 0 }, HIT, obs), true)
+    assert.equal(hitObstacle({ x: left + 1e-6, y, z: 0 }, HIT, obs), false)
+    assert.equal(hitObstacle({ x: left, y, z: 0 }, HIT, obs), true)
+  }
+})
+
+test('laser-col only kills within its slab depth', () => {
+  assert.equal(hitObstacle({ x: 3, y: 0, z: -2 }, HIT, laserCol(0, 3)), false)
+})
+
+test('passContact on a laser-col sprays back toward the gap centre', () => {
+  const obs = laserCol(0, 3)
+  const pos = { x: -(1.5 - HIT.x - 0.08), y: 0.4, z: 0 }
+  const contact = passContact(pos, HIT, obs)
+  assert.ok(Math.abs(contact.margin - 0.08) < 1e-5)
+  assert.ok(contact.x < pos.x)
+  assert.equal(contact.y, pos.y)
+  assert.equal(contact.nx, 1)
+  assert.equal(contact.ny, 0)
+})
+
 test('sled reads its live hole position like a bulkhead', () => {
   const at = (hx) => ({ type: 'sled', z: 0, depth: 0.3, hole: { x: hx, y: 0, w: 2.8, h: 3.2 } })
   assert.equal(hitObstacle(origin, HIT, at(0)), false)
@@ -72,6 +103,8 @@ test('passMargin is non-positive exactly when hitObstacle is true', () => {
     { pos: origin, obs: pylon('left', 0.05) },
     { pos: { x: 0, y: 1.5 - HIT.y - 0.01, z: 0 }, obs: laser(0, 3) },
     { pos: { x: 0, y: 1.5 - HIT.y + 0.01, z: 0 }, obs: laser(0, 3) },
+    { pos: { x: 1.5 - HIT.x - 0.01, y: 0, z: 0 }, obs: laserCol(0, 3) },
+    { pos: { x: 1.5 - HIT.x + 0.01, y: 0, z: 0 }, obs: laserCol(0, 3) },
   ]
   for (const { pos, obs } of cases) {
     const hit = hitObstacle(pos, HIT, obs)

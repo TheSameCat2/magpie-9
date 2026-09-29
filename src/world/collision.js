@@ -43,6 +43,9 @@ export function hitObstacle(pos, hit, gate) {
   if (gate.type === 'laser-bar') {
     return Math.abs(pos.y - gate.gapY) >= gate.gapH * 0.5 - hit.y
   }
+  if (gate.type === 'laser-col') {
+    return Math.abs(pos.x - gate.gapX) >= gate.gapW * 0.5 - hit.x
+  }
   if (gate.type === 'pylon') {
     if (gate.side === 'left') return pos.x < gate.edge + hit.x
     return pos.x > gate.edge - hit.x
@@ -62,6 +65,9 @@ export function passMargin(pos, hit, gate) {
   }
   if (gate.type === 'laser-bar') {
     return gate.gapH * 0.5 - Math.abs(pos.y - gate.gapY) - hit.y
+  }
+  if (gate.type === 'laser-col') {
+    return gate.gapW * 0.5 - Math.abs(pos.x - gate.gapX) - hit.x
   }
   if (gate.type === 'pylon') {
     return Math.abs(pos.x - gate.edge) - hit.x
@@ -106,6 +112,17 @@ export function passContact(pos, hit, gate) {
       y: pos.y + signY * hit.y,
       nx: 0,
       ny: -signY,
+    }
+  }
+  if (gate.type === 'laser-col') {
+    const dx = pos.x - gate.gapX
+    const signX = dx >= 0 ? 1 : -1
+    return {
+      margin: gate.gapW * 0.5 - Math.abs(dx) - hit.x,
+      x: pos.x + signX * hit.x,
+      y: pos.y,
+      nx: -signX,
+      ny: 0,
     }
   }
   if (gate.type === 'pylon') {

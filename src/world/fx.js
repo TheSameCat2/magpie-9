@@ -279,7 +279,11 @@ export function createFx(scene) {
         dx = nx
         dy = 0
       } else {
-        const edge = Math.floor(Math.random() * (edges === OPENING_EDGES.horizontal ? 2 : 4))
+        // Edges 0-1 are top/bottom, 2-3 are the sides.
+        const edge =
+          edges === OPENING_EDGES.columns
+            ? 2 + Math.floor(Math.random() * 2)
+            : Math.floor(Math.random() * (edges === OPENING_EDGES.horizontal ? 2 : 4))
         const along = Math.random() * 2 - 1
         const horizontal = edge < 2
         const sign = edge % 2 === 0 ? 1 : -1

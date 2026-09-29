@@ -211,6 +211,11 @@ export function createGates(scene, materials) {
       shape.y = gate.gapY
       shape.hw = 1.6
       shape.hh = gate.gapH * 0.5
+    } else if (gate.type === 'laser-col') {
+      shape.x = gate.gapX
+      shape.y = by
+      shape.hw = gate.gapW * 0.5
+      shape.hh = 1.6
     } else {
       shape.x = gate.edge
       shape.y = by

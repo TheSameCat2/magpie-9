@@ -12,6 +12,7 @@ import { PLATE_DEPTH, createBulkheadGeometry, unitBox, unitCylinder, unitPlane }
 export const GATE_COLOR = {
   bulkhead: THEME.ice,
   'laser-bar': THEME.mag,
+  'laser-col': THEME.mag,
   pylon: THEME.sodium,
   sled: THEME.mag,
 }
@@ -95,6 +96,8 @@ export function createGateSlot(materials) {
     hole: { x: 0, y: 0, w: HOLE_W, h: HOLE_H },
     gapY: 0,
     gapH: LASER_GAP,
+    gapX: 0,
+    gapW: LASER_GAP,
     side: 'left',
     edge: 0,
     /** Pass-flash intensity, decays after a thread. */
@@ -216,10 +219,32 @@ function placeSlabs(top, bottom, gapY, gapH, z) {
   const botH = Math.max(0.4, gapY - gapH * 0.5 + reach)
   top.visible = true
   bottom.visible = true
+  top.rotation.z = 0
+  bottom.rotation.z = 0
   top.scale.set(TUNNEL_VERTEX_RADIUS * 2, topH, SLAB_THICKNESS)
   bottom.scale.set(TUNNEL_VERTEX_RADIUS * 2, botH, SLAB_THICKNESS)
   top.position.set(0, gapY + gapH * 0.5 + topH * 0.5, z)
   bottom.position.set(0, gapY - gapH * 0.5 - botH * 0.5, z)
+}
+
+/**
+ * The laser slabs turned upright either side of a vertical opening at `gapX`.
+ * Both roll -90° so local +Y points at world +X: the laserBot hot edge (local
+ * +Y) then faces the gap from the left and laserTop's (local -Y) from the right.
+ */
+function placeColumnSlabs(left, right, gapX, gapW) {
+  const reach = TUNNEL_VERTEX_RADIUS + 0.4
+  const span = (TUNNEL_APOTHEM + 0.4) * 2
+  const leftW = Math.max(0.4, gapX - gapW * 0.5 + reach)
+  const rightW = Math.max(0.4, reach - (gapX + gapW * 0.5))
+  left.visible = true
+  right.visible = true
+  left.rotation.z = -Math.PI / 2
+  right.rotation.z = -Math.PI / 2
+  left.scale.set(span, leftW, SLAB_THICKNESS)
+  right.scale.set(span, rightW, SLAB_THICKNESS)
+  left.position.set(gapX - gapW * 0.5 - leftW * 0.5, 0, 0)
+  right.position.set(gapX + gapW * 0.5 + rightW * 0.5, 0, 0)
 }
 
 // Rides the two shutter boxes with the moving hatch so the wide plate slot
@@ -238,7 +263,7 @@ export function placeSledHatch(gate) {
   placeRims(gate, ox, oy)
 }
 
-function setFrame(gate, { mode, x, y, w, h, halfW, halfH, edgeSign = 1, color }) {
+function setFrame(gate, { mode, x, y, w, h, halfW, halfH, edgeSign = 1, color, roll = 0 }) {
   const u = gate.frame.material.uniforms
   u.uMode.value = mode
   u.uSize.value.set(w, h)
@@ -249,6 +274,7 @@ function setFrame(gate, { mode, x, y, w, h, halfW, halfH, edgeSign = 1, color })
   u.uColor.value.set(color)
   u.uSeed.value = Math.random()
   gate.frame.scale.set(w, h, 1)
+  gate.frame.rotation.z = roll
   gate.frame.position.set(x, y, gate.depth * 0.5 + 0.05)
   gate.frame.visible = true
 }
@@ -305,6 +331,36 @@ function configureLaserBar(gate, layout) {
     halfW: 0,
     halfH: LASER_GAP * 0.5,
     color: GATE_COLOR['laser-bar'],
+  })
+}
+
+function configureLaserCol(gate, layout) {
+  gate.gapX = layout.gapX
+  gate.gapW = LASER_GAP
+  gate.depth = LASER_DEPTH
+  // laserBot glows on its local +Y, so it is the slab left of the gap.
+  placeColumnSlabs(gate.laserBot, gate.laserTop, gate.gapX, LASER_GAP)
+
+  const railH = TUNNEL_APOTHEM * 2
+  const [leftNozzle, rightNozzle] = gate.nozzles
+  leftNozzle.visible = true
+  rightNozzle.visible = true
+  leftNozzle.scale.set(0.12, railH, LASER_DEPTH + 0.08)
+  rightNozzle.scale.set(0.12, railH, LASER_DEPTH + 0.08)
+  leftNozzle.position.set(gate.gapX - LASER_GAP * 0.5 - 0.06, 0, 0)
+  rightNozzle.position.set(gate.gapX + LASER_GAP * 0.5 + 0.06, 0, 0)
+
+  // The band-mode frame outlines a horizontal band; roll it upright.
+  setFrame(gate, {
+    mode: FRAME_MODE.band,
+    x: gate.gapX,
+    y: 0,
+    w: TUNNEL_APOTHEM * 2,
+    h: LASER_GAP + 2.2,
+    halfW: 0,
+    halfH: LASER_GAP * 0.5,
+    color: GATE_COLOR['laser-col'],
+    roll: Math.PI / 2,
   })
 }
 
@@ -372,6 +428,7 @@ function configurePylon(gate, layout) {
 const CONFIGURE = {
   bulkhead: configureBulkhead,
   'laser-bar': configureLaserBar,
+  'laser-col': configureLaserCol,
   sled: configureSled,
   pylon: configurePylon,
 }

@@ -7,6 +7,8 @@ import { hexOutside, hitObstacle } from '../collision.js'
 import {
   HOLE_W,
   HOLE_H,
+  LASER_COL_MAX_X,
+  LASER_COL_MIN_SCORE,
   LASER_GAP,
   OPENING_EDGES,
   layoutGate,
@@ -194,6 +196,57 @@ test('a sled is never followed directly by another sled', () => {
   }
 })
 
+test('vertical lasers never appear below their unlock score', () => {
+  const lo = () => 0
+  assert.notEqual(pickGateType(50, LASER_COL_MIN_SCORE - 1, lo), 'laser-col')
+  assert.equal(pickGateType(50, LASER_COL_MIN_SCORE, lo), 'laser-col')
+  assert.equal(pickGateType(1, LASER_COL_MIN_SCORE, lo), 'bulkhead')
+})
+
+test('below the unlock, pickGateType draws the same RNG sequence as before', () => {
+  let draws = 0
+  const counting = () => {
+    draws += 1
+    return 0.99
+  }
+  pickGateType(50, LASER_COL_MIN_SCORE - 1, counting, 'bulkhead')
+  // sled, pylon, laser-bar rolls: the vertical laser must not add one.
+  assert.equal(draws, 3)
+})
+
+test('a vertical laser never follows another or a pylon', () => {
+  const lo = () => 0
+  for (const prev of ['laser-col', 'pylon']) {
+    assert.notEqual(pickGateType(120, 120, lo, prev), 'laser-col', `prev=${prev}`)
+  }
+  for (const prev of [null, 'bulkhead', 'laser-bar', 'sled']) {
+    assert.equal(pickGateType(120, 120, lo, prev), 'laser-col', `prev=${prev}`)
+  }
+})
+
+test('vertical laser bands stay bounded and scatter off-centre', () => {
+  const rand = createRng(1234)
+  const offset = difficulty(LASER_COL_MIN_SCORE).offset
+  for (let i = 0; i < 200; i++) {
+    const { gapX, gapW } = layoutGate('laser-col', offset, rand)
+    assert.equal(gapW, LASER_GAP)
+    assert.ok(Math.abs(gapX) <= LASER_COL_MAX_X, `gapX ${gapX}`)
+    assert.equal(hexOutside(gapX + gapW / 2, 0, TUNNEL_APOTHEM), false)
+    assert.equal(hexOutside(gapX - gapW / 2, 0, TUNNEL_APOTHEM), false)
+  }
+  assert.equal(layoutGate('laser-col', 0, () => 0.9).gapX, 0)
+  assert.notEqual(layoutGate('laser-col', offset, () => 0.99).gapX, 0)
+})
+
+test('opening shape for a vertical laser spans the conduit height, side edges only', () => {
+  const shape = openingShape({ type: 'laser-col', gapX: -0.9, gapW: LASER_GAP }, {})
+  assert.equal(shape.x, -0.9)
+  assert.equal(shape.y, 0)
+  assert.equal(shape.hw, LASER_GAP / 2)
+  assert.ok(shape.hh >= TUNNEL_APOTHEM)
+  assert.equal(shape.edges, OPENING_EDGES.columns)
+})
+
 test('createGateSlot allocates pooled mechanical details and configureGate positions them', async () => {
   const THREE = await import('three')
   const { createGateSlot, configureGate } = await import('./slot.js')
@@ -233,4 +286,43 @@ test('createGateSlot allocates pooled mechanical details and configureGate posit
   assert.equal(slot.nozzles[0].visible, false)
   assert.equal(slot.pylonBrackets[0].visible, true)
   assert.equal(slot.pylonBrackets[1].visible, true)
+})
+
+test('configureGate stands the laser slabs upright either side of a vertical band', async () => {
+  const THREE = await import('three')
+  const { createGateSlot, configureGate } = await import('./slot.js')
+  const m = new THREE.MeshBasicMaterial()
+  const slot = createGateSlot({
+    plate: m,
+    hatch: m,
+    laserTop: m,
+    laserBot: m,
+    pylon: m,
+    pylonEdge: m,
+    metalHi: m,
+    beak: m,
+  })
+
+  configureGate(slot, 'laser-col', -10, 20, { gapX: 0.8 })
+  assert.equal(slot.gapX, 0.8)
+  assert.equal(slot.gapW, LASER_GAP)
+  const { laserBot: left, laserTop: right, frame } = slot
+  assert.equal(left.visible, true)
+  assert.equal(right.visible, true)
+  assert.equal(left.rotation.z, -Math.PI / 2)
+  // After the roll, scale.y is the slab's world width; its inner face is the gap edge.
+  assert.ok(Math.abs(left.position.x + left.scale.y / 2 - (0.8 - LASER_GAP / 2)) < 1e-9)
+  assert.ok(Math.abs(right.position.x - right.scale.y / 2 - (0.8 + LASER_GAP / 2)) < 1e-9)
+  assert.equal(slot.nozzles[0].visible, true)
+  assert.equal(frame.rotation.z, Math.PI / 2)
+
+  // Reusing the slot for a horizontal laser or a bulkhead clears the roll.
+  configureGate(slot, 'laser-bar', -10, 20, { gapY: 0.5 })
+  assert.equal(slot.laserTop.rotation.z, 0)
+  assert.equal(slot.laserBot.rotation.z, 0)
+  assert.equal(frame.rotation.z, 0)
+  configureGate(slot, 'laser-col', -10, 20, { gapX: 0 })
+  configureGate(slot, 'bulkhead', -10, 20, { hole: { x: 0, y: 0 } })
+  assert.equal(frame.rotation.z, 0)
+  assert.equal(slot.laserTop.visible, false)
 })

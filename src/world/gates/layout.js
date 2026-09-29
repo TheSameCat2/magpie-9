@@ -4,14 +4,24 @@ import { clamp } from '../../lib/math.js'
 // Pure gate placement: which hazard spawns and where its opening sits. No
 // Three.js here so the challenge generator and the tests can share it.
 
-export const GATE_TYPES = ['bulkhead', 'laser-bar', 'pylon', 'sled']
+export const GATE_TYPES = ['bulkhead', 'laser-bar', 'laser-col', 'pylon', 'sled']
 
-/** Which sides of an opening shed sparks. */
-export const OPENING_EDGES = { all: 0, horizontal: 1, vertical: 2 }
+/**
+ * Which sides of an opening shed sparks. `vertical` is a single edge facing
+ * `nx`; `columns` is both vertical sides of a band.
+ */
+export const OPENING_EDGES = { all: 0, horizontal: 1, vertical: 2, columns: 3 }
 
 export const HOLE_W = 2.8
 export const HOLE_H = 3.2
 export const LASER_GAP = 3.0
+/** |X| bound on a vertical laser band's centre. */
+export const LASER_COL_MAX_X = 1.7
+
+// Vertical lasers are late-run variety: every difficulty() knob has capped
+// long before this score, so they arrive as something new rather than a ramp.
+export const LASER_COL_MIN_SCORE = 100
+const LASER_COL_CHANCE = 0.25
 export const PYLON_W = 4.5
 /** |X| of a pylon's centre; the open side starts at `edge`. */
 export const PYLON_PX = 2.2
@@ -24,10 +34,21 @@ export const SLED_MIN_PERIOD = 2.8
 /**
  * Which hazard spawns at `spawnIndex` for the current `score`. `prevType` is
  * the gate spawned just before: two moving hatches in a row ramp difficulty
- * too sharply, so a sled must be followed by a static gate.
+ * too sharply, so a sled must be followed by a static gate. A vertical laser
+ * never follows another or a pylon, so the strafe it demands is always fair.
+ * Its score check comes before the roll so courses below the unlock (every
+ * daily challenge) draw the same RNG sequence as before it existed.
  */
 export function pickGateType(spawnIndex, score, rand = Math.random, prevType = null) {
   if (spawnIndex < 2) return 'bulkhead'
+  if (
+    score >= LASER_COL_MIN_SCORE &&
+    prevType !== 'laser-col' &&
+    prevType !== 'pylon' &&
+    rand() < LASER_COL_CHANCE
+  ) {
+    return 'laser-col'
+  }
   if (score >= 8 && prevType !== 'sled' && rand() < 0.22) return 'sled'
   if (score >= 5 && rand() < 0.3) return 'pylon'
   if (score >= 3 && rand() < 0.38) return 'laser-bar'
@@ -50,6 +71,12 @@ function layoutLaserBar(offset, rand) {
   // Zero offset means a dead-centre band (tutorial); runs never reach lasers below 0.8.
   const gapY = offset > 0 ? clamp((rand() * 2 - 1) * Math.max(0.4, offset), -1.7, 1.7) : 0
   return { gapY, gapH: LASER_GAP }
+}
+
+function layoutLaserCol(offset, rand) {
+  const gapX =
+    offset > 0 ? clamp((rand() * 2 - 1) * Math.max(0.4, offset), -LASER_COL_MAX_X, LASER_COL_MAX_X) : 0
+  return { gapX, gapW: LASER_GAP }
 }
 
 function layoutSled(offset, rand) {
@@ -85,6 +112,13 @@ export function openingShape(gate, shape) {
     shape.hh = gate.gapH * 0.5
     shape.edges = OPENING_EDGES.horizontal
     shape.nx = 0
+  } else if (gate.type === 'laser-col') {
+    shape.x = gate.gapX
+    shape.y = 0
+    shape.hw = gate.gapW * 0.5
+    shape.hh = TUNNEL_APOTHEM
+    shape.edges = OPENING_EDGES.columns
+    shape.nx = 0
   } else if (gate.type === 'pylon') {
     shape.x = gate.edge
     shape.y = 0
@@ -107,6 +141,7 @@ export function openingShape(gate, shape) {
 export function layoutGate(type, offset, rand = Math.random) {
   if (type === 'bulkhead') return layoutBulkhead(offset, rand)
   if (type === 'laser-bar') return layoutLaserBar(offset, rand)
+  if (type === 'laser-col') return layoutLaserCol(offset, rand)
   if (type === 'sled') return layoutSled(offset, rand)
   return layoutPylon(rand)
 }

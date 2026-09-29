@@ -9,17 +9,20 @@ export function hazardGain(prox) {
   return p * p * HAZARD_MAX_GAIN
 }
 
+const LASER_VOICE = {
+  oscType: 'sine',
+  oscHz: 1350,
+  filterType: 'lowpass',
+  filterHz: 4200,
+  oscLevel: 0.8,
+  noiseHz: null,
+  noiseLevel: 0,
+}
+
 // Per-hazard timbre: oscillator + tonal filter, and a noise layer.
 const VOICES = {
-  'laser-bar': {
-    oscType: 'sine',
-    oscHz: 1350,
-    filterType: 'lowpass',
-    filterHz: 4200,
-    oscLevel: 0.8,
-    noiseHz: null,
-    noiseLevel: 0,
-  },
+  'laser-bar': LASER_VOICE,
+  'laser-col': LASER_VOICE,
   pylon: {
     oscType: 'sawtooth',
     oscHz: 110,

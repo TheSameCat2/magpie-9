@@ -80,9 +80,10 @@ Hexagonal conduit, 6 plates + emissive rib. Segment length `10`, pool **8**. Fog
 | ----------- | ------------------------------------------ | ------------------------- |
 | `bulkhead`  | Hex plate, rectangular hatch offset in X/Y | 2.8 × 3.2                 |
 | `laser-bar` | Horizontal energy slab, open band          | band height 3.0, random Y |
+| `laser-col` | Upright energy slabs, vertical open band   | band width 3.0, random X  |
 | `pylon`     | Left **or** right blocked past centre      | forces strafe             |
 
-First gate `z = −32`. Spacing `28` shrinking toward `18`. Mostly bulkhead; laser-bar after score 3; pylon after score 5. First two hatches are centred (warm-up; Tutorial mode keeps offset 0 throughout). After that, hatch offset is `min(0.8 + score * 0.12, 1.8)` so the conduit centre is not a safe lane. Hole stays inside the hex.
+First gate `z = −32`. Spacing `28` shrinking toward `18`. Mostly bulkhead; laser-bar after score 3; pylon after score 5; laser-col after score 100 (never twice in a row or straight after a pylon, and absent from the 40-gate daily course). First two hatches are centred (warm-up; Tutorial mode keeps offset 0 throughout). After that, hatch offset is `min(0.8 + score * 0.12, 1.8)` so the conduit centre is not a safe lane. Hole stays inside the hex.
 
 Store collider descriptors (not `Box3` of a meshed hole).
 

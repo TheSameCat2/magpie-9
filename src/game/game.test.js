@@ -869,6 +869,7 @@ test('BENDS keeps its own best, and the menu straightens the conduit', () => {
   assert.equal(h.game.state, 'dead')
   assert.equal(localStorage.getItem('magpie9.bends.best'), '3')
   assert.equal(localStorage.getItem('magpie9.best'), runBest)
+  h.advance(DEAD_GRACE * 1000)
   h.tap()
   assert.equal(h.game.state, 'menu')
   assert.equal(h.bends.active().length, 0)

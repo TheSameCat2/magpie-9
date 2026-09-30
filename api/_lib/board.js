@@ -6,6 +6,8 @@ import { BOARD_SIZE } from '../../src/config/rules.js'
 import { getRedis } from './redis.js'
 
 export const BOARD_KEY = 'magpie9:board'
+/** All-time board for BENDS runs; ranked like BOARD_KEY. */
+export const BENDS_BOARD_KEY = 'magpie9:board:bends'
 /** Challenge boards live a week past their day so late viewers can still see them. */
 export const CHALLENGE_TTL = 8 * 86400
 

@@ -2,8 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { MENU_ITEMS, endCopy, entryCopy, pauseCopy, sceneHint, stepMenu } from './copy.js'
 
-test('menu lists the six entries in order', () => {
-  assert.deepEqual(MENU_ITEMS, ['new', 'challenge', 'tutorial', 'scores', 'help', 'credits'])
+test('menu lists the seven entries in order', () => {
+  assert.deepEqual(MENU_ITEMS, ['new', 'bends', 'challenge', 'tutorial', 'scores', 'help', 'credits'])
 })
 
 test('stepMenu moves one row and wraps at both ends', () => {

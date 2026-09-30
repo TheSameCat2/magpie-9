@@ -6,6 +6,11 @@ export function clamp01(value) {
   return clamp(value, 0, 1)
 }
 
+/** Frame-rate independent approach of `value` to `target` at `rate` per second. */
+export function damp(value, target, rate, dt) {
+  return target + (value - target) * Math.exp(-rate * dt)
+}
+
 /** Uniform random point in a disc of `radius`, written into `out`. */
 export function randomInDisc(radius, rand = Math.random, out = { x: 0, y: 0 }) {
   const angle = rand() * Math.PI * 2

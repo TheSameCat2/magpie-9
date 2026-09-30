@@ -16,10 +16,12 @@ export async function POST(request) {
   let mode = 'run'
   try {
     const body = await request.json()
-    if (body?.mode === 'challenge') mode = 'challenge'
+    if (body?.mode === 'challenge' || body?.mode === 'bends') mode = body.mode
   } catch {
     // Empty or non-JSON body is an endless run.
   }
+
+  if (mode === 'bends') return json({ token: issueToken({ mode: 'bends' }) })
 
   if (mode === 'challenge') {
     const now = Date.now()

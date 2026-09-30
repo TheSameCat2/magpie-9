@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 
 process.env.BOARD_SECRET = process.env.BOARD_SECRET || 'test-secret'
 
-const { challengeBoardKey, playedMs, rankTime, timeFromRank, toBoard } = await import('./board.js')
+const { BENDS_BOARD_KEY, BOARD_KEY, challengeBoardKey, playedMs, rankTime, timeFromRank, toBoard } =
+  await import('./board.js')
 const { challengeSeed, issueToken, verify } = await import('./token.js')
 
 test('endless tokens still verify as run mode', () => {
@@ -12,6 +13,23 @@ test('endless tokens still verify as run mode', () => {
   assert.equal(parsed.mode, 'run')
   assert.equal(typeof parsed.t0, 'number')
   assert.equal(parsed.day, undefined)
+})
+
+test('BENDS tokens verify as bends mode', () => {
+  const parsed = verify(issueToken({ mode: 'bends' }))
+  assert.equal(parsed.mode, 'bends')
+  assert.equal(typeof parsed.t0, 'number')
+})
+
+test('a BENDS token cannot pass as a plain run token, or the other way round', () => {
+  const [nonce, t0, , sig] = issueToken({ mode: 'bends' }).split('.')
+  assert.equal(verify(`${nonce}.${t0}.${sig}`), null)
+  const [rn, rt, rsig] = issueToken().split('.')
+  assert.equal(verify(`${rn}.${rt}.bends.${rsig}`), null)
+})
+
+test('the BENDS board is its own key', () => {
+  assert.notEqual(BENDS_BOARD_KEY, BOARD_KEY)
 })
 
 test('challenge tokens bind day and target', () => {

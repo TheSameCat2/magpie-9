@@ -23,6 +23,9 @@ export const BIRD_HIT = {
   z: (BIRD_BODY_D * BIRD_VISUAL_SCALE) / 2,
 }
 
+/** Top strafe speed. Bend slip is capped under it so every bend can be held (config/bends.js). */
+export const STRAFE_MAX = 7
+
 export const CAMERA = {
   fov: 68,
   near: 0.1,
@@ -30,6 +33,11 @@ export const CAMERA = {
   /** Rest position; the rig damps X/Y toward the bird from here. */
   rest: { x: 0, y: 0.55, z: 6.4 },
 }
+
+/** How far the camera's look target leans toward the conduit ahead in a bend (0 = straight). */
+export const CAMERA_TURN_LEAD = 0.35
+/** Distance ahead of the bird the camera looks toward when leaning into a bend. */
+export const CAMERA_TURN_LOOK = 12
 
 /** Objects past this Z are behind the camera and can be recycled. */
 export const RECYCLE_Z = 14

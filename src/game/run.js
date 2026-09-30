@@ -23,7 +23,7 @@ export function rewindDistance(anchorZ, gap) {
  * @param startLives lives a fresh run begins with (debug knob)
  */
 export function createRun({ startLives = 1 } = {}) {
-  // run | tutorial | challenge — which rules the current (or next) session uses.
+  // run | bends | tutorial | challenge — which rules the current (or next) session uses.
   let mode = 'run'
   let score = 0
   let gatesCleared = 0
@@ -50,9 +50,12 @@ export function createRun({ startLives = 1 } = {}) {
     get challenge() {
       return mode === 'challenge'
     },
-    /** A plain run: the only mode that counts toward the all-time board and personal best. */
+    get bends() {
+      return mode === 'bends'
+    },
+    /** An endless run (plain or BENDS): counts gates toward its own all-time board and personal best. */
     get scored() {
-      return mode === 'run'
+      return mode === 'run' || mode === 'bends'
     },
     get score() {
       return score

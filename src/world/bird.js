@@ -7,6 +7,7 @@ import {
   BIRD_BODY_W,
   BIRD_HIT,
   BIRD_VISUAL_SCALE,
+  STRAFE_MAX,
   TUNNEL_APOTHEM,
 } from '../config/world.js'
 import { UNIFORMS } from '../render/uniforms.js'
@@ -44,7 +45,6 @@ const GRAVITY = -28
 const FLAP_VY = 9.5
 const VY_MIN = -16
 const VY_MAX = 11
-const STRAFE_MAX = 7
 const STRAFE_ACCEL = 55
 const STRAFE_DAMPING = 10
 const DEAD_GRAVITY = -12
@@ -108,6 +108,7 @@ function createTrail(scene, color) {
     uniforms: {
       uTime: UNIFORMS.uTime,
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
       uOverdrive: UNIFORMS.uOverdrive,
       uColor: { value: new THREE.Color(color) },
       uIntensity: { value: 0.6 },
@@ -487,6 +488,7 @@ function createThruster(materials) {
     uniforms: {
       uTime: UNIFORMS.uTime,
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
       uColor: { value: new THREE.Color(THEME.ice) },
       uIntensity: { value: 1 },
     },
@@ -701,7 +703,8 @@ export function createBird(scene, materials) {
     syncTrails(dz, 0.2)
   }
 
-  function updatePlay(dt, input, dz) {
+  /** @param slip lateral drift from a conduit bend; kept out of vx so strafe damping cannot eat it */
+  function updatePlay(dt, input, dz, slip = 0) {
     const strafe = input.strafe
     if (Math.abs(strafe) > 0.001) {
       const target = STRAFE_MAX * strafe
@@ -715,11 +718,11 @@ export function createBird(scene, materials) {
     vy += GRAVITY * dt
     vy = THREE.MathUtils.clamp(vy, VY_MIN, VY_MAX)
 
-    pos.x += vx * dt
+    pos.x += (vx + slip) * dt
     pos.y += vy * dt
 
     group.position.copy(pos)
-    group.rotation.z = THREE.MathUtils.damp(group.rotation.z, -vx * 0.09, 12, dt)
+    group.rotation.z = THREE.MathUtils.damp(group.rotation.z, -(vx + slip) * 0.09, 12, dt)
     group.rotation.x = THREE.MathUtils.damp(group.rotation.x, -vy * 0.035, 10, dt)
     animateWings(dt)
 

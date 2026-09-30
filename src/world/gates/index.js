@@ -38,6 +38,10 @@ export function createGates(scene, materials) {
     root.add(slot.group)
     pool.push(slot)
   }
+  // Culling reads straight-conduit bounds, which a bend moves the mesh away from.
+  root.traverse((o) => {
+    o.frustumCulled = false
+  })
 
   let spawnIndex = 0
   let lastType = null
@@ -80,15 +84,20 @@ export function createGates(scene, materials) {
   /**
    * Spawn until the conduit is filled to the horizon. New gates are pushed
    * into `out` so the caller can drop orbs behind them.
+   *
+   * @param typeFor  fixed gate order by spawn index (tutorial)
+   * @param course   precomputed gates (challenge)
+   * @param gapFor   spacing back to the previous gate for spawn index i (bends widen some gaps)
+   * @param horizon  stop once the deepest gate is at or past this z
    */
-  function ensureAhead(score, diff, out, typeFor, course) {
+  function ensureAhead(score, diff, out, { typeFor, course, gapFor, horizon = SPAWN_HORIZON_Z } = {}) {
     if (out) out.length = 0
     for (let guard = 0; guard < 8; guard++) {
       if (course && spawnIndex >= course.length) break
       const spec = course?.[spawnIndex]
       const deepest = farthestZ()
-      if (deepest !== null && deepest <= SPAWN_HORIZON_Z) break
-      const spacing = spec?.spacing ?? diff.spacing
+      if (deepest !== null && deepest <= horizon) break
+      const spacing = spec?.spacing ?? (deepest !== null && gapFor ? gapFor(spawnIndex, diff) : diff.spacing)
       const gap = deepest === null ? FIRST_GATE_Z : spacing
       const z = deepest === null ? -FIRST_GATE_Z : deepest - spacing
       const gate = spawn(score, diff, z, gap, typeFor, spec)

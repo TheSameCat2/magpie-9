@@ -16,11 +16,11 @@ function postJson(url, body) {
 }
 
 export async function fetchBoard(mode = 'run') {
-  const q = mode === 'challenge' ? '?mode=challenge' : ''
+  const q = mode === 'challenge' || mode === 'bends' ? `?mode=${mode}` : ''
   return readJson(await fetch(`/api/scores${q}`))
 }
 
-/** Ask for a run token (and, for challenges, today's seed and target). */
+/** Ask for a run token for `run`, `bends`, or `challenge` (which also returns today's seed and target). */
 export async function startRun(mode = 'run') {
   return readJson(await postJson('/api/run', { mode }))
 }

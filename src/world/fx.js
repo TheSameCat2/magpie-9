@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { THEME } from '../config/theme.js'
 import { SPARK_RAMP, edgeProx, sparkGain } from '../config/fx.js'
 import { UNIFORMS } from '../render/uniforms.js'
+import { bendMaterial } from '../render/bend.js'
 import { PARTICLE_VERT, PARTICLE_FRAG, DUST_VERT, DUST_FRAG } from '../render/shaders.js'
 import { randomOnSphere } from '../lib/math.js'
 import { OPENING_EDGES } from './gates/layout.js'
@@ -77,6 +78,7 @@ function createParticles(scene) {
       uScroll: UNIFORMS.uScroll,
       uPixelRatio: UNIFORMS.uPixelRatio,
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
     },
     transparent: true,
     depthWrite: false,
@@ -153,14 +155,16 @@ function createStreaks(scene) {
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3))
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, -30), 100)
 
-  const mat = new THREE.LineBasicMaterial({
-    vertexColors: true,
-    transparent: true,
-    opacity: 0.3,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    fog: true,
-  })
+  const mat = bendMaterial(
+    new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.3,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      fog: true,
+    }),
+  )
   const lines = new THREE.LineSegments(geo, mat)
   lines.frustumCulled = false
   lines.name = 'streaks'
@@ -214,6 +218,7 @@ function createDust(scene) {
       uScroll: UNIFORMS.uScroll,
       uPixelRatio: UNIFORMS.uPixelRatio,
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
       uNear: { value: DUST_NEAR },
       uSpan: { value: DUST_SPAN },
       uColor: { value: new THREE.Color(0x9fd8e8) },

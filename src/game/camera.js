@@ -2,7 +2,9 @@
 // shake / FOV punch impulses from gameplay events.
 
 import * as THREE from 'three'
-import { CAMERA } from '../config/world.js'
+import { CAMERA, CAMERA_TURN_LEAD, CAMERA_TURN_LOOK } from '../config/world.js'
+import { bendPoint } from '../lib/centreline.js'
+import { UNIFORMS } from '../render/uniforms.js'
 
 const FOLLOW = 0.32
 const FOLLOW_DAMPING = 6
@@ -15,6 +17,8 @@ const FOV_DECAY = 14
 export function createCameraRig({ camera, bird, reduceMotion = false }) {
   const base = new THREE.Vector3(CAMERA.rest.x, CAMERA.rest.y, CAMERA.rest.z)
   const look = new THREE.Vector3()
+  const ahead = { x: 0, y: 0, z: 0 }
+  const turnLead = reduceMotion ? 0 : CAMERA_TURN_LEAD
   let shake = 0
   let fovPunch = 0
   let roll = 0
@@ -51,7 +55,9 @@ export function createCameraRig({ camera, bird, reduceMotion = false }) {
       camera.position.x += (Math.random() - 0.5) * mag
       camera.position.y += (Math.random() - 0.5) * mag
     }
-    look.set(bird.x * LOOK_LEAD, bird.y * LOOK_LEAD + 0.15, 0)
+    // Lean the view toward where the conduit goes; a straight conduit leaves this at 0.
+    bendPoint(UNIFORMS.uBend.value, 0, 0, -CAMERA_TURN_LOOK, ahead)
+    look.set(bird.x * LOOK_LEAD + ahead.x * turnLead, bird.y * LOOK_LEAD + 0.15, 0)
     camera.lookAt(look)
 
     const targetRoll = banking && !reduceMotion ? bird.bank * BANK_ROLL : 0

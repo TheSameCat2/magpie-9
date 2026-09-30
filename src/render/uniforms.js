@@ -1,4 +1,5 @@
 import { FOG_DENSITY } from '../config/world.js'
+import { BEND_TABLE_LENGTH, fillIdentity } from '../lib/centreline.js'
 
 // Uniform objects shared by reference across every shader material so a
 // single write per frame drives all of them. The game loop owns the writes.
@@ -13,6 +14,8 @@ export const UNIFORMS = {
   uOverdrive: { value: 0 },
   uFogDensity: { value: FOG_DENSITY },
   uPixelRatio: { value: 1 },
+  /** Bent-conduit centreline table (lib/centreline.js); straight unless a BENDS run is live. */
+  uBend: { value: fillIdentity(new Float32Array(BEND_TABLE_LENGTH)) },
 }
 
 /** Raise the shared kick pulse without ever lowering it mid-frame. */

@@ -1,5 +1,6 @@
 // Run tokens: an HMAC-signed nonce + issue time handed out when a run starts
-// and required to post a score. Challenge tokens also bind the day and target.
+// and required to post a score. BENDS tokens bind the mode so they only post
+// to the BENDS board; challenge tokens also bind the day and target.
 
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { CHALLENGE_TARGET, MAX_SCORE } from '../../src/config/rules.js'
@@ -36,6 +37,10 @@ export function sign(nonce, t0) {
   return signed(`${nonce}.${t0}`)
 }
 
+export function signBends(nonce, t0) {
+  return signed(`${nonce}.${t0}.bends`)
+}
+
 export function signChallenge(nonce, t0, day, target) {
   return signed(`${nonce}.${t0}.challenge.${day}.${target}`)
 }
@@ -44,12 +49,14 @@ export function issueToken({ mode = 'run', day, target } = {}) {
   const nonce = randomBytes(16).toString('hex')
   const t0 = Date.now()
   if (mode === 'challenge') return signChallenge(nonce, t0, day || utcDay(t0), target || CHALLENGE_TARGET)
+  if (mode === 'bends') return signBends(nonce, t0)
   return sign(nonce, t0)
 }
 
 /**
- * Parse and authenticate a token. Returns `{ nonce, t0, mode }` plus
- * `{ day, target }` for challenges, or null for anything malformed or forged.
+ * Parse and authenticate a token. Returns `{ nonce, t0, mode }` (mode is
+ * run, bends, or challenge) plus `{ day, target }` for challenges, or null for
+ * anything malformed or forged.
  */
 export function verify(token) {
   if (typeof token !== 'string') return null
@@ -60,6 +67,14 @@ export function verify(token) {
     if (!NONCE_RE.test(nonce) || !DIGITS_RE.test(t0s) || !SIG_RE.test(sig)) return null
     if (!signatureMatches(sig, hmacHex(`${nonce}.${t0s}`))) return null
     return { nonce, t0: Number(t0s), mode: 'run' }
+  }
+
+  if (parts.length === 4) {
+    const [nonce, t0s, mode, sig] = parts
+    if (mode !== 'bends') return null
+    if (!NONCE_RE.test(nonce) || !DIGITS_RE.test(t0s) || !SIG_RE.test(sig)) return null
+    if (!signatureMatches(sig, hmacHex(`${nonce}.${t0s}.bends`))) return null
+    return { nonce, t0: Number(t0s), mode: 'bends' }
   }
 
   if (parts.length === 6) {

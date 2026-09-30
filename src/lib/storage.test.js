@@ -17,6 +17,15 @@ test('best defaults to zero and round-trips', () => {
   assert.equal(loadBest(), 17)
 })
 
+test('the BENDS best is kept apart from the plain run best', () => {
+  saveBest(17)
+  saveBest(9, 'bends')
+  assert.equal(loadBest(), 17)
+  assert.equal(loadBest('run'), 17)
+  assert.equal(loadBest('bends'), 9)
+  assert.equal(localStorage.getItem('magpie9.bends.best'), '9')
+})
+
 test('challenge best only improves', () => {
   assert.equal(loadChallengeBest('2026-09-14'), 0)
   assert.equal(saveChallengeBest('2026-09-14', 60_000), 60_000)

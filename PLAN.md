@@ -107,9 +107,27 @@ Space / click / tap / W / ↑ = flap (edge). A/← left. D/→ right. R or Space
 
 Touch (coarse pointer, landscape): left-half drag is a floating analog stick (`strafe` in [-1, 1]); right-half tap flaps. Portrait on a phone shows a rotate overlay and pauses play. Fullscreen is opt-in. Visibility hidden auto-pauses.
 
+## Bends (BENDS mode)
+
+Discrete yaw turns between gates, each ≤ 25°. The bird's heading follows the
+conduit: strafe tops out at 7 u/s against 12–23 u/s forward, so a turn you had
+to strafe round would be impossible past about 18°. Gameplay stays in straight
+path space: collision, gates, orbs, scoring and rewind are unchanged. The
+renderer maps path space onto the bent centreline (`render/bend.js`), and
+inside an arc the bird slips outward at `SLIP_GAIN·v²·κ`.
+
+Fairness invariants, all tested:
+
+- Slip is capped below strafe.
+- A gap holds at most one bend, laid out as lead straight → arc → trail straight.
+- The trail is 1.1 s at the fastest speed that gate can be met at.
+- No bend in the warm-up gaps.
+- Orbs are never placed in an arc.
+- A spare's respawn lands before the bend.
+
 ## Powerups
 
-Two orb types, pool of 6, recycle at `z > 14`. Both sit midway to the next gate at a random X/Y in a disc of radius 2.2.
+Two orb types, pool of 10 (BENDS spawns deeper), recycle at `z > 14`. Both sit midway to the next gate at a random X/Y in a disc of radius 2.2.
 
 - **Damper** (gold chevron): 50% chance per spawned gate that is not the sector's life slot (`ORB_CHANCE = 0.5`). Pickup is permanent for the run: subtract half of `stageDelta(score)` from scroll speed, floored at base 12.
 - **Spare life** (green `+`): exactly one per 10-gate sector, at a random gate in that sector. Pickup adds one life. A hit with lives > 1 consumes a spare, rewinds to just inside the last passed gate, and waits for tap-to-resume.

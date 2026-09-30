@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 
 process.env.BOARD_SECRET = process.env.BOARD_SECRET || 'test-secret'
 
-const { EXTRACT_SKEW_MS, validateSubmission } = await import('./scores.js')
+const { EXTRACT_SKEW_MS, endlessBoardKey, validateSubmission } = await import('./scores.js')
+const { BENDS_BOARD_KEY, BOARD_KEY } = await import('./_lib/board.js')
 const { issueToken, verify } = await import('./_lib/token.js')
-const { minChallengeSeconds } = await import('../src/config/rules.js')
+const { minChallengeSeconds, minRunSeconds } = await import('../src/config/rules.js')
 
 function challengeBody(overrides = {}) {
   const token = overrides.token ?? issueToken({ mode: 'challenge', day: '2026-09-14', target: 40 })
@@ -94,4 +95,18 @@ test('challenge still rejects a pause that cannot be real', () => {
   const body = challengeBody({ score: 50_000, pausedMs: 200_000 })
   const result = submitAt(body, 90_000)
   assert.equal(result.error, 'BAD PAUSE')
+})
+
+test('a BENDS score validates like a run and is routed to the BENDS board', () => {
+  const body = { initials: 'AAA', token: issueToken({ mode: 'bends' }), score: 12 }
+  const result = submitAt(body, minRunSeconds(12) * 1000 + 1)
+  assert.equal(result.error, undefined)
+  assert.equal(result.parsed.mode, 'bends')
+  assert.equal(endlessBoardKey(result.parsed.mode), BENDS_BOARD_KEY)
+  assert.equal(endlessBoardKey('run'), BOARD_KEY)
+})
+
+test('a BENDS score faster than the gate floor is rejected', () => {
+  const body = { initials: 'AAA', token: issueToken({ mode: 'bends' }), score: 30 }
+  assert.equal(submitAt(body, 1_000).error, 'TOO FAST')
 })

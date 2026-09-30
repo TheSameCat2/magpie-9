@@ -1,4 +1,4 @@
-// Leaderboards and initials entry. Caches both boards, paints the SCORES
+// Leaderboards and initials entry. Caches every board, paints the SCORES
 // screen, and drives the three-letter entry through to submission. The game
 // owns the scene state; `isShowing()` tells us whether a repaint is visible.
 
@@ -13,7 +13,8 @@ import {
 } from './board.js'
 
 export function createScoreboard({ api, hud, isShowing }) {
-  const boards = { run: null, challenge: null }
+  /** run and bends rank gates; challenge ranks extract time. */
+  const boards = { run: null, bends: null, challenge: null }
   let challengeDay = null
   /** Which tab the SCORES screen is on. */
   let tab = 'run'
@@ -29,9 +30,9 @@ export function createScoreboard({ api, hud, isShowing }) {
     if (kind === 'challenge' && data.day) challengeDay = data.day
   }
 
-  /** Re-fetch both boards; repaint if the matching tab is on screen. */
+  /** Re-fetch every board; repaint if the matching tab is on screen. */
   function refresh() {
-    for (const kind of ['run', 'challenge']) {
+    for (const kind of Object.keys(boards)) {
       api
         .fetchBoard(kind)
         .then((data) => {
@@ -43,18 +44,18 @@ export function createScoreboard({ api, hud, isShowing }) {
   }
 
   function open(kind = 'run') {
-    tab = kind === 'challenge' ? 'challenge' : 'run'
+    tab = kind in boards ? kind : 'run'
     paint()
     refresh()
   }
 
-  /** Would `value` (gates for a run, ms for a challenge) make the board? */
+  /** Would `value` (gates for run/bends, ms for a challenge) make the board? */
   function qualifiesFor(kind, value) {
-    return kind === 'challenge' ? qualifiesTime(boards.challenge, value) : qualifies(boards.run, value)
+    return kind === 'challenge' ? qualifiesTime(boards.challenge, value) : qualifies(boards[kind], value)
   }
 
   function rankFor(kind, value) {
-    return kind === 'challenge' ? placementTime(boards.challenge, value) : placement(boards.run, value)
+    return kind === 'challenge' ? placementTime(boards.challenge, value) : placement(boards[kind], value)
   }
 
   function beginEntry() {

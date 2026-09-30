@@ -1,6 +1,11 @@
 import * as THREE from 'three'
 import { THEME } from '../config/theme.js'
 import { CAMERA, FOG_DENSITY } from '../config/world.js'
+import { bendPoint } from '../lib/centreline.js'
+import { UNIFORMS } from './uniforms.js'
+
+/** Depth of the fixed ice shaft light ahead of the bird. */
+const SHAFT_Z = -14
 
 export function createRenderer() {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
@@ -44,8 +49,17 @@ export function createScene(camera) {
   camera.add(headlamp)
 
   const shaft = new THREE.PointLight(THEME.ice, 2.2, 40, 1.5)
-  shaft.position.set(0, 0, -14)
+  shaft.position.set(0, 0, SHAFT_Z)
   scene.add(shaft)
+  scene.userData.shaft = shaft
 
   return scene
+}
+
+const _bent = { x: 0, y: 0, z: 0 }
+
+/** Keep the fixed lights on the conduit centreline when it bends. */
+export function placeLights(scene) {
+  bendPoint(UNIFORMS.uBend.value, 0, 0, SHAFT_Z, _bent)
+  scene.userData.shaft.position.set(_bent.x, _bent.y, _bent.z)
 }

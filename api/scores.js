@@ -1,6 +1,7 @@
 import { MAX_SCORE, minChallengeSeconds, minRunSeconds } from '../src/config/rules.js'
 import { DAY_RE, utcDay } from '../src/lib/time.js'
 import {
+  BENDS_BOARD_KEY,
   BOARD_KEY,
   CHALLENGE_TTL,
   challengeBoardKey,
@@ -28,11 +29,17 @@ export const EXTRACT_SKEW_MS = 10_000
 /** Tokens older than this can no longer post. */
 const MAX_RUN_SECONDS = 86400
 
+/** The endless board a gates score from `mode` (run or bends) is ranked on. */
+export function endlessBoardKey(mode) {
+  return mode === 'bends' ? BENDS_BOARD_KEY : BOARD_KEY
+}
+
 export async function GET(request) {
   const url = new URL(request.url)
-  const challenge = url.searchParams.get('mode') === 'challenge'
+  const mode = url.searchParams.get('mode')
+  const challenge = mode === 'challenge'
   try {
-    if (!challenge) return json({ board: await readBoard() })
+    if (!challenge) return json({ board: await readBoard(getRedis(), endlessBoardKey(mode)) })
     const day = url.searchParams.get('day') || utcDay()
     if (!DAY_RE.test(day)) return fail('BAD DAY', 400)
     const board = await readBoard(getRedis(), challengeBoardKey(day), 'challenge')
@@ -70,7 +77,8 @@ export function validateSubmission(body, nowMs = Date.now()) {
     return { initials, parsed, timeMs }
   }
 
-  // Endless runs rank by gates, so their pauses do not matter here.
+  // Endless runs (plain and BENDS) rank by gates, so their pauses do not matter here. Bends
+  // only lengthen gaps, so the straight-conduit floor is still a lower bound.
   const score = Number(body?.score)
   if (!Number.isInteger(score) || score < 1 || score > MAX_SCORE) return { error: 'BAD SCORE', status: 400 }
   if (elapsedMs / 1000 < minRunSeconds(score) * MIN_FACTOR) return { error: 'TOO FAST', status: 400 }
@@ -119,5 +127,6 @@ export async function POST(request) {
     return json({ ...result, day: parsed.day, time: timeMs })
   }
 
-  return json(await writeScore(redis, { key: BOARD_KEY, member, rank: rankScore(score, parsed.t0) }))
+  const key = endlessBoardKey(parsed.mode)
+  return json(await writeScore(redis, { key, member, rank: rankScore(score, parsed.t0) }))
 }

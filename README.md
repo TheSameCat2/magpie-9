@@ -13,10 +13,21 @@ M mutes, B shows the body hitbox.
 
 ## Menu
 
-The game opens on a menu: **NEW GAME**, **TUTORIAL**, **SCORES**, **HELP**, **CREDITS**.
-Click / tap an entry, or use ↑ ↓ (W S) and Enter / Space. NEW GAME and TUTORIAL
-drop you into a held run — jump to begin. Esc (or a tap) backs out of Help,
+The game opens on a menu: **NEW GAME**, **BENDS**, **CHALLENGE**, **TUTORIAL**,
+**SCORES**, **HELP**, **CREDITS**. Click / tap an entry, or use ↑ ↓ (W S) and
+Enter / Space. NEW GAME, BENDS and TUTORIAL drop you into a held run — jump to
+begin. Esc (or a tap) backs out of Help,
 Credits, and Scores; after a crash, a tap returns to the menu.
+
+## Bends
+
+An endless run in a conduit that turns. Between some gates the conduit swings
+left or right by up to 25°; your heading follows it, but inside the turn you
+slip toward the outer wall and have to strafe against it. The slip grows with
+speed and never outruns your strafe. Every bend has a straight run-in after the
+gate before it and a longer run-out before the next gate, so no gate hides just
+past a corner. Bends do not score; gates do. BENDS keeps its own board (the
+BENDS tab on SCORES) and its own best (`magpie9.bends.best`).
 
 ## Pause
 
@@ -32,7 +43,8 @@ cost the clock.
 
 ## Scores
 
-A global top 10, arcade-style: no accounts. Crash with a run that beats the
+A global top 10 per mode, arcade-style: no accounts. The tabs are ALL-TIME
+(NEW GAME), BENDS, and TODAY (the daily challenge). Crash with a run that beats the
 tenth place and type three initials (`A–Z`, `0–9`). Tutorial runs never go on
 the board. Your personal best still lives in the browser (`BEST` in the HUD).
 

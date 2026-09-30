@@ -67,13 +67,14 @@
     padding-bottom: calc(42px + var(--sab));
     font-size: 10px;
   }
+  /* Seven rows must fit a landscape phone under the title. */
   #menu {
-    margin-top: 12px;
-    gap: 4px;
+    margin-top: 10px;
+    gap: 3px;
   }
   #menu button {
-    min-height: 38px;
-    padding: 4px 22px;
+    min-height: 34px;
+    padding: 3px 22px;
     font-size: 11px;
   }
   #entry {

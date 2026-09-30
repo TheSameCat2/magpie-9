@@ -26,11 +26,11 @@ if (typeof globalThis.document === 'undefined') {
   }
 }
 
-test('createPowerups initializes 6 pooled slots with 3D crystal cores and gimbal rings', () => {
+test('createPowerups initializes 10 pooled slots with 3D crystal cores and gimbal rings', () => {
   const scene = new THREE.Scene()
   const powerups = createPowerups(scene)
 
-  assert.equal(powerups.pool.length, 6)
+  assert.equal(powerups.pool.length, 10)
   for (const slot of powerups.pool) {
     assert.equal(slot.active, false)
     assert.equal(slot.group.visible, false)

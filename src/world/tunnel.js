@@ -9,6 +9,8 @@ const HEAD_Z = 10
 /** A segment past this Z is behind the camera and wraps to the back of the pool. */
 const WRAP_Z = 12
 const POOL_LENGTH = SEGMENT_LENGTH * SEGMENT_COUNT
+/** Slices along Z per segment-long box, so the vertex bend curves walls instead of kinking them. */
+const BEND_SLICES = 5
 
 const _m = new THREE.Matrix4()
 const _q = new THREE.Quaternion()
@@ -38,8 +40,8 @@ function hexRing(geo, radius, z, atVertices) {
 }
 
 /** Merged ring geometry from a box, disposing the source. */
-function ringOf(w, h, d, radius, z, atVertices = false) {
-  const box = new THREE.BoxGeometry(w, h, d)
+function ringOf(w, h, d, radius, z, atVertices = false, slices = 1) {
+  const box = new THREE.BoxGeometry(w, h, d, 1, 1, slices)
   const ring = hexRing(box, radius, z, atVertices)
   box.dispose()
   return ring
@@ -51,9 +53,17 @@ let sharedGeometry = null
 function segmentGeometry() {
   if (!sharedGeometry) {
     sharedGeometry = {
-      plate: ringOf(WALL_WIDTH, WALL_THICKNESS, SEGMENT_LENGTH, TUNNEL_APOTHEM + WALL_THICKNESS * 0.5, 0),
+      plate: ringOf(
+        WALL_WIDTH,
+        WALL_THICKNESS,
+        SEGMENT_LENGTH,
+        TUNNEL_APOTHEM + WALL_THICKNESS * 0.5,
+        0,
+        false,
+        BEND_SLICES,
+      ),
       rib: ringOf(WALL_WIDTH * 0.97, 0.08, 0.08, TUNNEL_APOTHEM - 0.05, SEGMENT_LENGTH * 0.5 - 0.05),
-      strip: ringOf(0.055, 0.055, SEGMENT_LENGTH, TUNNEL_VERTEX_RADIUS - 0.09, 0, true),
+      strip: ringOf(0.055, 0.055, SEGMENT_LENGTH, TUNNEL_VERTEX_RADIUS - 0.09, 0, true, BEND_SLICES),
       gantry: ringOf(WALL_WIDTH * 0.9, 0.3, 0.34, TUNNEL_APOTHEM - 0.14, SEGMENT_LENGTH * 0.5 - 0.3),
       shaft: new THREE.CylinderGeometry(0.35, 1.5, 5.2, 16, 1, true),
     }
@@ -85,7 +95,10 @@ function createSegment(materials, index) {
   shaft.visible = even && index % 4 === 0
   group.add(shaft)
 
-  const cable = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, SEGMENT_LENGTH * 0.85), materials.metalHi)
+  const cable = new THREE.Mesh(
+    new THREE.BoxGeometry(0.07, 0.07, SEGMENT_LENGTH * 0.85, 1, 1, BEND_SLICES),
+    materials.metalHi,
+  )
   const cableTheta = faceAngle(index)
   cable.position.set(
     Math.cos(cableTheta) * (TUNNEL_APOTHEM - 0.12),
@@ -106,6 +119,10 @@ function createSegment(materials, index) {
   panel.visible = even
   group.add(panel)
 
+  // Culling reads straight-conduit bounds, which a bend moves the mesh away from.
+  group.traverse((o) => {
+    o.frustumCulled = false
+  })
   return { group, gantry, shaft, cable, panel }
 }
 

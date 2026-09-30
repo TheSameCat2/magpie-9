@@ -2,7 +2,7 @@
 
 import { formatTime } from '../lib/time.js'
 
-export const MENU_ITEMS = ['new', 'challenge', 'tutorial', 'scores', 'help', 'credits']
+export const MENU_ITEMS = ['new', 'bends', 'challenge', 'tutorial', 'scores', 'help', 'credits']
 
 /**
  * Copy for the hold overlay. `begin` is a fresh run; `resume` is after an

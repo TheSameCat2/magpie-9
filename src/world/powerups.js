@@ -5,10 +5,12 @@ import { ORB_SPREAD } from '../config/rules.js'
 import { randomInDisc } from '../lib/math.js'
 import { UNIFORMS } from '../render/uniforms.js'
 import { createOrbMaterial, createHaloMaterial } from '../render/materials.js'
+import { bendMaterial } from '../render/bend.js'
 import { createBoltTexture, createChevronTexture, createPlusTexture } from '../render/textures.js'
 import { hitOrb } from './collision.js'
 
-const POOL_SIZE = 6
+// Sized for BENDS, which spawns deeper: a full pool silently drops an orb, spare lives included.
+const POOL_SIZE = 10
 const ORB_R = 0.42
 const HALO_SCALE = 1.9
 const unitPlane = new THREE.PlaneGeometry(1, 1)
@@ -21,36 +23,42 @@ const iconGeometry = new THREE.PlaneGeometry(0.38, 0.38)
 export const ORB_TYPES = ['damper', 'life', 'shunt']
 
 function createIconMaterial(map) {
-  return new THREE.MeshBasicMaterial({
-    map,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  })
+  return bendMaterial(
+    new THREE.MeshBasicMaterial({
+      map,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
+  )
 }
 
 function createCrystalMaterial(color) {
-  return new THREE.MeshStandardMaterial({
-    color,
-    emissive: color,
-    emissiveIntensity: 0.85,
-    roughness: 0.15,
-    metalness: 0.8,
-    flatShading: true,
-    transparent: true,
-    opacity: 0.92,
-  })
+  return bendMaterial(
+    new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.85,
+      roughness: 0.15,
+      metalness: 0.8,
+      flatShading: true,
+      transparent: true,
+      opacity: 0.92,
+    }),
+  )
 }
 
 function createRingMaterial(color) {
-  return new THREE.MeshStandardMaterial({
-    color: 0xdce8f0,
-    emissive: color,
-    emissiveIntensity: 0.45,
-    roughness: 0.22,
-    metalness: 0.9,
-  })
+  return bendMaterial(
+    new THREE.MeshStandardMaterial({
+      color: 0xdce8f0,
+      emissive: color,
+      emissiveIntensity: 0.45,
+      roughness: 0.22,
+      metalness: 0.9,
+    }),
+  )
 }
 
 /** Shell + halo + crystal + gimbal rings + rune materials for one orb type. */
@@ -121,6 +129,10 @@ export function createPowerups(scene) {
     root.add(slot.group)
     pool.push(slot)
   }
+  // Culling reads straight-conduit bounds, which a bend moves the mesh away from.
+  root.traverse((o) => {
+    o.frustumCulled = false
+  })
 
   function deactivate(orb) {
     orb.active = false

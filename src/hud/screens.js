@@ -148,7 +148,7 @@ export function createScreens(state, { refresh, help }) {
     hideEntry()
     hide(center)
     show(scoresEl)
-    const kind = view.kind === 'challenge' ? 'challenge' : 'run'
+    const kind = view.kind === 'challenge' || view.kind === 'bends' ? view.kind : 'run'
     const label = status || ''
     scoresStatus.textContent = label
     setVisible(scoresStatus, !!label)

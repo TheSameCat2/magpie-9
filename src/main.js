@@ -3,7 +3,7 @@
 
 import { createInput } from './platform/input.js'
 import { createScreen } from './platform/screen.js'
-import { createRenderer, createCamera, createScene } from './render/scene.js'
+import { createRenderer, createCamera, createScene, placeLights } from './render/scene.js'
 import { createMaterials } from './render/materials.js'
 import { createPostFx } from './render/postfx.js'
 import { QUALITY, createQualityGovernor, initialQuality } from './render/quality.js'
@@ -12,6 +12,7 @@ import { createBird } from './world/bird.js'
 import { createTunnel } from './world/tunnel.js'
 import { createGates } from './world/gates/index.js'
 import { createPowerups } from './world/powerups.js'
+import { createBends } from './world/bends.js'
 import { createFx } from './world/fx.js'
 import { createAudio } from './audio/index.js'
 import { createGame } from './game/index.js'
@@ -46,6 +47,7 @@ const bird = createBird(scene, materials)
 const tunnel = createTunnel(scene, materials)
 const gates = createGates(scene, materials)
 const powerups = createPowerups(scene)
+const bends = createBends()
 const fx = createFx(scene)
 const postfx = createPostFx(renderer, scene, camera, { reduceMotion })
 
@@ -69,6 +71,7 @@ game = createGame({
   tunnel,
   gates,
   powerups,
+  bends,
   input,
   camera,
   audio,
@@ -86,7 +89,7 @@ game = createGame({
 screen.onChange = () => game.syncScreen()
 game.syncScreen()
 
-if (params.has('god') || params.has('debug')) window.__magpie = { game, bird, input, screen, powerups }
+if (params.has('god') || params.has('debug')) window.__magpie = { game, bird, input, screen, powerups, bends }
 
 function applySize() {
   const canvas = renderer.domElement
@@ -109,6 +112,7 @@ function frame(now) {
   const dt = Math.min(frameMs / 1000, MAX_FRAME_DT)
   last = now
   game.update(dt)
+  placeLights(scene)
   postfx.render()
   input.endFrame()
   quality.observe(frameMs, dt)

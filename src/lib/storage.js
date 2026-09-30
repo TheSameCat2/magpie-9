@@ -4,6 +4,7 @@
 
 const KEYS = {
   best: 'magpie9.best',
+  bendsBest: 'magpie9.bends.best',
   mute: 'magpie9.mute',
   fullscreen: 'magpie9.fullscreen',
   challengeBest: (day) => `magpie9.challenge.${day}`,
@@ -38,12 +39,13 @@ function readPositiveNumber(key) {
   return Number.isFinite(n) && n > 0 ? n : 0
 }
 
-export function loadBest() {
-  return readPositiveNumber(KEYS.best)
+/** Personal best gates for an endless mode: `run` (NEW GAME) or `bends`. */
+export function loadBest(mode = 'run') {
+  return readPositiveNumber(mode === 'bends' ? KEYS.bendsBest : KEYS.best)
 }
 
-export function saveBest(gates) {
-  write(KEYS.best, String(gates))
+export function saveBest(gates, mode = 'run') {
+  write(mode === 'bends' ? KEYS.bendsBest : KEYS.best, String(gates))
 }
 
 /** Personal best extract time for a challenge day, or 0 when none is stored. */

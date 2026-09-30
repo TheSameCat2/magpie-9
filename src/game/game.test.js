@@ -10,6 +10,7 @@ import {
   stageDelta,
 } from '../config/rules.js'
 import { UNIFORMS } from '../render/uniforms.js'
+import { createBends } from '../world/bends.js'
 
 test('difficulty at score 0 is the base speed', () => {
   assert.equal(difficulty(0).speed, 12)
@@ -212,11 +213,13 @@ function harness(menuItem = 'new', god = true, api) {
     supportsFullscreen: false,
     isStandalone: false,
   }
+  const bends = createBends()
   const game = createGame({
     bird,
     tunnel: stub(),
     gates,
     powerups,
+    bends,
     input,
     camera: {
       position: {
@@ -280,6 +283,7 @@ function harness(menuItem = 'new', god = true, api) {
     input,
     powerups,
     gates,
+    bends,
     shown,
     tap,
     select,
@@ -712,4 +716,60 @@ test('UNIFORMS.uHazard tracks approaching gate proximity and resets on hold or m
   pressPause()
   game.update(1 / 60)
   assert.equal(UNIFORMS.uHazard.value, 0, 'uHazard should clear on pause hold')
+})
+
+test('BENDS starts a held run on its own token', async () => {
+  const modes = []
+  const api = mockApi({
+    startRun: async (mode) => {
+      modes.push(mode)
+      return { token: 'bends-token' }
+    },
+  })
+  const { game, shown, select } = harness('bends', true, api)
+  select()
+  assert.equal(game.mode, 'bends')
+  assert.equal(game.state, 'playing')
+  assert.equal(game.pauseReason, 'begin')
+  assert.equal(shown.at(-1), 'begin')
+  assert.deepEqual(modes, ['bends'])
+})
+
+test('inside an arc the bird slips outward and the conduit is drawn bent', () => {
+  const h = harness('bends')
+  const slips = []
+  h.bird.updatePlay = (_dt, _input, _dz, slip) => slips.push(slip)
+  h.select()
+  h.tap()
+  h.game.update(1 / 60)
+  assert.equal(h.game.slip, 0)
+  // A right turn that the bird is already inside.
+  h.bends.spawn(5, 30, 0.4)
+  for (let i = 0; i < 30; i++) h.game.update(1 / 60)
+  assert.ok(h.game.slip < 0, 'a right turn pushes the bird left')
+  assert.equal(slips.at(-1), h.game.slip)
+  const table = UNIFORMS.uBend.value
+  assert.ok(table[table.length - 1] > 0, 'the conduit ahead has turned right')
+})
+
+test('BENDS keeps its own best, and the menu straightens the conduit', () => {
+  const h = harness('bends', false)
+  const runBest = localStorage.getItem('magpie9.best')
+  h.select()
+  h.tap()
+  h.bends.spawn(5, 30, 0.4)
+  gatePerFrame(h.gates)
+  for (let i = 0; i < 3; i++) h.game.update(1 / 60)
+  h.gates.collectPassed = () => false
+  h.gates.hits = () => ({ z: -1, gap: 20 })
+  h.game.update(1 / 60)
+  assert.equal(h.game.state, 'dead')
+  assert.equal(localStorage.getItem('magpie9.bends.best'), '3')
+  assert.equal(localStorage.getItem('magpie9.best'), runBest)
+  h.tap()
+  assert.equal(h.game.state, 'menu')
+  assert.equal(h.bends.active().length, 0)
+  assert.equal(h.game.slip, 0)
+  const table = UNIFORMS.uBend.value
+  for (let i = 2; i < table.length; i += 3) assert.equal(table[i], 0)
 })

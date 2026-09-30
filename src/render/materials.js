@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { THEME } from '../config/theme.js'
 import { UNIFORMS } from './uniforms.js'
+import { bendMaterial } from './bend.js'
 import { createConduitTextures, createPlateTextures } from './textures.js'
 import {
   FRAME_VERT,
@@ -44,6 +45,7 @@ export function createFrameMaterial(color) {
   return glowMaterial(FRAME_VERT, FRAME_FRAG, {
     uTime: UNIFORMS.uTime,
     uFogDensity: UNIFORMS.uFogDensity,
+    uBend: UNIFORMS.uBend,
     uColor: colorUniform(color),
     uSize: { value: new THREE.Vector2(1, 1) },
     uHalf: { value: new THREE.Vector2(0.5, 0.5) },
@@ -63,6 +65,7 @@ export function createRingMaterial(color) {
     RING_FRAG,
     {
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
       uColor: colorUniform(color),
       uSize: { value: new THREE.Vector2(1, 1) },
       uHalf: { value: new THREE.Vector2(0, 0) },
@@ -81,6 +84,7 @@ export function createOrbMaterial(color) {
     {
       uTime: UNIFORMS.uTime,
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
       uColor: colorUniform(color),
     },
     { side: THREE.FrontSide },
@@ -91,6 +95,7 @@ export function createHaloMaterial(color) {
   return glowMaterial(FRAME_VERT, HALO_FRAG, {
     uTime: UNIFORMS.uTime,
     uFogDensity: UNIFORMS.uFogDensity,
+    uBend: UNIFORMS.uBend,
     uColor: colorUniform(color),
   })
 }
@@ -105,6 +110,7 @@ export function createRibMaterial(color, base, pulseScale) {
       uHazard: UNIFORMS.uHazard,
       uOverdrive: UNIFORMS.uOverdrive,
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
       uColor: colorUniform(color),
       uBase: { value: base },
       uPulseScale: { value: pulseScale },
@@ -120,6 +126,7 @@ export function createShockConeMaterial(color = THEME.ice) {
       uTime: UNIFORMS.uTime,
       uOverdrive: UNIFORMS.uOverdrive,
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
       uColor: colorUniform(color),
     },
     { side: THREE.DoubleSide },
@@ -133,6 +140,7 @@ export function createShaftMaterial(color = THEME.ice, intensity = 0.28) {
     {
       uTime: UNIFORMS.uTime,
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
       uColor: colorUniform(color),
       uIntensity: { value: intensity },
     },
@@ -147,6 +155,7 @@ export function createLaserMaterial(color, edgeSign) {
     uniforms: {
       uTime: UNIFORMS.uTime,
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
       uColor: colorUniform(color),
       uEdgeSign: { value: edgeSign },
     },
@@ -160,6 +169,7 @@ export function createPylonMaterial(color) {
     uniforms: {
       uTime: UNIFORMS.uTime,
       uFogDensity: UNIFORMS.uFogDensity,
+      uBend: UNIFORMS.uBend,
       uColor: colorUniform(color),
     },
     depthWrite: true,
@@ -177,7 +187,7 @@ export function createMaterials() {
   const wall = createConduitTextures()
   const plate = createPlateTextures()
 
-  return {
+  const materials = {
     metal: new THREE.MeshStandardMaterial({
       color: 0xaab4c2,
       map: wall.map,
@@ -219,4 +229,10 @@ export function createMaterials() {
     birdTrim: emissiveMetal(THEME.mag, 1.6, 0.4, 0.3),
     beak: new THREE.MeshStandardMaterial({ color: 0xb8c0c8, roughness: 0.35, metalness: 0.75 }),
   }
+  // Shader materials bend in their own vertex shaders; built-ins get the hook. The bird's
+  // share the hook too: it sits at the bird, where the bend is the identity.
+  for (const material of Object.values(materials)) {
+    if (!material.isShaderMaterial) bendMaterial(material)
+  }
+  return materials
 }

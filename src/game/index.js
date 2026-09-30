@@ -5,6 +5,9 @@
 import { THEME } from '../config/theme.js'
 import { BIRD_HIT } from '../config/world.js'
 import { BASE_SPEED, CHALLENGE_TARGET, SECTOR } from '../config/rules.js'
+import { SLIP_RESPONSE, slipTarget } from '../config/bends.js'
+import { fillIdentity } from '../lib/centreline.js'
+import { damp } from '../lib/math.js'
 import { createRng } from '../lib/rng.js'
 import { formatTime } from '../lib/time.js'
 import { loadBest, loadChallengeBest, saveBest, saveChallengeBest } from '../lib/storage.js'
@@ -36,12 +39,15 @@ const HAZARD_RANGE = 38
 const KICK_DECAY = 2.6
 
 const MENU_SCENES = new Set(['menu', 'credits', 'scores'])
+/** SCORES tabs in on-screen order; left/right steps through them. */
+const BOARD_TABS = ['run', 'bends', 'challenge']
 
 export function createGame({
   bird,
   tunnel,
   gates,
   powerups,
+  bends,
   input,
   camera,
   audio,
@@ -66,11 +72,13 @@ export function createGame({
   let rewindLeft = 0
   let rewindTotal = 0
   let hitStop = 0
+  /** BENDS: outward lateral speed from the arc the bird is in (config/bends.js). */
+  let slip = 0
 
   const clock = createRunClock(now)
   const run = createRun({ startLives })
   const rig = createCameraRig({ camera, bird, reduceMotion })
-  const spawner = createSpawner({ gates, powerups, run })
+  const spawner = createSpawner({ gates, powerups, bends, run })
   const sparks = createSparks({ fx, gates, bird, run })
   const scoreboard = createScoreboard({ api, hud, isShowing: () => scene === 'scores' })
   const hold = createHold({
@@ -98,7 +106,15 @@ export function createGame({
     tunnel.scroll(dz)
     gates.scroll(dz, dt)
     powerups.scroll(dz, dt)
+    bends.scroll(dz)
     UNIFORMS.uScroll.value += dz
+  }
+
+  /** Drop every bend and draw the conduit straight again. */
+  function straighten() {
+    bends.reset()
+    slip = 0
+    fillIdentity(UNIFORMS.uBend.value)
   }
 
   function launchBird(strength = 9) {
@@ -155,6 +171,7 @@ export function createGame({
     UNIFORMS.uHazard.value = 0
     UNIFORMS.uOverdrive.value = 0
     run.begin(mode, session)
+    if (run.scored) best = loadBest(mode)
     if (session.day) scoreboard.challengeDay = session.day
     hud.setGameMode(mode)
     lessonsSeen.clear()
@@ -164,6 +181,7 @@ export function createGame({
     bird.reset()
     gates.reset()
     powerups.reset()
+    straighten()
     spawner.reset()
     sparks.reset()
     hud.setLives(run.lives)
@@ -174,9 +192,9 @@ export function createGame({
     syncSpeed()
     hud.showPlaying()
     hold.pause('begin')
-    if (mode === 'run') {
+    if (run.scored) {
       api
-        .startRun('run')
+        .startRun(mode)
         .then((data) => {
           run.token = data?.token ?? null
         })
@@ -216,10 +234,12 @@ export function createGame({
     bird.reset()
     gates.reset()
     powerups.reset()
+    straighten()
     tunnel.reset()
     sparks.reset()
     rewindLeft = rewindTotal = 0
     rig.reset()
+    best = loadBest()
     hud.setScore(0)
     hud.setBest(best)
     hud.setLives(1)
@@ -233,6 +253,7 @@ export function createGame({
   function selectMenuItem(item) {
     if (screen.needsRotate) return
     if (item === 'new') beginSession('run')
+    else if (item === 'bends') beginSession('bends')
     else if (item === 'tutorial') beginSession('tutorial')
     else if (item === 'challenge') void beginChallenge()
     else if (item === 'help') hud.showHelp()
@@ -241,6 +262,11 @@ export function createGame({
       scene = 'credits'
       hud.showCredits()
     }
+  }
+
+  function stepTab(tab, side) {
+    const i = Math.max(0, BOARD_TABS.indexOf(tab))
+    return BOARD_TABS[Math.min(BOARD_TABS.length - 1, Math.max(0, i + Math.sign(side)))]
   }
 
   function openScores(kind) {
@@ -301,11 +327,11 @@ export function createGame({
     const newBest = run.score > best
     if (newBest) {
       best = run.score
-      saveBest(best)
+      saveBest(best, run.mode)
       hud.setBest(best, true)
     }
     deathNewBest = newBest && run.score > 0
-    if (run.score > 0) offerEntry('run', run.score)
+    if (run.score > 0) offerEntry(run.mode, run.score)
     else showEndCard()
   }
 
@@ -337,7 +363,7 @@ export function createGame({
     const token = run.token
     run.token = null
     scoreboard.submit({
-      kind: run.extracted ? 'challenge' : 'run',
+      kind: run.extracted ? 'challenge' : run.mode,
       score: run.extracted ? run.extractTime : run.score,
       token,
       // Challenge rank is `score` (the frozen extract). pausedMs lets the
@@ -430,6 +456,7 @@ export function createGame({
     const back = anchor ? rewindDistance(anchor.z, anchor.gap) : 0
     powerups.cullBehind(anchor ? anchor.z : 0)
     bird.reset()
+    slip = 0
     UNIFORMS.uOverdrive.value = 0
     // Speed goes to the HUD only: audio.setSpeed would re-assert the drone that crash() silences.
     syncSpeed({ toAudio: false })
@@ -489,7 +516,7 @@ export function createGame({
       if (input.selectEdge) selectMenuItem(hud.menuItem)
     } else if (scene === 'scores') {
       const side = input.strafeEdge || input.navEdge
-      if (side) openScores(side < 0 ? 'run' : 'challenge')
+      if (side) openScores(stepTab(scoreboard.tab, side))
       else if (tapped || input.backEdge || input.selectEdge) toMenu()
     } else if (tapped || input.backEdge || input.selectEdge) {
       toMenu()
@@ -516,7 +543,8 @@ export function createGame({
 
     if (input.flapEdge) launchBird()
     const dz = run.speed * dt
-    bird.updatePlay(dt, input, dz)
+    if (run.bends) slip = damp(slip, slipTarget(run.speed, bends.curvatureAt(0)), SLIP_RESPONSE, dt)
+    bird.updatePlay(dt, input, dz, slip)
     scrollWorld(dz, dt)
 
     const hitGate = gates.hits(bird.pos, BIRD_HIT)
@@ -611,6 +639,7 @@ export function createGame({
       if (tapped && !blocked) toMenu()
     } else if (scene === 'entry') updateEntry(dt)
 
+    if (run.bends) bends.sample(UNIFORMS.uBend.value)
     hud.updateTouch(input)
     const live = scene === 'playing' && !hold.paused
     fx.update(dt, live ? run.speed : IDLE_SPEED)
@@ -704,6 +733,9 @@ export function createGame({
     },
     get shuntLeft() {
       return run.shuntLeft
+    },
+    get slip() {
+      return slip
     },
   }
 }

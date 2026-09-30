@@ -1,3 +1,5 @@
+import { BEND_GLSL } from './bend.js'
+
 // GLSL sources. Every world-space shader attenuates toward the (near-black) fog
 // colour with the same FogExp2 curve the scene uses so glow never punches
 // through the murk at the far end of the conduit.
@@ -22,11 +24,12 @@ float hash21(vec2 p) {
 // uMode 0 = rectangular hatch, 1 = horizontal band (two lines), 2 = one vertical edge.
 // ---------------------------------------------------------------------------
 export const FRAME_VERT = /* glsl */ `
+${BEND_GLSL}
 varying vec2 vUv;
 varying float vDepth;
 void main() {
   vUv = uv;
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vec4 mv = bendModelView(position);
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
 }
@@ -101,12 +104,13 @@ void main() {
 // Rib / corner strip: unlit emissive with energy pulses racing down the tunnel.
 // ---------------------------------------------------------------------------
 export const RIB_VERT = /* glsl */ `
+${BEND_GLSL}
 varying vec3 vWorld;
 varying float vDepth;
 void main() {
   vec4 w = modelMatrix * vec4(position, 1.0);
   vWorld = w.xyz;
-  vec4 mv = viewMatrix * w;
+  vec4 mv = viewMatrix * vec4(bendWorld(w.xyz), 1.0);
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
 }
@@ -160,6 +164,7 @@ void main() {
 // edge, vAxes.y toward it) so an upright slab arcs along its edge too.
 // ---------------------------------------------------------------------------
 export const LASER_VERT = /* glsl */ `
+${BEND_GLSL}
 varying vec3 vLocal;
 varying vec2 vAxes;
 varying float vDepth;
@@ -169,7 +174,7 @@ void main() {
   vScaleY = length(modelMatrix[1].xyz);
   vec4 w = modelMatrix * vec4(position, 1.0);
   vAxes = vec2(dot(w.xy, normalize(modelMatrix[0].xy)), dot(w.xy, normalize(modelMatrix[1].xy)));
-  vec4 mv = viewMatrix * w;
+  vec4 mv = viewMatrix * vec4(bendWorld(w.xyz), 1.0);
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
 }
@@ -226,6 +231,7 @@ void main() {
 // so the gap reads at distance without a per-slot uniform.
 // ---------------------------------------------------------------------------
 export const PYLON_VERT = /* glsl */ `
+${BEND_GLSL}
 varying vec3 vLocal;
 varying float vDepth;
 varying vec3 vScale;
@@ -236,7 +242,7 @@ void main() {
     length(modelMatrix[1].xyz),
     length(modelMatrix[2].xyz)
   );
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vec4 mv = bendModelView(position);
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
 }
@@ -346,13 +352,14 @@ void main() {
 // Damper orb: additive gold shell with a fresnel rim and a slow shimmer.
 // ---------------------------------------------------------------------------
 export const ORB_VERT = /* glsl */ `
+${BEND_GLSL}
 varying vec3 vViewPos;
 varying vec3 vViewNormal;
 varying float vDepth;
 void main() {
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vec4 mv = bendModelView(position);
   vViewPos = mv.xyz;
-  vViewNormal = normalize(normalMatrix * normal);
+  vViewNormal = bendViewNormal(normal, position);
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
 }
@@ -430,6 +437,7 @@ void main() {
 // Particles live in world space so uScroll keeps them moving with the conduit.
 // ---------------------------------------------------------------------------
 export const PARTICLE_VERT = /* glsl */ `
+${BEND_GLSL}
 uniform float uTime;
 uniform float uScroll;
 uniform float uPixelRatio;
@@ -451,7 +459,7 @@ void main() {
   vec3 p = position + aVel * age * (1.0 - t * 0.55);
   p.y -= aGravity * age * age * 0.5;
   p.z += uScroll - aScroll0;
-  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  vec4 mv = bendModelView(p);
   vDepth = -mv.z;
   vColor = aColor;
   vAlpha = alive * (1.0 - t) * (1.0 - t) * smoothstep(0.3, 2.2, -mv.z);
@@ -481,6 +489,7 @@ void main() {
 // Ambient dust: static buffer, wrapped in Z by the shader so it rides the scroll.
 // ---------------------------------------------------------------------------
 export const DUST_VERT = /* glsl */ `
+${BEND_GLSL}
 uniform float uTime;
 uniform float uScroll;
 uniform float uPixelRatio;
@@ -495,7 +504,7 @@ void main() {
   p.z = uNear - mod(p.z + uScroll + uTime * 0.25 + aSeed * uSpan, uSpan);
   p.x += sin(uTime * 0.6 + aSeed * 6.2831) * 0.25;
   p.y += cos(uTime * 0.45 + aSeed * 9.4) * 0.2;
-  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  vec4 mv = bendModelView(p);
   vDepth = -mv.z;
   float twinkle = 0.55 + 0.45 * sin(uTime * (1.5 + aSeed * 3.0) + aSeed * 40.0);
   float nearFade = smoothstep(0.0, 4.0, -mv.z);
@@ -524,12 +533,13 @@ void main() {
 // Wingtip ribbon trail.
 // ---------------------------------------------------------------------------
 export const TRAIL_VERT = /* glsl */ `
+${BEND_GLSL}
 attribute float aT;
 varying float vT;
 varying float vDepth;
 void main() {
   vT = aT;
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  vec4 mv = bendModelView(position);
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
 }
@@ -613,6 +623,7 @@ void main() {
 // Volumetric light shafts: soft additive beams cast downward from ceiling gantries.
 // ---------------------------------------------------------------------------
 export const SHAFT_VERT = /* glsl */ `
+${BEND_GLSL}
 varying vec2 vUv;
 varying vec3 vWorld;
 varying vec3 vViewNormal;
@@ -622,8 +633,8 @@ void main() {
   vUv = uv;
   vec4 w = modelMatrix * vec4(position, 1.0);
   vWorld = w.xyz;
-  vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  vViewNormal = normalize(normalMatrix * normal);
+  vec4 mv = viewMatrix * vec4(bendWorld(w.xyz), 1.0);
+  vViewNormal = bendViewNormal(normal, position);
   vViewPos = mv.xyz;
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;

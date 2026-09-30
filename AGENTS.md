@@ -30,13 +30,15 @@ api/                   Vercel functions; may import config/ and lib/ only
 | `rules.js`    | Gameplay: speeds, spacing, sectors, orb odds, `difficulty()`, run floors. |
 | `tutorial.js` | Tutorial-mode overrides for speed, gate order, and orb order.             |
 | `fx.js`       | Spark colour ramp per sector, `sparkPhase()`, afterburner score.          |
+| `bends.js`    | BENDS: turn angle/length clamps, lead/trail straights, slip, `rollBend`.  |
 
 Shared with the API: `rules.js` is imported by `api/scores.js` to reject
 impossible times, so keep it free of browser globals.
 
 ### `src/lib/` — pure helpers, no DOM, no Three.js
 
-`math.js` (`clamp`, disc/sphere sampling), `rng.js` (seeded Mulberry32 shared
+`math.js` (`clamp`, `damp`, disc/sphere sampling), `centreline.js` (the bent
+conduit table: layout, `fillIdentity`, `bendPoint`), `rng.js` (seeded Mulberry32 shared
 with the server for daily courses), `time.js` (`utcDay`, `formatTime`),
 `storage.js` (every `localStorage` key, with safe fallbacks).
 
@@ -51,7 +53,10 @@ orientation, visibility, and PWA detection behind one `onChange`.
 
 `scene.js` builds renderer, camera, and lit scene. `uniforms.js` holds the
 `UNIFORMS` object every shader material shares by reference (`uTime`,
-`uScroll`, `uKick`); the game loop writes them once per frame. `textures.js`
+`uScroll`, `uKick`, `uBend`); the game loop writes them once per frame.
+`bend.js` is the vertex-side conduit bend: `BEND_GLSL` for the custom shaders
+and `bendMaterial` for built-in materials. Every world vertex shader goes
+through it; a straight table is the identity. `textures.js`
 draws procedural canvases; `materials.js` turns them into Three materials;
 `shaders.js` is GLSL; `postfx.js` is bloom + the screen grade; `quality.js`
 is the DPR/bloom ladder and the governor that steps down on slow frames.
@@ -59,7 +64,9 @@ is the DPR/bloom ladder and the governor that steps down on slow frames.
 ### `src/world/`
 
 Each file is a factory that adds pooled meshes to the scene and returns a
-small API (`reset`, `scroll`, …). `collision.js` is pure and tested. `gates/`
+small API (`reset`, `scroll`, …). `collision.js` is pure and tested. `bends.js` is the BENDS arcs as pure
+data (no meshes): scroll, `curvatureAt`, and `sample` into `UNIFORMS.uBend`.
+Gameplay stays in straight path space; only the renderer bends. `gates/`
 is split into `layout.js` (pure hole/gap placement, tested), `geometry.js`
 (shared buffer geometries), `slot.js` (per-slot mesh wiring), and `index.js`
 (the pool: spawn, scroll, hit test, celebrate).
@@ -89,7 +96,7 @@ toast), `screens` (menu, end card, entry, credits, scores, lessons),
 | `index.js`      | `createGame`: scene state machine, in-run events, frame `update()`.                     |
 | `run.js`        | Per-session numbers and scoring rules (`clearGate`, `engageShunt`, `spendLife`).        |
 | `hold.js`       | Every way a run freezes: jump-to-begin, pause menu + countdown, lesson, rotate, hidden. |
-| `spawner.js`    | Fills the horizon with gates and drops orbs per mode.                                   |
+| `spawner.js`    | Fills the horizon with gates and drops orbs per mode; lays out BENDS gaps.              |
 | `sparks.js`     | Per-frame gate-edge sparks in the sector colour and the afterburner ramp.               |
 | `scoreboard.js` | Board cache, SCORES screen painting, initials entry, submit.                            |
 | `camera.js`     | Follow/bank/shake/FOV rig.                                                              |
@@ -99,6 +106,7 @@ toast), `screens` (menu, end card, entry, credits, scores, lessons),
 | `api.js`        | fetch wrappers for `/api/run` and `/api/scores`.                                        |
 
 Scene names: `menu | credits | scores | playing | respawn | dead | entry`.
+Modes: `run | bends | tutorial | challenge`; `run` and `bends` each have a board and a best.
 Help is a modal, not a scene. Pause is a hold inside `playing`, not a scene.
 
 ### `src/styles/`
@@ -110,7 +118,7 @@ breakpoints win.
 
 ### `api/`
 
-`run.js` issues HMAC tokens; `scores.js` reads and writes boards. `_lib/`:
+`run.js` issues HMAC tokens (run, bends, challenge); `scores.js` reads and writes boards. `_lib/`:
 `http.js` (responses), `redis.js` (client + rate limits + nonce claim),
 `token.js` (sign/verify), `board.js` (zset encoding, `writeScore`),
 `initials.js` (normalise + blocklist).

@@ -8,7 +8,9 @@
     "dev:full": "vercel dev",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test 'src/**/*.test.js' 'api/**/*.test.js'",
+    "test": "node --test 'src/**/*.test.js' 'api/**/*.test.js' 'desktop/src/**/*.test.js'",
+    "desktop": "npm run build && npm start --prefix desktop",
+    "desktop:smoke": "npm run build && npm run smoke --prefix desktop",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

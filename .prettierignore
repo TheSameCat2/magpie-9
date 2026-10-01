@@ -1,4 +1,6 @@
 dist
+desktop/renderer
+desktop/release
 node_modules
 package-lock.json
 .vercel

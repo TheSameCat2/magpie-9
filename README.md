@@ -94,7 +94,7 @@ screen-space pulses.
 ## Working on it
 
 ```bash
-npm test            # node:test, every *.test.js under src/ and api/
+npm test            # node:test under src/, api/, and desktop/src/
 npm run build       # vite production build
 npm run format      # prettier --write (format:check in CI)
 ```
@@ -105,3 +105,25 @@ Tests sit next to the code they cover. The game logic (`src/game`, `src/config`,
 
 See `PLAN.md` for rails, feel numbers, and non-goals, and `AGENTS.md` for the
 module map and conventions.
+
+## Desktop
+
+Electron shell in `desktop/`. It loads this build; it is not a second game.
+Not a workspace — install it on its own so the Vercel deploy never sees Electron.
+
+```bash
+npm install --prefix desktop   # once
+npm run desktop                # production build, then the shell
+npm run desktop:smoke          # build, launch, check WebGL came up, quit
+```
+
+Window defaults to 1280×800. The score API stays on Vercel. Point the shell
+at it with `MAGPIE_API_ORIGIN=https://your-deployment.vercel.app` (http only
+for `localhost` / `127.0.0.1`). Unset, the board answers offline and a run
+still starts. `MAGPIE_DEV_SERVER=http://127.0.0.1:5173` loads `npm run dev`
+instead of the build. `MAGPIE_DEBUG=1` opens DevTools.
+
+Packaging (ad-hoc signed, this machine): `npm run build && npm run pack --prefix desktop`.
+Output is `desktop/release/`. The ad-hoc signature is so macOS will launch it
+after the fuse flip; it is not a Developer ID signature. Notarization and the
+Steam depot are not part of the shell.

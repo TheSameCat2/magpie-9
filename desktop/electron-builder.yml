@@ -1,0 +1,44 @@
+# Packages desktop/ only. The game arrives as extraResources (a real directory,
+# not inside app.asar) because the protocol handler serves it with net.fetch,
+# which does not read asar paths.
+appId: app.magpie9.game
+productName: MAGPIE-9
+executableName: magpie-9
+copyright: Copyright © 2026
+directories:
+  output: release
+  buildResources: build
+files:
+  - src/**
+  - '!src/**/*.test.js'
+  - package.json
+extraResources:
+  - from: renderer
+    to: renderer
+asar: true
+electronFuses:
+  runAsNode: false
+  enableCookieEncryption: true
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  enableEmbeddedAsarIntegrityValidation: true
+  onlyLoadAppFromAsar: true
+  loadBrowserProcessSpecificV8Snapshot: false
+  grantFileProtocolExtraPrivileges: false
+mac:
+  category: public.app-category.games
+  # Ad-hoc, not a Developer ID. Fuse flips invalidate Electron's signature;
+  # without a new signature macOS SIGKILLs the binary. This runs on the
+  # build machine only. Store builds need a real identity.
+  identity: '-'
+  hardenedRuntime: false
+  target:
+    - dir
+linux:
+  category: Game
+  target:
+    - AppImage
+    - deb
+win:
+  target:
+    - nsis

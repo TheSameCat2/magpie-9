@@ -33,6 +33,7 @@ magpie-9/
     game/               # state machine, run rules, hold, scoreboard
     styles/             # CSS, one file per HUD area
   api/                  # Vercel functions: run tokens + score board
+  desktop/              # Electron shell around dist/. Not a game dependency.
 ```
 
 `AGENTS.md` has the file-by-file map and the conventions.

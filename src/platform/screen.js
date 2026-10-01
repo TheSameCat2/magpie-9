@@ -2,6 +2,7 @@
 // running as an installed PWA. Emits a single onChange for any of them.
 
 import { loadFullscreenPreference, saveFullscreenPreference } from '../lib/storage.js'
+import { displayHidden, watchShellFocus } from './shell.js'
 
 function fullscreenElement(doc = document) {
   return doc.fullscreenElement || doc.webkitFullscreenElement || null
@@ -108,6 +109,14 @@ export function createScreen() {
   document.addEventListener('fullscreenchange', onFullscreenChange)
   document.addEventListener('webkitfullscreenchange', onFullscreenChange)
 
+  // Cmd-Tab leaves the Electron window visible, so visibilityState stays
+  // 'visible'. Treat shell blur as the same hold the hidden tab already uses.
+  let shellFocused = true
+  watchShellFocus((focused) => {
+    shellFocused = focused
+    notify()
+  })
+
   return {
     set onChange(fn) {
       onChange = typeof fn === 'function' ? fn : () => {}
@@ -125,7 +134,7 @@ export function createScreen() {
       return forceRotate || (coarse.matches && portrait.matches)
     },
     get hidden() {
-      return document.visibilityState === 'hidden'
+      return displayHidden({ visibility: document.visibilityState, shellFocused })
     },
     enterFullscreen,
     exitFullscreen,

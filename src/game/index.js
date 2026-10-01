@@ -646,7 +646,7 @@ export function createGame({
       hitStop -= realDt
       dt = 0
     }
-    if (hold.paused) dt = 0
+    if (hold.paused || screen.hidden) dt = 0
 
     UNIFORMS.uTime.value += dt
     UNIFORMS.uKick.value = Math.max(0, UNIFORMS.uKick.value - dt * KICK_DECAY)
@@ -669,10 +669,11 @@ export function createGame({
     if (run.bends) bends.sample(UNIFORMS.uBend.value)
     hud.updateTouch(input)
     const live = scene === 'playing' && !hold.paused
+    const frozen = hold.paused || screen.hidden
     fx.update(dt, live ? run.speed : IDLE_SPEED)
     sparks.update(dt, live)
-    postfx.update(hold.paused ? 0 : realDt)
-    rig.update(hold.paused ? 0 : realDt, { follow: !MENU_SCENES.has(scene), banking: scene === 'playing' })
+    postfx.update(frozen ? 0 : realDt)
+    rig.update(frozen ? 0 : realDt, { follow: !MENU_SCENES.has(scene), banking: scene === 'playing' })
   }
 
   // ------------------------------------------------------------- bootstrap

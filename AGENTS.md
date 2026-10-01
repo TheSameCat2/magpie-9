@@ -17,6 +17,7 @@ render/                renderer, materials, shaders, postfx, quality
 platform/              browser edges: input devices, fullscreen, visibility
 config/  lib/          numbers and pure helpers          (import nothing above)
 api/                   Vercel functions; may import config/ and lib/ only
+desktop/               Electron shell; loads dist/, never imports src/
 ```
 
 ## Where things are
@@ -115,6 +116,36 @@ Help is a modal, not a scene. Pause is a hold inside `playing`, not a scene.
 the shared `#hud button` rule; add per-button styling in the file for that
 area rather than repeating cursor/font/focus rules. `media.css` is last so its
 breakpoints win.
+
+### `desktop/`
+
+Electron shell. It is not an npm workspace and it is not part of the Vercel
+deploy. `npm install` at the repo root must not install Electron; only
+`npm install` inside `desktop/` does.
+
+The shell serves the Vite build from `desktop/renderer` (a copy of `dist/`)
+on `magpie://app`. It does not import game code. Game code must not import
+`desktop/`. The only bridge is `window.magpieDesktop`, injected by
+`desktop/src/preload.cjs`:
+
+```js
+{ desktop: true, apiOrigin: string, onFocus(callback) }
+```
+
+`onFocus` is the only function. It calls back with a boolean when the native
+window blurs or focuses (Cmd-Tab does not hide the document). `src/platform`
+folds that into `screen.hidden`, so the existing hold and `audio.suspend()`
+run. Do not expose `ipcRenderer`.
+
+`apiOrigin` is empty unless `MAGPIE_API_ORIGIN` is set (https, or http on
+loopback). Relative `/api/*` fetches stay relative. The shell proxies them
+to that origin, or answers `503 { error: 'BOARD OFFLINE' }` when it is unset.
+Do not prefix API URLs in the game to "help" the shell — that skips the proxy
+and hits CORS.
+
+A desktop change may touch `desktop/` and, when the seam needs a new field,
+`src/platform/`. It may not touch `src/render/`, `src/world/`, or the numbers
+in `src/config/`.
 
 ### `api/`
 

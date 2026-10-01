@@ -1,0 +1,19 @@
+{
+  "name": "magpie-9-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Electron shell for MAGPIE-9. Loads the Vite build; does not contain the game.",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "sync": "node scripts/sync-renderer.js",
+    "start": "node scripts/sync-renderer.js && electron .",
+    "smoke": "node scripts/sync-renderer.js && node scripts/smoke.js",
+    "pack": "node scripts/sync-renderer.js && electron-builder --mac --dir --arm64",
+    "dist": "node scripts/sync-renderer.js && electron-builder"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "electron-builder": "26.17.0"
+  }
+}

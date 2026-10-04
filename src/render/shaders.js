@@ -597,7 +597,6 @@ uniform vec3 uColor;
 varying vec3 vPosition;
 varying vec3 vViewNormal;
 varying vec3 vViewPos;
-varying float vDepth;
 
 void main() {
   if (uOverdrive <= 0.001) discard;
@@ -651,7 +650,6 @@ varying vec2 vUv;
 varying vec3 vWorld;
 varying vec3 vViewNormal;
 varying vec3 vViewPos;
-varying float vDepth;
 
 void main() {
   // vUv.y: 1 at ceiling emitter, 0 at bottom

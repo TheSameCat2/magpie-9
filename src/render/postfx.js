@@ -10,7 +10,6 @@ import { QUALITY } from './quality.js'
 // Bloom + full-screen grade (aberration, zoom, flash, glitch, vignette, grain).
 export function createPostFx(renderer, scene, camera, { reduceMotion }) {
   const composer = new EffectComposer(renderer)
-  composer.renderTarget2.depthBuffer = false
   const renderPass = new RenderPass(scene, camera)
   const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.4, 0.45, 0.84)
   bloom.renderTargetBright.depthBuffer = false

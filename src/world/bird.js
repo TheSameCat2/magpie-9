@@ -2,6 +2,15 @@ import * as THREE from 'three'
 import { THEME } from '../config/theme.js'
 import { SPARK_RAMP } from '../config/fx.js'
 import {
+  DEAD_GRAVITY,
+  FLAP_VY,
+  GRAVITY,
+  STRAFE_ACCEL,
+  STRAFE_DAMPING,
+  VY_MAX,
+  VY_MIN,
+} from '../config/bird.js'
+import {
   BIRD_BODY_D,
   BIRD_BODY_H,
   BIRD_BODY_W,
@@ -39,15 +48,6 @@ export function nearestWallClearance(px, py) {
 
 const COLOR_ICE = new THREE.Color(THEME.ice)
 const COLOR_SODIUM = new THREE.Color(THEME.sodium)
-
-// Flight feel (PLAN.md "Feel"). Units per second / per second squared.
-const GRAVITY = -28
-const FLAP_VY = 9.5
-const VY_MIN = -16
-const VY_MAX = 11
-const STRAFE_ACCEL = 55
-const STRAFE_DAMPING = 10
-const DEAD_GRAVITY = -12
 
 const TRAIL_N = 16
 const DEAD_WALL = TUNNEL_APOTHEM - 0.65

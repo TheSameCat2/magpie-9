@@ -43,7 +43,7 @@ export function createCameraRig({ camera, bird, reduceMotion = false }) {
    * @param follow  whether to track the bird (false on menu screens)
    * @param banking whether to roll with the bird (only while playing)
    */
-  function update(dt, { follow, banking }) {
+  function update(dt, follow, banking) {
     const f = follow ? FOLLOW : 0
     base.x = THREE.MathUtils.damp(base.x, bird.x * f, FOLLOW_DAMPING, dt)
     base.y = THREE.MathUtils.damp(base.y, 0.6 + bird.y * f, FOLLOW_DAMPING, dt)

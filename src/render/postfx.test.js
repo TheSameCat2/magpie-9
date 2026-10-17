@@ -38,6 +38,12 @@ test('createPostFx initializes with uFlare, uCurvature, and uScanlines uniforms'
   assert.equal(uniforms.uCurvature.value, 0.025)
   assert.equal(uniforms.uScanlines.value, 0.03)
   assert.equal(postfx.flareEnabled, true)
+  assert.equal(postfx.composer.renderTarget1.depthBuffer, true, 'renderTarget1 retains depth buffer')
+  assert.equal(
+    postfx.composer.renderTarget2.depthBuffer,
+    true,
+    'renderTarget2 retains depth buffer for RenderPass',
+  )
 })
 
 test('applyQuality updates flareEnabled according to quality rung', () => {

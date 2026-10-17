@@ -113,3 +113,21 @@ test('spawn counts orbs dropped when the pool is full', () => {
   assert.ok(powerups.spawn(-40, 'life', 0, { x: 0, y: 0 }))
   assert.equal(powerups.dropped, 1)
 })
+
+test('orb child matrices survive a forced scene update', () => {
+  const scene = new THREE.Scene()
+  const powerups = createPowerups(scene)
+  const orb = powerups.spawn(-20, 'shunt', 0, { x: 0.3, y: -0.2 })
+  assert.ok(orb)
+
+  powerups.scroll(1.0, 0.05)
+  const before = orb.children.map((child) => child.matrixWorld.elements.slice())
+  scene.updateMatrixWorld(true)
+
+  for (let i = 0; i < orb.children.length; i++) {
+    const after = orb.children[i].matrixWorld.elements
+    for (let e = 0; e < 16; e++) {
+      assert.ok(Math.abs(after[e] - before[i][e]) < 1e-6, `child ${i} element ${e} stays stable`)
+    }
+  }
+})

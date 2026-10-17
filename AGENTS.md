@@ -54,7 +54,11 @@ folds the native shell's focus bridge into the same hidden/held path.
 
 ### `src/render/`
 
-`scene.js` builds renderer, camera, and lit scene. `uniforms.js` holds the
+`scene.js` builds renderer, camera, and lit scene. The scene does not walk its
+graph each frame: dynamic world roots keep their own `matrixWorld` current and
+the camera is refreshed directly. A forced `scene.updateMatrixWorld(true)`
+rebuilds from local matrices, so keep those local matrices current too.
+`uniforms.js` holds the
 `UNIFORMS` object every shader material shares by reference (`uTime`,
 `uScroll`, `uKick`, `uBend`); the game loop writes them once per frame.
 `bend.js` is the vertex-side conduit bend: `BEND_GLSL` for the custom shaders

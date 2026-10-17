@@ -9,7 +9,7 @@ const IGNITION_TIME = 1
 
 export function createSparks({ fx, gates, bird, run }) {
   const shape = { x: 0, y: 0, hw: 0, hh: 0, edges: 0, nx: 0 }
-  const proxCache = new Float32Array(16)
+  const proxCache = new Float32Array(gates.slots.length)
   let level = 0
 
   function sparkGates(dt, phase) {

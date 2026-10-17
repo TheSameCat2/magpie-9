@@ -86,7 +86,13 @@ export function bendMaterial(material) {
   material.onBeforeCompile = (shader, renderer) => {
     previous?.call(material, shader, renderer)
     shader.uniforms.uBend = UNIFORMS.uBend
-    const hasNormal = shader.vertexShader.includes('#include <defaultnormal_vertex>')
+    // `defaultnormal_vertex` also appears inside the basic shader's
+    // USE_ENVMAP/USE_SKINNING branch. Require the normal chunk that only lit
+    // shaders include, or `_bendMv` can be declared in a preprocessed-out block
+    // while project_vertex still references it.
+    const hasNormal =
+      shader.vertexShader.includes('#include <defaultnormal_vertex>') &&
+      shader.vertexShader.includes('#include <normal_vertex>')
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', `${BEND_GLSL}\nvoid main() {`)
       .replace('#include <project_vertex>', hasNormal ? PROJECT_WITH_NORMAL : PROJECT)

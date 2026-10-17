@@ -3,10 +3,11 @@ import { FIRST_GATE_Z } from '../../config/rules.js'
 import { RECYCLE_Z } from '../../config/world.js'
 import { clamp01 } from '../../lib/math.js'
 import { hitObstacle } from '../collision.js'
-import { GATE_COLOR, configureGate, createGateSlot, placeSledHatch } from './slot.js'
+import { configureGate, createGateSlot, placeSledHatch } from './slot.js'
 import { HOLE_H, HOLE_W, layoutGate, openingShape, pickGateType } from './layout.js'
+import { GATE_COLOR, GATE_KINDS, isHatchGate } from './kinds.js'
 
-export { GATE_COLOR } from './slot.js'
+export { GATE_COLOR } from './kinds.js'
 export * from './layout.js'
 
 const POOL_SIZE = 12
@@ -17,10 +18,6 @@ const RING_EXPAND = 3.2
 const PROX_RANGE = 38
 const PASS_FADE_Z = 4.2
 const RING_FADE_Z = 3.4
-
-function hasHatch(gate) {
-  return gate.type === 'bulkhead' || gate.type === 'sled'
-}
 
 /**
  * The pooled hazard gates. Spawning is driven by `ensureAhead`, which fills
@@ -45,6 +42,8 @@ export function createGates(scene, materials) {
 
   let spawnIndex = 0
   let lastType = null
+  /** Live spawns refused because the pool was full; exposed for debug, never reset. */
+  let dropped = 0
 
   function deactivate(gate) {
     gate.active = false
@@ -61,7 +60,10 @@ export function createGates(scene, materials) {
 
   function spawn(score, diff, z, gap, typeFor, spec) {
     const gate = pool.find((g) => !g.active)
-    if (!gate) return null
+    if (!gate) {
+      dropped += 1
+      return null
+    }
     const type =
       spec?.type ?? (typeFor ? typeFor(spawnIndex) : pickGateType(spawnIndex, score, Math.random, lastType))
     // The first two gates of any run are centred warm-ups.
@@ -101,7 +103,8 @@ export function createGates(scene, materials) {
       const gap = deepest === null ? FIRST_GATE_Z : spacing
       const z = deepest === null ? -FIRST_GATE_Z : deepest - spacing
       const gate = spawn(score, diff, z, gap, typeFor, spec)
-      if (gate && out) out.push(gate)
+      if (!gate) break
+      if (out) out.push(gate)
     }
   }
 
@@ -161,7 +164,7 @@ export function createGates(scene, materials) {
     u.uT.value = 0
     u.uFade.value = 1
     u.uColor.value.set(GATE_COLOR[gate.type])
-    if (hasHatch(gate)) {
+    if (isHatchGate(gate)) {
       const w = HOLE_W + RING_EXPAND * 2 + 1
       const h = HOLE_H + RING_EXPAND * 2 + 1
       u.uSize.value.set(w, h)
@@ -210,27 +213,7 @@ export function createGates(scene, materials) {
 
   /** Where sparks should erupt from for a gate threaded at (bx, by); writes into `shape`. */
   function burstShape(gate, bx, by, shape) {
-    if (hasHatch(gate)) {
-      shape.x = gate.hole.x
-      shape.y = gate.hole.y
-      shape.hw = HOLE_W * 0.5
-      shape.hh = HOLE_H * 0.5
-    } else if (gate.type === 'laser-bar') {
-      shape.x = bx
-      shape.y = gate.gapY
-      shape.hw = 1.6
-      shape.hh = gate.gapH * 0.5
-    } else if (gate.type === 'laser-col') {
-      shape.x = gate.gapX
-      shape.y = by
-      shape.hw = gate.gapW * 0.5
-      shape.hh = 1.6
-    } else {
-      shape.x = gate.edge
-      shape.y = by
-      shape.hw = 0.05
-      shape.hh = 1.6
-    }
+    GATE_KINDS[gate.type].burst(gate, bx, by, shape)
     shape.color = GATE_COLOR[gate.type]
     return shape
   }
@@ -253,6 +236,10 @@ export function createGates(scene, materials) {
     /** Every pooled slot, live or not; iterate and check `active` rather than copying. */
     get slots() {
       return pool
+    },
+    /** Spawns refused because the pool was full, for the debug overlay. */
+    get dropped() {
+      return dropped
     },
   }
 }

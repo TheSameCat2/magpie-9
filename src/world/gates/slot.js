@@ -2,20 +2,12 @@ import * as THREE from 'three'
 import { THEME } from '../../config/theme.js'
 import { TUNNEL_APOTHEM, TUNNEL_VERTEX_RADIUS } from '../../config/world.js'
 import { createFrameMaterial, createRingMaterial } from '../../render/materials.js'
-import { HOLE_H, HOLE_W, LASER_GAP, PYLON_W } from './layout.js'
+import { GATE_COLOR, HOLE_H, HOLE_W, LASER_GAP, PYLON_W } from './kinds.js'
 import { PLATE_DEPTH, createBulkheadGeometry, unitBox, unitCylinder, unitPlane } from './geometry.js'
 
 // One pooled gate slot owns a mesh for every hazard type and shows only the
 // set its current type needs. Rebuilding meshes per spawn would allocate in
 // the hot path (PLAN.md rail 9).
-
-export const GATE_COLOR = {
-  bulkhead: THEME.ice,
-  'laser-bar': THEME.mag,
-  'laser-col': THEME.mag,
-  pylon: THEME.sodium,
-  sled: THEME.mag,
-}
 
 const FRAME_MODE = { hatch: 0, band: 1, edge: 2 }
 const LASER_DEPTH = 0.16

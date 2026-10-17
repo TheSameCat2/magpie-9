@@ -116,9 +116,13 @@ npm run build       # vite production build
 npm run format      # prettier --write (format:check in CI)
 ```
 
-Tests sit next to the code they cover. The game logic (`src/game`, `src/config`,
-`src/lib`, `api/_lib`) has no DOM or Three.js dependency and is tested directly;
-`src/game/game.test.js` drives the whole state machine with stubbed world and HUD.
+Tests sit next to the code they cover. The rules (`src/config`, `src/lib`,
+`api/_lib`, and the pure `src/game` modules such as `run`, `hold`, and
+`board`) have no DOM or Three.js dependency and are tested directly;
+`src/game/game.test.js` drives the whole state machine with stubbed world and
+HUD. The suite also fails on an upward import, an import cycle, a broken
+API/desktop boundary, or a HUD id missing from `index.html`. GitHub Actions
+runs format check, tests, and the production build on every push and PR.
 
 See `PLAN.md` for rails, feel numbers, and non-goals, and `AGENTS.md` for the
 module map and conventions.

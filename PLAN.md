@@ -9,7 +9,7 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
 2. Bird is fixed in Z relative to the camera. The world scrolls toward the camera.
 3. One play loop: Menu → Playing → (Respawn → Playing) → Dead → Menu. Credits is a static screen off the menu; Help is the field-manual modal (also H / HELP button on menu and reboot). Tutorial is the same loop with `mode = 'tutorial'` rules (see `src/config/tutorial.js`). Pause is a hold inside Playing (`paused`, `dt = 0`), never a state: PAUSE / P / Esc opens the pause menu, which only CONTINUE (or the pause key) releases, via a 3 s `countdown` hold that goes live without a flap (the pause key cancels it back to the menu); rotate, hidden, jump-to-begin, and lessons reuse the same hold (`src/game/hold.js`). The challenge clock (`src/game/clock.js`) excludes every hold, and the board is told the held time on submit.
 4. Procedural geometry only in v1. No GLTF, no texture CDNs. CanvasTexture / data-URI if needed.
-5. No story, shop, or multiplayer. Two orbs: gold damper and green spare-life (`+`, one per 10-gate sector). A spare life rewinds to just inside the last passed gate and waits for a tap.
+5. No story, shop, or multiplayer. Three orbs: gold damper, green spare-life (`+`, one per 10-gate sector), and ice shunt. A spare life rewinds to just inside the last passed gate and waits for a tap.
 6. Gameplay before bloom. Silhouette, fog, lights first.
 7. Original art: conduit / magpie drone.
 8. Keyboard and touch are first-class. Mouse click flaps. Touch: left-half stick, right-half flap.
@@ -75,7 +75,7 @@ Pin exact `three` version. `WebGLRenderer`, `SRGBColorSpace`, `ACESFilmicToneMap
 
 Hexagonal conduit, 6 plates + emissive rib. Segment length `10`, pool **8**. FogExp2. Recycle by subtracting pool length; optional detail roll on recycle.
 
-## Obstacles (v1: three types)
+## Obstacles
 
 | Id          | What                                       | Hole                      |
 | ----------- | ------------------------------------------ | ------------------------- |
@@ -83,10 +83,11 @@ Hexagonal conduit, 6 plates + emissive rib. Segment length `10`, pool **8**. Fog
 | `laser-bar` | Horizontal energy slab, open band          | band height 3.0, random Y |
 | `laser-col` | Upright energy slabs, vertical open band   | band width 3.0, random X  |
 | `pylon`     | Left **or** right blocked past centre      | forces strafe             |
+| `sled`      | Bulkhead hatch sliding sideways in X       | 2.8 × 3.2, offset-scaled  |
 
-First gate `z = −32`. Spacing `28` shrinking toward `18`. Mostly bulkhead; laser-bar after score 3; pylon after score 5; laser-col after score 100 (never twice in a row or straight after a pylon, and absent from the 40-gate daily course). First two hatches are centred (warm-up; Tutorial mode keeps offset 0 throughout). After that, hatch offset is `min(0.8 + score * 0.12, 1.8)` so the conduit centre is not a safe lane. Hole stays inside the hex.
+First gate `z = −32`. Spacing `28` shrinking toward `18`. Mostly bulkhead; laser-bar after score 3; pylon after score 5; sled after score 8 (never twice in a row); laser-col after score 100 (never twice in a row or straight after a pylon, and absent from the 40-gate daily course). First two hatches are centred (warm-up; Tutorial mode keeps offset 0 throughout). After that, hatch offset is `min(0.8 + score * 0.12, 1.8)` so the conduit centre is not a safe lane. Hole stays inside the hex.
 
-Store collider descriptors (not `Box3` of a meshed hole).
+Store collider descriptors (not `Box3` of a meshed hole). `src/world/gates/kinds.js` is the single descriptor table for layout, collision, and spark shapes.
 
 ## Bird
 
@@ -128,10 +129,11 @@ Fairness invariants, all tested:
 
 ## Powerups
 
-Two orb types, pool of 10 (BENDS spawns deeper), recycle at `z > 14`. Both sit midway to the next gate at a random X/Y in a disc of radius 2.2.
+Three orb types, pool of 10 (BENDS spawns deeper), recycle at `z > 14`. They sit midway to the next gate at a random X/Y in a disc of radius 2.2.
 
 - **Damper** (gold chevron): 50% chance per spawned gate that is not the sector's life slot (`ORB_CHANCE = 0.5`). Pickup is permanent for the run: subtract half of `stageDelta(score)` from scroll speed, floored at base 12.
 - **Spare life** (green `+`): exactly one per 10-gate sector, at a random gate in that sector. Pickup adds one life. A hit with lives > 1 consumes a spare, rewinds to just inside the last passed gate, and waits for tap-to-resume.
+- **Shunt** (ice bolt): 15% chance when an orb is rolled (`SHUNT_CHANCE = 0.15`). Grants five gates of overdrive: each cleared gate scores twice and scroll speed gets `+1.4`; the charge burns down one gate at a time, and burning a spare also dumps it.
 
 ## Difficulty
 

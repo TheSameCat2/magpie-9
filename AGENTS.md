@@ -28,6 +28,7 @@ desktop/               Electron shell; loads dist/, never imports src/
 | ------------- | ------------------------------------------------------------------------- |
 | `theme.js`    | `THEME` palette. Mirrored as CSS variables in `styles/base.css`.          |
 | `world.js`    | Conduit dimensions, bird hull size, `CAMERA`, `RECYCLE_Z`, fog density.   |
+| `bird.js`     | Flight feel: gravity, flap impulse, vy clamp, strafe accel/damping.       |
 | `rules.js`    | Gameplay: speeds, spacing, sectors, orb odds, `difficulty()`, run floors. |
 | `tutorial.js` | Tutorial-mode overrides for speed, gate order, and orb order.             |
 | `fx.js`       | Spark colour ramp per sector, `sparkPhase()`, afterburner score.          |
@@ -48,7 +49,8 @@ with the server for daily courses), `time.js` (`utcDay`, `formatTime`),
 `input.js` flattens keyboard + pointer into per-frame edges (`flapEdge`,
 `navEdge`, `strafeEdge`, …) plus continuous `strafe`; the game reads them in
 `update()` and `main.js` calls `endFrame()`. `screen.js` wraps fullscreen,
-orientation, visibility, and PWA detection behind one `onChange`.
+orientation, visibility, and PWA detection behind one `onChange`. `shell.js`
+folds the native shell's focus bridge into the same hidden/held path.
 
 ### `src/render/`
 
@@ -68,9 +70,12 @@ Each file is a factory that adds pooled meshes to the scene and returns a
 small API (`reset`, `scroll`, …). `collision.js` is pure and tested. `bends.js` is the BENDS arcs as pure
 data (no meshes): scroll, `curvatureAt`, and `sample` into `UNIFORMS.uBend`.
 Gameplay stays in straight path space; only the renderer bends. `gates/`
-is split into `layout.js` (pure hole/gap placement, tested), `geometry.js`
+is split into `kinds.js` (one descriptor per hazard: layout, collision, spark
+shapes, colour), `layout.js` (spawn policy: `pickGateType`), `geometry.js`
 (shared buffer geometries), `slot.js` (per-slot mesh wiring), and `index.js`
-(the pool: spawn, scroll, hit test, celebrate).
+(the pool: spawn, scroll, hit test, celebrate). Add a hazard by adding one
+entry to `GATE_KINDS` and one mesh builder to `slot.js`; the completeness
+test fails until both exist.
 
 ### `src/audio/`
 
@@ -165,7 +170,10 @@ in `src/config/`.
 - Comments explain intent or a trap, never what the next line does.
 - Tests: `node:test`, placed beside the source as `name.test.js`. Pure
   modules get direct tests; `game.test.js` drives `createGame` with stubs.
-  Run `npm test` and `npm run build` before you call a change done.
+  `architecture.test.js` enforces the layer rules above and
+  `hud/markup.test.js` keeps the HUD's ids honest. Run `npm test`,
+  `npm run build`, and `npm run format:check` before you call a change done.
+  CI runs all three.
 - Formatting is Prettier (`npm run format`); config in `.prettierrc`.
 - Renaming a `localStorage` key, an API field, or a scene name is a
   cross-layer change: grep for it, and update `README.md` if a player sees it.

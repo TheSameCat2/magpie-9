@@ -58,6 +58,8 @@ const VOICES = {
  */
 export function createHazardHum(graph) {
   let nodes = null
+  let lastVoice = null
+  let lastGain = 0
 
   graph.onBuild(({ ctx, master, noiseBuffer }) => {
     const osc = ctx.createOscillator()
@@ -88,25 +90,33 @@ export function createHazardHum(graph) {
     noise.start()
 
     nodes = { osc, filter, gain, noiseFilter, noiseGain }
+    lastVoice = null
+    lastGain = 0
   })
 
   /** Retune to `type` at proximity `prox` (0..1). Silent until the context exists and while muted. */
   function set(type, prox) {
     if (!nodes || graph.muted) return
     const voice = VOICES[type] ?? VOICES.bulkhead
-    const t = graph.now
     const g = hazardGain(prox)
-    nodes.osc.type = voice.oscType
-    nodes.osc.frequency.setTargetAtTime(voice.oscHz, t, 0.08)
-    nodes.filter.type = voice.filterType
-    nodes.filter.frequency.setTargetAtTime(voice.filterHz, t, 0.08)
+    if (voice === lastVoice && g === lastGain) return
+    const t = graph.now
+    if (voice !== lastVoice) {
+      lastVoice = voice
+      nodes.osc.type = voice.oscType
+      nodes.osc.frequency.setTargetAtTime(voice.oscHz, t, 0.08)
+      nodes.filter.type = voice.filterType
+      nodes.filter.frequency.setTargetAtTime(voice.filterHz, t, 0.08)
+      if (voice.noiseHz !== null) nodes.noiseFilter.frequency.setTargetAtTime(voice.noiseHz, t, 0.1)
+    }
+    lastGain = g
     nodes.gain.gain.setTargetAtTime(g * voice.oscLevel, t, 0.08)
-    if (voice.noiseHz !== null) nodes.noiseFilter.frequency.setTargetAtTime(voice.noiseHz, t, 0.1)
     nodes.noiseGain.gain.setTargetAtTime(g * voice.noiseLevel, t, 0.08)
   }
 
   function silence() {
-    if (!nodes) return
+    if (!nodes || lastGain === 0) return
+    lastGain = 0
     const t = graph.now
     nodes.gain.gain.setTargetAtTime(0, t, 0.08)
     nodes.noiseGain.gain.setTargetAtTime(0, t, 0.08)

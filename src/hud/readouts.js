@@ -53,10 +53,23 @@ export function createReadouts() {
     if (animate && spares > 0) retrigger(livesEl, 'pop')
   }
 
+  let lastSpeed = NaN
+  let lastSpeedText = ''
+  let lastSpeedFill = -1
+
   function setSpeed(speed) {
-    velEl.textContent = speed.toFixed(1)
-    const fill = (speed - BASE_SPEED) / (SPEED_CAP - BASE_SPEED)
-    velBar.style.width = `${Math.max(0, Math.round(fill * 100))}%`
+    if (speed === lastSpeed) return
+    lastSpeed = speed
+    const text = speed.toFixed(1)
+    if (text !== lastSpeedText) {
+      lastSpeedText = text
+      velEl.textContent = text
+    }
+    const fill = Math.max(0, Math.round(((speed - BASE_SPEED) / (SPEED_CAP - BASE_SPEED)) * 100))
+    if (fill !== lastSpeedFill) {
+      lastSpeedFill = fill
+      velBar.style.width = `${fill}%`
+    }
   }
 
   function toast(text, tone) {

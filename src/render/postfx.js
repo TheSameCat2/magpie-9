@@ -10,8 +10,14 @@ import { QUALITY } from './quality.js'
 // Bloom + full-screen grade (aberration, zoom, flash, glitch, vignette, grain).
 export function createPostFx(renderer, scene, camera, { reduceMotion }) {
   const composer = new EffectComposer(renderer)
+  composer.renderTarget2.depthBuffer = false
   const renderPass = new RenderPass(scene, camera)
   const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.4, 0.45, 0.84)
+  bloom.renderTargetBright.depthBuffer = false
+  for (let i = 0; i < bloom.renderTargetsHorizontal.length; i++) {
+    bloom.renderTargetsHorizontal[i].depthBuffer = false
+    bloom.renderTargetsVertical[i].depthBuffer = false
+  }
   const output = new OutputPass()
   const screen = new ShaderPass({
     uniforms: {
@@ -48,18 +54,31 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
   const initial = renderer.getSize(new THREE.Vector2())
   let width = initial.x
   let height = initial.y
+  let lastComposerW = -1
+  let lastComposerH = -1
+  let lastComposerPr = -1
+  let lastBloomW = -1
+  let lastBloomH = -1
 
   function setSize(w, h) {
     width = w
     height = h
     const pr = renderer.getPixelRatio()
-    composer.setPixelRatio(pr)
-    composer.setSize(w, h)
-    bloom.setSize(
-      Math.max(64, Math.round(w * pr * bloomScale)),
-      Math.max(64, Math.round(h * pr * bloomScale)),
-    )
-    screen.uniforms.uRes.value.set(w * pr, h * pr)
+    if (w !== lastComposerW || h !== lastComposerH || pr !== lastComposerPr) {
+      lastComposerW = w
+      lastComposerH = h
+      lastComposerPr = pr
+      composer.setPixelRatio(pr)
+      composer.setSize(w, h)
+      screen.uniforms.uRes.value.set(w * pr, h * pr)
+    }
+    const bw = Math.max(64, Math.round(w * pr * bloomScale))
+    const bh = Math.max(64, Math.round(h * pr * bloomScale))
+    if (bw !== lastBloomW || bh !== lastBloomH) {
+      lastBloomW = bw
+      lastBloomH = bh
+      bloom.setSize(bw, bh)
+    }
   }
 
   function applyQuality(level) {
@@ -73,26 +92,30 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     setSize(width, height)
   }
 
+  const motion = reduceMotion ? 0 : 1
+  screen.uniforms.uCurvature.value = 0.025 * motion
+  screen.uniforms.uScanlines.value = 0.03 * motion
+
   function update(dt) {
-    screen.uniforms.uTime.value += dt
-    kick = Math.max(0, kick - dt * 3.4)
-    flash = Math.max(0, flash - dt * 2.6)
-    glitch = Math.max(0, glitch - dt * 1.7)
-    warp = Math.max(0, warp - dt * 2.8)
-    const motion = reduceMotion ? 0 : 1
-    screen.uniforms.uAberration.value = kick * motion
-    screen.uniforms.uZoom.value = kick * kick * motion
-    screen.uniforms.uFlash.value = flash * (reduceMotion ? 0.35 : 1)
-    screen.uniforms.uGlitch.value = glitch * glitch * motion
-    screen.uniforms.uWarp.value = warp * motion
-    screen.uniforms.uCurvature.value = 0.025 * motion
-    screen.uniforms.uScanlines.value = 0.03 * motion
+    const u = screen.uniforms
+    u.uTime.value += dt
+    if (kick > 0 || flash > 0 || glitch > 0 || warp > 0) {
+      kick = Math.max(0, kick - dt * 3.4)
+      flash = Math.max(0, flash - dt * 2.6)
+      glitch = Math.max(0, glitch - dt * 1.7)
+      warp = Math.max(0, warp - dt * 2.8)
+      u.uAberration.value = kick * motion
+      u.uZoom.value = kick * kick * motion
+      u.uFlash.value = flash * (reduceMotion ? 0.35 : 1)
+      u.uGlitch.value = glitch * glitch * motion
+      u.uWarp.value = warp * motion
+    }
   }
 
   return {
     composer,
     render() {
-      composer.render()
+      composer.render(0)
     },
     update,
     setSize,

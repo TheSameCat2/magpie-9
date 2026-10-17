@@ -350,3 +350,33 @@ test('every hazard kind configures a pooled slot', async () => {
     assert.equal(slot.group.visible, true, type)
   }
 })
+
+test('configureGate updates bulkhead geometry in place without reallocating', async () => {
+  const THREE = await import('three')
+  const { createGateSlot, configureGate, updateSledX } = await import('./slot.js')
+  const m = new THREE.MeshBasicMaterial()
+  const slot = createGateSlot({
+    plate: m,
+    hatch: m,
+    laserTop: m,
+    laserBot: m,
+    pylon: m,
+    pylonEdge: m,
+    metalHi: m,
+    beak: m,
+  })
+  const initialGeo = slot.bulkhead.geometry
+  const initialPosArray = initialGeo.getAttribute('position').array
+
+  configureGate(slot, 'bulkhead', -24, 28, { hole: { x: 0.75, y: -0.45 } })
+  assert.equal(slot.bulkhead.geometry, initialGeo)
+  assert.equal(slot.bulkhead.geometry.getAttribute('position').array, initialPosArray)
+  assert.equal(slot.bulkhead.matrixWorld.elements[14], -24)
+  assert.equal(slot.rims[0].matrixWorld.elements[12], 0.75)
+
+  configureGate(slot, 'sled', -36, 28, layoutGate('sled', 1.2, createRng(7)))
+  assert.equal(slot.bulkhead.geometry, initialGeo)
+  slot.hole.x = 0.9
+  updateSledX(slot)
+  assert.equal(slot.rims[0].matrixWorld.elements[12], 0.9)
+})

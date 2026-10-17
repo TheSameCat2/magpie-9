@@ -92,14 +92,23 @@ game.syncScreen()
 if (params.has('god') || params.has('debug'))
   window.__magpie = { game, bird, input, screen, gates, powerups, bends }
 
+let lastW = 0
+let lastH = 0
+let lastDpr = 0
+
 function applySize() {
   const canvas = renderer.domElement
   const w = canvas.clientWidth || window.innerWidth
   const h = canvas.clientHeight || window.innerHeight
   if (w < 1 || h < 1) return
+  const dpr = Math.min(window.devicePixelRatio, QUALITY[quality.level].dpr)
+  if (w === lastW && h === lastH && dpr === lastDpr) return
+  lastW = w
+  lastH = h
+  lastDpr = dpr
   camera.aspect = w / h
   camera.updateProjectionMatrix()
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY[quality.level].dpr))
+  renderer.setPixelRatio(dpr)
   renderer.setSize(w, h, false)
   postfx.setSize(w, h)
   UNIFORMS.uPixelRatio.value = renderer.getPixelRatio()

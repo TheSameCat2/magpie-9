@@ -1,35 +1,10 @@
-import { TUNNEL_APOTHEM } from '../../config/world.js'
-import { clamp } from '../../lib/math.js'
+// Spawn policy for the gate pool: which hazard appears next. Per-hazard
+// layout, collision, and spark shapes live in kinds.js; this file keeps the
+// RNG-order rules that decide when each kind is allowed to appear.
 
-// Pure gate placement: which hazard spawns and where its opening sits. No
-// Three.js here so the challenge generator and the tests can share it.
+import { LASER_COL_CHANCE, LASER_COL_MIN_SCORE } from './kinds.js'
 
-export const GATE_TYPES = ['bulkhead', 'laser-bar', 'laser-col', 'pylon', 'sled']
-
-/**
- * Which sides of an opening shed sparks. `vertical` is a single edge facing
- * `nx`; `columns` is both vertical sides of a band.
- */
-export const OPENING_EDGES = { all: 0, horizontal: 1, vertical: 2, columns: 3 }
-
-export const HOLE_W = 2.8
-export const HOLE_H = 3.2
-export const LASER_GAP = 3.0
-/** |X| bound on a vertical laser band's centre. */
-export const LASER_COL_MAX_X = 1.7
-
-// Vertical lasers are late-run variety: every difficulty() knob has capped
-// long before this score, so they arrive as something new rather than a ramp.
-export const LASER_COL_MIN_SCORE = 100
-const LASER_COL_CHANCE = 0.25
-export const PYLON_W = 4.5
-/** |X| of a pylon's centre; the open side starts at `edge`. */
-export const PYLON_PX = 2.2
-
-// Max sideways travel of a sled hatch and its motion bounds. Amplitude derives
-// from the difficulty offset so difficulty() stays the single tuning source.
-export const SLED_MAX_AMP = 1.1
-export const SLED_MIN_PERIOD = 2.8
+export * from './kinds.js'
 
 /**
  * Which hazard spawns at `spawnIndex` for the current `score`. `prevType` is
@@ -53,95 +28,4 @@ export function pickGateType(spawnIndex, score, rand = Math.random, prevType = n
   if (score >= 5 && rand() < 0.3) return 'pylon'
   if (score >= 3 && rand() < 0.38) return 'laser-bar'
   return 'bulkhead'
-}
-
-/** Random point on a disc of radius `offset`, biased away from the centre. */
-function hatchCentre(offset, rand, scale = 1) {
-  const angle = rand() * Math.PI * 2
-  const distance = offset * (0.55 + rand() * 0.45) * scale
-  return { x: Math.cos(angle) * distance, y: Math.sin(angle) * distance }
-}
-
-function layoutBulkhead(offset, rand) {
-  const { x, y } = hatchCentre(offset, rand)
-  return { hole: { x, y, w: HOLE_W, h: HOLE_H } }
-}
-
-function layoutLaserBar(offset, rand) {
-  // Zero offset means a dead-centre band (tutorial); runs never reach lasers below 0.8.
-  const gapY = offset > 0 ? clamp((rand() * 2 - 1) * Math.max(0.4, offset), -1.7, 1.7) : 0
-  return { gapY, gapH: LASER_GAP }
-}
-
-function layoutLaserCol(offset, rand) {
-  const gapX =
-    offset > 0 ? clamp((rand() * 2 - 1) * Math.max(0.4, offset), -LASER_COL_MAX_X, LASER_COL_MAX_X) : 0
-  return { gapX, gapW: LASER_GAP }
-}
-
-function layoutSled(offset, rand) {
-  // A bulkhead hatch that slides in X. The base sits closer to centre than a
-  // static hatch so the full swing stays inside the hex.
-  const off = Math.max(0, offset)
-  const { x: baseX, y: baseY } = hatchCentre(off, rand, 0.5)
-  const amp = Math.min(SLED_MAX_AMP, off * 0.6)
-  const period = Math.max(SLED_MIN_PERIOD, 4.8 - off * 0.8)
-  return {
-    hole: { x: baseX, y: baseY, w: HOLE_W, h: HOLE_H },
-    sled: { baseX, baseY, amp, freq: (Math.PI * 2) / period, period, phase: rand() * Math.PI * 2 },
-  }
-}
-
-function layoutPylon(rand) {
-  const side = rand() < 0.5 ? 'left' : 'right'
-  const px = side === 'left' ? -PYLON_PX : PYLON_PX
-  return { side, px, edge: side === 'left' ? px + PYLON_W * 0.5 : px - PYLON_W * 0.5 }
-}
-
-/**
- * The whole perimeter of a live gate's opening, for sparks that ride the
- * edge rather than erupt where the bird threaded it. Writes into `shape`:
- * centre, half extents, which edges apply, and (for a pylon) the normal
- * pointing into the gap. Reads `hole` live so a sled's sparks ride the hatch.
- */
-export function openingShape(gate, shape) {
-  if (gate.type === 'laser-bar') {
-    shape.x = 0
-    shape.y = gate.gapY
-    shape.hw = TUNNEL_APOTHEM
-    shape.hh = gate.gapH * 0.5
-    shape.edges = OPENING_EDGES.horizontal
-    shape.nx = 0
-  } else if (gate.type === 'laser-col') {
-    shape.x = gate.gapX
-    shape.y = 0
-    shape.hw = gate.gapW * 0.5
-    shape.hh = TUNNEL_APOTHEM
-    shape.edges = OPENING_EDGES.columns
-    shape.nx = 0
-  } else if (gate.type === 'pylon') {
-    shape.x = gate.edge
-    shape.y = 0
-    shape.hw = 0
-    shape.hh = TUNNEL_APOTHEM * 0.85
-    shape.edges = OPENING_EDGES.vertical
-    shape.nx = gate.side === 'left' ? 1 : -1
-  } else {
-    shape.x = gate.hole.x
-    shape.y = gate.hole.y
-    shape.hw = HOLE_W * 0.5
-    shape.hh = HOLE_H * 0.5
-    shape.edges = OPENING_EDGES.all
-    shape.nx = 0
-  }
-  return shape
-}
-
-/** X/Y placement for a gate of `type`. Injectable RNG so layout is unit-testable. */
-export function layoutGate(type, offset, rand = Math.random) {
-  if (type === 'bulkhead') return layoutBulkhead(offset, rand)
-  if (type === 'laser-bar') return layoutLaserBar(offset, rand)
-  if (type === 'laser-col') return layoutLaserCol(offset, rand)
-  if (type === 'sled') return layoutSled(offset, rand)
-  return layoutPylon(rand)
 }

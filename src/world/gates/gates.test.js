@@ -5,6 +5,7 @@ import { difficulty } from '../../config/rules.js'
 import { createRng } from '../../lib/rng.js'
 import { hexOutside, hitObstacle } from '../collision.js'
 import {
+  GATE_TYPES,
   HOLE_W,
   HOLE_H,
   LASER_COL_MAX_X,
@@ -325,4 +326,27 @@ test('configureGate stands the laser slabs upright either side of a vertical ban
   configureGate(slot, 'bulkhead', -10, 20, { hole: { x: 0, y: 0 } })
   assert.equal(frame.rotation.z, 0)
   assert.equal(slot.laserTop.visible, false)
+})
+
+test('every hazard kind configures a pooled slot', async () => {
+  const THREE = await import('three')
+  const { createGateSlot, configureGate } = await import('./slot.js')
+  const m = new THREE.MeshBasicMaterial()
+  const slot = createGateSlot({
+    plate: m,
+    hatch: m,
+    laserTop: m,
+    laserBot: m,
+    pylon: m,
+    pylonEdge: m,
+    metalHi: m,
+    beak: m,
+  })
+
+  for (const type of GATE_TYPES) {
+    configureGate(slot, type, -10, 20, layoutGate(type, 1, createRng(11)))
+    assert.equal(slot.type, type, type)
+    assert.equal(slot.active, true, type)
+    assert.equal(slot.group.visible, true, type)
+  }
 })

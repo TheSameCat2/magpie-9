@@ -1,56 +1,40 @@
 import { TUNNEL_APOTHEM } from '../config/world.js'
 import { clamp } from '../lib/math.js'
+import { GATE_KINDS } from './gates/kinds.js'
 
 // All tests take the bird's centre `pos` and its half-extents `hit` (an
-// axis-aligned box). Wings stay visual-only.
+// axis-aligned box). Wings stay visual-only. Per-hazard rules live in
+// gates/kinds.js; this file is the dispatch and the conduit wall.
 
-/** Outward normal of hex wall `i` (flat-topped hex, walls at 30° + 60°·i). */
-function wallNormal(i) {
+// Outward normals of the flat-topped hex walls (30° + 60°·i), precomputed so
+// the per-frame wall test does not allocate.
+const HEX_WALL_NORMALS = []
+for (let i = 0; i < 6; i++) {
   const t = i * (Math.PI / 3) + Math.PI / 6
-  return [Math.cos(t), Math.sin(t)]
+  HEX_WALL_NORMALS.push(Math.cos(t), Math.sin(t))
 }
 
 export function hexOutside(x, y, apothem) {
-  for (let i = 0; i < 6; i++) {
-    const [nx, ny] = wallNormal(i)
-    if (x * nx + y * ny > apothem) return true
+  for (let i = 0; i < HEX_WALL_NORMALS.length; i += 2) {
+    if (x * HEX_WALL_NORMALS[i] + y * HEX_WALL_NORMALS[i + 1] > apothem) return true
   }
   return false
 }
 
 export function hitTunnel(pos, hit) {
-  for (let i = 0; i < 6; i++) {
-    const [nx, ny] = wallNormal(i)
+  for (let i = 0; i < HEX_WALL_NORMALS.length; i += 2) {
+    const nx = HEX_WALL_NORMALS[i]
+    const ny = HEX_WALL_NORMALS[i + 1]
     if (pos.x * nx + pos.y * ny + hit.x * Math.abs(nx) + hit.y * Math.abs(ny) > TUNNEL_APOTHEM) return true
   }
   return false
 }
 
-function hasHatch(gate) {
-  return gate.type === 'bulkhead' || gate.type === 'sled'
-}
-
 export function hitObstacle(pos, hit, gate) {
   const halfDepth = gate.depth * 0.5 + hit.z
   if (Math.abs(pos.z - gate.z) > halfDepth) return false
-
-  if (hasHatch(gate)) {
-    const inHole =
-      Math.abs(pos.x - gate.hole.x) < gate.hole.w * 0.5 - hit.x &&
-      Math.abs(pos.y - gate.hole.y) < gate.hole.h * 0.5 - hit.y
-    return !inHole
-  }
-  if (gate.type === 'laser-bar') {
-    return Math.abs(pos.y - gate.gapY) >= gate.gapH * 0.5 - hit.y
-  }
-  if (gate.type === 'laser-col') {
-    return Math.abs(pos.x - gate.gapX) >= gate.gapW * 0.5 - hit.x
-  }
-  if (gate.type === 'pylon') {
-    if (gate.side === 'left') return pos.x < gate.edge + hit.x
-    return pos.x > gate.edge - hit.x
-  }
-  return false
+  const kind = GATE_KINDS[gate.type]
+  return kind ? kind.hit(pos, hit, gate) : false
 }
 
 /**
@@ -58,85 +42,14 @@ export function hitObstacle(pos, hit, gate) {
  * moment it is threaded. Small values are near misses.
  */
 export function passMargin(pos, hit, gate) {
-  if (hasHatch(gate)) {
-    const mx = gate.hole.w * 0.5 - Math.abs(pos.x - gate.hole.x) - hit.x
-    const my = gate.hole.h * 0.5 - Math.abs(pos.y - gate.hole.y) - hit.y
-    return Math.min(mx, my)
-  }
-  if (gate.type === 'laser-bar') {
-    return gate.gapH * 0.5 - Math.abs(pos.y - gate.gapY) - hit.y
-  }
-  if (gate.type === 'laser-col') {
-    return gate.gapW * 0.5 - Math.abs(pos.x - gate.gapX) - hit.x
-  }
-  if (gate.type === 'pylon') {
-    return Math.abs(pos.x - gate.edge) - hit.x
-  }
-  return Infinity
+  const kind = GATE_KINDS[gate.type]
+  return kind ? kind.margin(pos, hit, gate) : Infinity
 }
 
-/**
- * Returns exact contact location and spray normal for a near miss.
- */
+/** Exact contact location and spray normal for a near miss. */
 export function passContact(pos, hit, gate) {
-  if (hasHatch(gate)) {
-    const dx = pos.x - gate.hole.x
-    const dy = pos.y - gate.hole.y
-    const mx = gate.hole.w * 0.5 - Math.abs(dx) - hit.x
-    const my = gate.hole.h * 0.5 - Math.abs(dy) - hit.y
-    if (mx < my) {
-      const signX = dx >= 0 ? 1 : -1
-      return {
-        margin: mx,
-        x: pos.x + signX * hit.x,
-        y: pos.y,
-        nx: -signX,
-        ny: 0,
-      }
-    }
-    const signY = dy >= 0 ? 1 : -1
-    return {
-      margin: my,
-      x: pos.x,
-      y: pos.y + signY * hit.y,
-      nx: 0,
-      ny: -signY,
-    }
-  }
-  if (gate.type === 'laser-bar') {
-    const dy = pos.y - gate.gapY
-    const signY = dy >= 0 ? 1 : -1
-    return {
-      margin: gate.gapH * 0.5 - Math.abs(dy) - hit.y,
-      x: pos.x,
-      y: pos.y + signY * hit.y,
-      nx: 0,
-      ny: -signY,
-    }
-  }
-  if (gate.type === 'laser-col') {
-    const dx = pos.x - gate.gapX
-    const signX = dx >= 0 ? 1 : -1
-    return {
-      margin: gate.gapW * 0.5 - Math.abs(dx) - hit.x,
-      x: pos.x + signX * hit.x,
-      y: pos.y,
-      nx: -signX,
-      ny: 0,
-    }
-  }
-  if (gate.type === 'pylon') {
-    const dx = pos.x - gate.edge
-    const signX = dx >= 0 ? 1 : -1
-    return {
-      margin: Math.abs(dx) - hit.x,
-      x: pos.x - signX * hit.x,
-      y: pos.y,
-      nx: signX,
-      ny: 0,
-    }
-  }
-  return { margin: Infinity, x: pos.x, y: pos.y, nx: 0, ny: 0 }
+  const kind = GATE_KINDS[gate.type]
+  return kind ? kind.contact(pos, hit, gate) : { margin: Infinity, x: pos.x, y: pos.y, nx: 0, ny: 0 }
 }
 
 /** Sphere (orb) vs the bird's box. */

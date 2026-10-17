@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { THEME } from '../config/theme.js'
 import { SPARK_RAMP } from '../config/fx.js'
 import {
@@ -23,38 +24,32 @@ import { UNIFORMS } from '../render/uniforms.js'
 import { FRAME_VERT, THRUST_FRAG, TRAIL_VERT, TRAIL_FRAG } from '../render/shaders.js'
 import { createShockConeMaterial } from '../render/materials.js'
 
-// Hex conduit wall normals (flat-topped hex faces at 30° + 60°·i)
-const HEX_NORMALS = []
-for (let i = 0; i < 6; i++) {
-  const theta = (i * Math.PI) / 3 + Math.PI / 6
-  HEX_NORMALS.push({
-    x: Math.cos(theta),
-    y: Math.sin(theta),
-    absX: Math.abs(Math.cos(theta)),
-    absY: Math.abs(Math.sin(theta)),
-  })
-}
+// Hex conduit wall clearance constants (flat-topped hex symmetry at 30° and 90°)
+const HEX_NX = Math.cos(Math.PI / 6)
+const HEX_NY = 0.5
+const CLEAR_TOP = TUNNEL_APOTHEM - BIRD_HIT.y
+const CLEAR_SLANT = TUNNEL_APOTHEM - (BIRD_HIT.x * HEX_NX + BIRD_HIT.y * HEX_NY)
 
 /** Signed clearance from the bird's bounding box extents to the nearest conduit wall. */
 export function nearestWallClearance(px, py) {
-  let min = 999
-  for (let i = 0; i < 6; i++) {
-    const n = HEX_NORMALS[i]
-    const d = TUNNEL_APOTHEM - (px * n.x + py * n.y + BIRD_HIT.x * n.absX + BIRD_HIT.y * n.absY)
-    if (d < min) min = d
-  }
-  return min
+  const ay = Math.abs(py)
+  const dTop = CLEAR_TOP - ay
+  const dSlant = CLEAR_SLANT - (Math.abs(px) * HEX_NX + ay * HEX_NY)
+  return dTop < dSlant ? dTop : dSlant
 }
 
 const COLOR_ICE = new THREE.Color(THEME.ice)
 const COLOR_SODIUM = new THREE.Color(THEME.sodium)
 
 const TRAIL_N = 16
+const TRAIL_W = new Float32Array(TRAIL_N)
+for (let i = 0; i < TRAIL_N; i++) {
+  TRAIL_W[i] = 0.035 * (1 - i / TRAIL_N) + 0.006
+}
 const DEAD_WALL = TUNNEL_APOTHEM - 0.65
 const DEAD_FLOOR = -DEAD_WALL
 /** How much longer the thruster cone burns at full afterburner. */
 const BURNER_STRETCH = 0.9
-const _tip = new THREE.Vector3()
 
 function box(w, h, d, material) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material)
@@ -120,6 +115,8 @@ function createTrail(scene, color) {
   })
   const mesh = new THREE.Mesh(geo, material)
   mesh.frustumCulled = false
+  mesh.matrixAutoUpdate = false
+  mesh.matrixWorldAutoUpdate = false
   mesh.name = 'trail'
   scene.add(mesh)
 
@@ -127,37 +124,51 @@ function createTrail(scene, color) {
   const sy = new Float32Array(TRAIL_N)
   const sz = new Float32Array(TRAIL_N)
 
-  function write() {
-    for (let i = 0; i < TRAIL_N; i++) {
-      const w = 0.035 * (1 - i / TRAIL_N) + 0.006
-      const o = i * 6
-      pos[o] = sx[i]
-      pos[o + 1] = sy[i] + w
-      pos[o + 2] = sz[i]
-      pos[o + 3] = sx[i]
-      pos[o + 4] = sy[i] - w
-      pos[o + 5] = sz[i]
-    }
-    aPos.needsUpdate = true
-  }
-
   function reset(x, y, z) {
     sx.fill(x)
     sy.fill(y)
     sz.fill(z)
-    write()
+    for (let i = 0; i < TRAIL_N; i++) {
+      const w = TRAIL_W[i]
+      const o = i * 6
+      pos[o] = x
+      pos[o + 1] = y + w
+      pos[o + 2] = z
+      pos[o + 3] = x
+      pos[o + 4] = y - w
+      pos[o + 5] = z
+    }
+    aPos.needsUpdate = true
   }
 
   function push(x, y, z, dz) {
     for (let i = TRAIL_N - 1; i > 0; i--) {
-      sx[i] = sx[i - 1]
-      sy[i] = sy[i - 1]
-      sz[i] = sz[i - 1] + dz
+      const xi = sx[i - 1]
+      const yi = sy[i - 1]
+      const zi = sz[i - 1] + dz
+      sx[i] = xi
+      sy[i] = yi
+      sz[i] = zi
+      const w = TRAIL_W[i]
+      const o = i * 6
+      pos[o] = xi
+      pos[o + 1] = yi + w
+      pos[o + 2] = zi
+      pos[o + 3] = xi
+      pos[o + 4] = yi - w
+      pos[o + 5] = zi
     }
     sx[0] = x
     sy[0] = y
     sz[0] = z
-    write()
+    const w0 = TRAIL_W[0]
+    pos[0] = x
+    pos[1] = y + w0
+    pos[2] = z
+    pos[3] = x
+    pos[4] = y - w0
+    pos[5] = z
+    aPos.needsUpdate = true
   }
 
   function setIntensity(value) {
@@ -309,6 +320,42 @@ function createBeak(material) {
   return facetedMesh(vertices, indices, material)
 }
 
+/** Bake local transforms and merge static sibling meshes that share the same material. */
+function mergeStaticMeshes(meshes) {
+  const byMat = new Map()
+  for (let i = 0; i < meshes.length; i++) {
+    const m = meshes[i]
+    m.updateMatrix()
+    m.geometry.applyMatrix4(m.matrix)
+    let list = byMat.get(m.material)
+    if (!list) {
+      list = []
+      byMat.set(m.material, list)
+    }
+    list.push(m)
+  }
+  const out = []
+  for (const [material, list] of byMat) {
+    if (list.length === 1) {
+      const m = list[0]
+      m.position.set(0, 0, 0)
+      m.rotation.set(0, 0, 0)
+      m.scale.set(1, 1, 1)
+      m.updateMatrix()
+      out.push(m)
+    } else {
+      const geos = list.map((m) => m.geometry)
+      const merged = mergeGeometries(geos)
+      for (let i = 0; i < geos.length; i++) geos[i].dispose()
+      const mesh = new THREE.Mesh(merged, material)
+      mesh.castShadow = false
+      mesh.receiveShadow = false
+      out.push(mesh)
+    }
+  }
+  return out
+}
+
 /** Stepped diamond wedge tail: magpie's signature aerodynamic empennage. */
 function createTail(materials) {
   const group = new THREE.Group()
@@ -346,7 +393,9 @@ function createTail(materials) {
   outerR.position.set(0.11, -0.004, 0.11)
   outerR.rotation.y = 0.24
 
-  group.add(centerBody, centerSpine, centerTip, midL, midLTip, midR, midRTip, outerL, outerR)
+  group.add(
+    ...mergeStaticMeshes([centerBody, centerSpine, centerTip, midL, midLTip, midR, midRTip, outerL, outerR]),
+  )
   group.rotation.x = 0.2
   return group
 }
@@ -387,7 +436,7 @@ function createWing(materials, sign) {
   innerFeather.position.set(0.12 * sign, -0.005, 0.08)
   innerFeather.rotation.y = sign * 0.04
 
-  pivot.add(shoulderHub, shoulderAccent, innerSpar, innerLead, innerFeather)
+  pivot.add(...mergeStaticMeshes([shoulderHub, shoulderAccent, innerSpar, innerLead, innerFeather]))
 
   // 2. ELBOW JOINT & FOREARM (Radius / Ulna)
   const elbow = new THREE.Group()
@@ -413,7 +462,7 @@ function createWing(materials, sign) {
   midFeather.position.set(0.12 * sign, -0.003, 0.06)
   midFeather.rotation.y = sign * 0.16
 
-  elbow.add(elbowHinge, elbowCap, foreBlade, foreLead, midFeather)
+  elbow.add(...mergeStaticMeshes([elbowHinge, elbowCap, foreBlade, foreLead, midFeather]))
   pivot.add(elbow)
 
   // 3. WRIST JOINT & OUTER FLIGHT PINION (Hand / Carpus)
@@ -448,17 +497,16 @@ function createWing(materials, sign) {
   const tip = new THREE.Object3D()
   tip.position.set(0.26 * sign, 0.014, -0.04)
 
-  wrist.add(wristHinge, outerBlade, outerLead, winglet, outerFeather, tip)
+  wrist.add(...mergeStaticMeshes([wristHinge, outerBlade, outerLead, winglet, outerFeather]), tip)
   elbow.add(wrist)
 
   return { pivot, elbow, wrist, tip }
 }
 
+const eyeMaterial = new THREE.MeshBasicMaterial({ color: THEME.mag })
+
 function createEye(sign) {
-  const eye = new THREE.Mesh(
-    new THREE.SphereGeometry(0.036, 6, 6),
-    new THREE.MeshBasicMaterial({ color: THEME.mag }),
-  )
+  const eye = new THREE.Mesh(new THREE.SphereGeometry(0.036, 6, 6), eyeMaterial)
   eye.position.set(0.072 * sign, 0.082, -0.51)
   const light = new THREE.PointLight(THEME.mag, 1.4, 6.5, 2)
   light.position.set(0.072 * sign, 0.08, -0.49)
@@ -478,7 +526,9 @@ function createSensorCluster(materials) {
   const spineStripe = box(0.04, 0.02, 0.44, materials.birdTrim)
   spineStripe.position.set(0, 0.138, 0.02)
 
-  return [headCowl, canopyCrest, visorBrow, spineStripe, ...createEye(-1), ...createEye(1)]
+  const [eyeL, lightL] = createEye(-1)
+  const [eyeR, lightR] = createEye(1)
+  return [...mergeStaticMeshes([headCowl, canopyCrest, visorBrow, spineStripe, eyeL, eyeR]), lightL, lightR]
 }
 
 function createThruster(materials) {
@@ -546,6 +596,7 @@ export function createBird(scene, materials) {
     new THREE.MeshBasicMaterial({ color: THEME.ice, wireframe: true, transparent: true, opacity: 0.7 }),
   )
   collider.visible = false
+  collider.matrixWorldAutoUpdate = false
   group.add(collider)
 
   // Supersonic Prandtl-Glauert shock wave vapor cone
@@ -555,6 +606,10 @@ export function createBird(scene, materials) {
   shockCone.frustumCulled = false
   group.add(shockCone)
 
+  group.traverse((node) => {
+    node.updateMatrix()
+    node.matrixAutoUpdate = false
+  })
   scene.add(group)
 
   const trailL = createTrail(scene, THEME.mag)
@@ -570,21 +625,19 @@ export function createBird(scene, materials) {
   let wingPulse = 0
   let thrustPulse = 0
   let afterburner = 0
+  let lastAfterburner = -1
   let t = 0
   const deadSpin = new THREE.Vector3()
 
-  function tipWorld(wing) {
-    wing.tip.getWorldPosition(_tip)
-    return _tip
-  }
-
   function syncTrails(dz, intensity) {
+    group.updateMatrix()
     group.updateMatrixWorld()
-    thruster.cone.getWorldPosition(exhaust)
-    let tip = tipWorld(leftWing)
-    trailL.push(tip.x, tip.y, tip.z, dz)
-    tip = tipWorld(rightWing)
-    trailR.push(tip.x, tip.y, tip.z, dz)
+    const cMat = thruster.cone.matrixWorld.elements
+    exhaust.set(cMat[12], cMat[13], cMat[14])
+    const lMat = leftWing.tip.matrixWorld.elements
+    trailL.push(lMat[12], lMat[13], lMat[14], dz)
+    const rMat = rightWing.tip.matrixWorld.elements
+    trailR.push(rMat[12], rMat[13], rMat[14], dz)
     const overdriveBoost = UNIFORMS.uOverdrive.value * 0.95
     trailL.setIntensity(intensity + overdriveBoost)
     trailR.setIntensity(intensity + overdriveBoost)
@@ -597,6 +650,7 @@ export function createBird(scene, materials) {
     wingPulse = 0
     thrustPulse = 0
     afterburner = 0
+    lastAfterburner = -1
     t = 0
     proxLight.intensity = 0
     shockCone.visible = true
@@ -610,12 +664,21 @@ export function createBird(scene, materials) {
     rightWing.pivot.rotation.set(0, 0, 0)
     rightWing.elbow.rotation.set(0, 0, 0)
     rightWing.wrist.rotation.set(0, 0, 0)
+    tail.updateMatrix()
+    leftWing.pivot.updateMatrix()
+    leftWing.elbow.updateMatrix()
+    leftWing.wrist.updateMatrix()
+    rightWing.pivot.updateMatrix()
+    rightWing.elbow.updateMatrix()
+    rightWing.wrist.updateMatrix()
+    group.updateMatrix()
     group.updateMatrixWorld()
-    thruster.cone.getWorldPosition(exhaust)
-    let tip = tipWorld(leftWing)
-    trailL.reset(tip.x, tip.y, tip.z)
-    tip = tipWorld(rightWing)
-    trailR.reset(tip.x, tip.y, tip.z)
+    const cMat = thruster.cone.matrixWorld.elements
+    exhaust.set(cMat[12], cMat[13], cMat[14])
+    const lMat = leftWing.tip.matrixWorld.elements
+    trailL.reset(lMat[12], lMat[13], lMat[14])
+    const rMat = rightWing.tip.matrixWorld.elements
+    trailR.reset(rMat[12], rMat[13], rMat[14])
     trailL.setVisible(true)
     trailR.setVisible(true)
   }
@@ -646,43 +709,48 @@ export function createBird(scene, materials) {
     // 1. Primary shoulder stroke (idle breathing + powerful flap pulse)
     const idleShoulder = 0.15 + Math.sin(t * 9) * 0.08
     const shoulderAngle = idleShoulder + wingPulse * 0.85
-    leftWing.pivot.rotation.z = shoulderAngle
-    rightWing.pivot.rotation.z = -shoulderAngle
 
     // Spanwise aerodynamic pitch twist at shoulder
     const shoulderPitch = -wingPulse * 0.14 + (vy / VY_MAX) * 0.03
-    leftWing.pivot.rotation.x = shoulderPitch
-    rightWing.pivot.rotation.x = shoulderPitch
+    leftWing.pivot.rotation.set(shoulderPitch, 0, shoulderAngle)
+    rightWing.pivot.rotation.set(shoulderPitch, 0, -shoulderAngle)
+    leftWing.pivot.updateMatrix()
+    rightWing.pivot.updateMatrix()
 
     // 2. Elbow joint articulation: flexes and folds with phase lead
     const idleElbow = 0.08 + Math.sin(t * 9 + 0.5) * 0.06
     const elbowFlexZ = idleElbow + wingPulse * 0.36
-    leftWing.elbow.rotation.z = elbowFlexZ
-    rightWing.elbow.rotation.z = -elbowFlexZ
-    leftWing.elbow.rotation.x = -wingPulse * 0.07
-    rightWing.elbow.rotation.x = -wingPulse * 0.07
+    const elbowPitch = -wingPulse * 0.07
+    leftWing.elbow.rotation.set(elbowPitch, 0, elbowFlexZ)
+    rightWing.elbow.rotation.set(elbowPitch, 0, -elbowFlexZ)
+    leftWing.elbow.updateMatrix()
+    rightWing.elbow.updateMatrix()
 
     // 3. Wrist joint articulation: aerodynamic whip and secondary flexion
     const idleWrist = 0.06 + Math.sin(t * 9 + 1.0) * 0.07
     const wristFlexZ = idleWrist + Math.sin(wingPulse * Math.PI) * 0.42
-    leftWing.wrist.rotation.z = wristFlexZ
-    rightWing.wrist.rotation.z = -wristFlexZ
-    leftWing.wrist.rotation.y = -wingPulse * 0.08
-    rightWing.wrist.rotation.y = wingPulse * 0.08
+    const wristYaw = wingPulse * 0.08
+    leftWing.wrist.rotation.set(0, -wristYaw, wristFlexZ)
+    rightWing.wrist.rotation.set(0, wristYaw, -wristFlexZ)
+    leftWing.wrist.updateMatrix()
+    rightWing.wrist.updateMatrix()
 
     // Dynamic tail deflection: pitch flare on climb, rudder yaw/roll on strafe
-    tail.rotation.x = 0.2 + wingPulse * 0.12 - (vy / VY_MAX) * 0.06
-    tail.rotation.y = -vx * 0.035
-    tail.rotation.z = -vx * 0.025
+    tail.rotation.set(0.2 + wingPulse * 0.12 - (vy / VY_MAX) * 0.06, -vx * 0.035, -vx * 0.025)
+    tail.updateMatrix()
 
     // Thruster flare & Mach diamonds: backwash casts light down conduit on flap
     const glow = 0.65 + thrustPulse * 1.6 + Math.sin(t * 23) * 0.05 + afterburner * 0.5
     thruster.cone.visible = true
     const girth = 1 + thrustPulse * 0.35 + afterburner * 0.25
     thruster.cone.scale.set(girth, 1 + thrustPulse * 1.4 + afterburner * BURNER_STRETCH, girth)
+    thruster.cone.updateMatrix()
     thruster.material.uniforms.uIntensity.value = glow * 1.7
-    thruster.material.uniforms.uColor.value.copy(thrustCold).lerp(thrustHot, afterburner)
-    thruster.light.color.copy(thruster.material.uniforms.uColor.value)
+    if (afterburner !== lastAfterburner) {
+      lastAfterburner = afterburner
+      thruster.material.uniforms.uColor.value.copy(thrustCold).lerp(thrustHot, afterburner)
+      thruster.light.color.copy(thruster.material.uniforms.uColor.value)
+    }
     thruster.light.intensity = 0.9 + thrustPulse * 3.6 + afterburner * 1.5
     thruster.light.distance = 5.5 + thrustPulse * 8.5
   }
@@ -722,8 +790,11 @@ export function createBird(scene, materials) {
     pos.y += vy * dt
 
     group.position.copy(pos)
-    group.rotation.z = THREE.MathUtils.damp(group.rotation.z, -(vx + slip) * 0.09, 12, dt)
-    group.rotation.x = THREE.MathUtils.damp(group.rotation.x, -vy * 0.035, 10, dt)
+    group.rotation.set(
+      THREE.MathUtils.damp(group.rotation._x, -vy * 0.035, 10, dt),
+      0,
+      THREE.MathUtils.damp(group.rotation._z, -(vx + slip) * 0.09, 12, dt),
+    )
     animateWings(dt)
 
     // Dynamic proximity warning wash against conduit walls
@@ -746,9 +817,11 @@ export function createBird(scene, materials) {
   /** Tumbling wreck after a crash. */
   function updateDead(dt) {
     proxLight.intensity = 0
-    group.rotation.x += deadSpin.x * dt
-    group.rotation.y += deadSpin.y * dt
-    group.rotation.z += deadSpin.z * dt
+    group.rotation.set(
+      group.rotation._x + deadSpin.x * dt,
+      group.rotation._y + deadSpin.y * dt,
+      group.rotation._z + deadSpin.z * dt,
+    )
     pos.y += vy * dt
     vy += DEAD_GRAVITY * dt
     // Wreck settles on the conduit floor rather than dragging the camera out of the tunnel.
@@ -759,6 +832,8 @@ export function createBird(scene, materials) {
     }
     pos.x = THREE.MathUtils.clamp(pos.x, -DEAD_WALL, DEAD_WALL)
     group.position.copy(pos)
+    group.updateMatrix()
+    group.updateMatrixWorld()
   }
 
   reset()
@@ -802,6 +877,8 @@ export function createBird(scene, materials) {
     updateDead,
     toggleCollider() {
       collider.visible = !collider.visible
+      collider.matrixWorldAutoUpdate = collider.visible
+      if (collider.visible) collider.matrixWorld.copy(group.matrixWorld)
     },
   }
 }

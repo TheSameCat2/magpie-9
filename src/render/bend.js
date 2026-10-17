@@ -8,13 +8,14 @@ import { BEND_NEAR, BEND_SAMPLES, BEND_STEP } from '../config/bends.js'
 import { UNIFORMS } from './uniforms.js'
 
 const f = (n) => (Number.isInteger(n) ? `${n}.0` : String(n))
+const INV_BEND_STEP = 1 / BEND_STEP
 
 export const BEND_GLSL = /* glsl */ `
 uniform vec3 uBend[${BEND_SAMPLES}];
 
 // Centreline (x, z, heading) at distance d ahead; straight past either end of the table.
 vec3 bendFrame(float d) {
-  float f = (d - ${f(BEND_NEAR)}) / ${f(BEND_STEP)};
+  float f = (d - ${f(BEND_NEAR)}) * ${f(INV_BEND_STEP)};
   float last = ${f(BEND_SAMPLES - 1)};
   if (f <= 0.0 || f >= last) {
     vec3 row = f <= 0.0 ? uBend[0] : uBend[${BEND_SAMPLES - 1}];
@@ -47,6 +48,16 @@ vec3 bendViewNormal(vec3 n, vec3 p) {
   float z = (modelMatrix * vec4(p, 1.0)).z;
   return normalize(mat3(viewMatrix) * bendDirection(normalize(mat3(modelMatrix) * n), z));
 }
+
+void bendModelViewAndNormal(vec3 p, vec3 n, out vec4 mv, out vec3 vNorm) {
+  vec4 w = modelMatrix * vec4(p, 1.0);
+  vec3 c = bendFrame(-w.z);
+  float cs = cos(c.z);
+  float sn = sin(c.z);
+  mv = viewMatrix * vec4(c.x + w.x * cs, w.y, c.y + w.x * sn, 1.0);
+  vec3 wn = normalize(mat3(modelMatrix) * n);
+  vNorm = normalize(mat3(viewMatrix) * vec3(wn.x * cs - wn.z * sn, wn.y, wn.x * sn + wn.z * cs));
+}
 `
 
 const PROJECT = /* glsl */ `
@@ -54,9 +65,15 @@ vec4 mvPosition = bendModelView(transformed);
 gl_Position = projectionMatrix * mvPosition;
 `
 
+const PROJECT_WITH_NORMAL = /* glsl */ `
+vec4 mvPosition = _bendMv;
+gl_Position = projectionMatrix * mvPosition;
+`
+
 const NORMAL = /* glsl */ `
-#include <defaultnormal_vertex>
-transformedNormal = bendViewNormal(objectNormal, position);
+vec4 _bendMv;
+vec3 transformedNormal;
+bendModelViewAndNormal(position, objectNormal, _bendMv, transformedNormal);
 `
 
 /**
@@ -69,10 +86,11 @@ export function bendMaterial(material) {
   material.onBeforeCompile = (shader, renderer) => {
     previous?.call(material, shader, renderer)
     shader.uniforms.uBend = UNIFORMS.uBend
+    const hasNormal = shader.vertexShader.includes('#include <defaultnormal_vertex>')
     shader.vertexShader = shader.vertexShader
       .replace('void main() {', `${BEND_GLSL}\nvoid main() {`)
-      .replace('#include <project_vertex>', PROJECT)
-    if (shader.vertexShader.includes('#include <defaultnormal_vertex>')) {
+      .replace('#include <project_vertex>', hasNormal ? PROJECT_WITH_NORMAL : PROJECT)
+    if (hasNormal) {
       shader.vertexShader = shader.vertexShader.replace('#include <defaultnormal_vertex>', NORMAL)
     }
   }

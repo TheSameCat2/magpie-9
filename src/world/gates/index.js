@@ -3,7 +3,7 @@ import { FIRST_GATE_Z } from '../../config/rules.js'
 import { RECYCLE_Z } from '../../config/world.js'
 import { clamp01 } from '../../lib/math.js'
 import { hitObstacle } from '../collision.js'
-import { configureGate, createGateSlot, placeSledHatch } from './slot.js'
+import { configureGate, createGateSlot, updateSledX } from './slot.js'
 import { HOLE_H, HOLE_W, layoutGate, openingShape, pickGateType } from './layout.js'
 import { GATE_COLOR, GATE_KINDS, isHatchGate } from './kinds.js'
 
@@ -27,6 +27,8 @@ const RING_FADE_Z = 3.4
 export function createGates(scene, materials) {
   const root = new THREE.Group()
   root.name = 'gates'
+  root.matrixAutoUpdate = false
+  root.matrixWorldAutoUpdate = false
   scene.add(root)
 
   const pool = []
@@ -55,11 +57,17 @@ export function createGates(scene, materials) {
   function reset() {
     spawnIndex = 0
     lastType = null
-    for (const gate of pool) deactivate(gate)
+    for (let i = 0; i < POOL_SIZE; i++) deactivate(pool[i])
   }
 
   function spawn(score, diff, z, gap, typeFor, spec) {
-    const gate = pool.find((g) => !g.active)
+    let gate = null
+    for (let i = 0; i < POOL_SIZE; i++) {
+      if (!pool[i].active) {
+        gate = pool[i]
+        break
+      }
+    }
     if (!gate) {
       dropped += 1
       return null
@@ -77,7 +85,8 @@ export function createGates(scene, materials) {
   /** Z of the deepest live gate, or null when none is active. */
   function farthestZ() {
     let z = null
-    for (const gate of pool) {
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const gate = pool[i]
       if (gate.active && (z === null || gate.z < z)) z = gate.z
     }
     return z
@@ -92,7 +101,11 @@ export function createGates(scene, materials) {
    * @param gapFor   spacing back to the previous gate for spawn index i (bends widen some gaps)
    * @param horizon  stop once the deepest gate is at or past this z
    */
-  function ensureAhead(score, diff, out, { typeFor, course, gapFor, horizon = SPAWN_HORIZON_Z } = {}) {
+  function ensureAhead(score, diff, out, opts) {
+    const typeFor = opts?.typeFor
+    const course = opts?.course
+    const gapFor = opts?.gapFor
+    const horizon = opts?.horizon ?? SPAWN_HORIZON_Z
     if (out) out.length = 0
     for (let guard = 0; guard < 8; guard++) {
       if (course && spawnIndex >= course.length) break
@@ -115,8 +128,9 @@ export function createGates(scene, materials) {
     if (gate.hit > 0) gate.hit = Math.max(0, gate.hit - dt * 3.2)
     u.uHit.value = gate.hit
     // Fade the frame out once threaded so it never sits on the lens as it passes the camera.
-    u.uFade.value = gate.z > 0 ? clamp01(1 - gate.z / PASS_FADE_Z) : 1
-    gate.frame.visible = u.uFade.value > 0.001
+    const fade = gate.z > 0 ? clamp01(1 - gate.z / PASS_FADE_Z) : 1
+    u.uFade.value = fade
+    gate.frame.visible = fade > 0.001
   }
 
   function animateRing(gate, dt) {
@@ -137,17 +151,29 @@ export function createGates(scene, materials) {
     // paused (dt = 0) so a resume never meets a jumped hatch.
     gate.sled.phase += dt * gate.sled.freq
     gate.hole.x = gate.sled.baseX + gate.sled.amp * Math.sin(gate.sled.phase)
-    placeSledHatch(gate)
+    updateSledX(gate)
   }
 
   function scroll(dz, dt) {
-    for (const gate of pool) {
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const gate = pool[i]
       if (!gate.active) continue
-      gate.z += dz
-      gate.group.position.z = gate.z
-      if (gate.z > RECYCLE_Z) {
+      const z = gate.z + dz
+      gate.z = z
+      gate.group.position.z = z
+      if (z > RECYCLE_Z) {
         deactivate(gate)
         continue
+      }
+      gate.group.matrix.elements[14] = z
+      gate.group.matrixWorld.elements[14] = z
+      const activeParts = gate.activeParts
+      for (let j = 0; j < activeParts.length; j++) {
+        const part = activeParts[j]
+        part.matrixWorld.elements[14] = part.matrix.elements[14] + z
+      }
+      if (gate.ringT >= 0) {
+        gate.ring.matrixWorld.elements[14] = gate.ring.matrix.elements[14] + z
       }
       if (gate.sled) animateSled(gate, dt)
       animateFrame(gate, dt)
@@ -180,12 +206,16 @@ export function createGates(scene, materials) {
     }
     u.uExpand.value = RING_EXPAND
     ring.visible = true
+    ring.updateMatrix()
+    ring.matrixWorld.copy(ring.matrix)
+    ring.matrixWorld.elements[14] = ring.matrix.elements[14] + gate.z
   }
 
   /** Marks gates the bird has passed this frame and pushes them into `out`. */
   function collectPassed(out) {
     out.length = 0
-    for (const gate of pool) {
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const gate = pool[i]
       if (gate.active && !gate.scored && gate.z >= 0) {
         gate.scored = true
         out.push(gate)
@@ -195,7 +225,8 @@ export function createGates(scene, materials) {
   }
 
   function hits(pos, hit) {
-    for (const gate of pool) {
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const gate = pool[i]
       if (gate.active && hitObstacle(pos, hit, gate)) return gate
     }
     return null
@@ -204,7 +235,8 @@ export function createGates(scene, materials) {
   /** The closest gate the bird has not yet passed. */
   function nearestAhead() {
     let nearest = null
-    for (const gate of pool) {
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const gate = pool[i]
       if (!gate.active || gate.scored) continue
       if (!nearest || gate.z > nearest.z) nearest = gate
     }

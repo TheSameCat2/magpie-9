@@ -19,13 +19,29 @@ export function createSpawner({ gates, powerups, bends, run, rand = Math.random 
   /** Gate index in the current sector that carries the spare life. */
   let lifeSlot = -1
 
+  let cachedScore = -1
+  let cachedTutorial = null
+  let cachedDiff = null
+  const bendsOpts = { gapFor, horizon: BEND_SPAWN_HORIZON_Z }
+  const runOpts = { typeFor: undefined, course: undefined }
+
   function reset() {
     lifeSlot = -1
     pendingBends.clear()
+    cachedScore = -1
+    cachedTutorial = null
   }
 
   function currentDifficulty() {
-    return run.tutorial ? tutorialDifficulty() : difficulty(run.score)
+    const tut = run.tutorial
+    const score = run.score
+    if (cachedDiff && tut === cachedTutorial && score === cachedScore) {
+      return cachedDiff
+    }
+    cachedTutorial = tut
+    cachedScore = score
+    cachedDiff = tut ? tutorialDifficulty() : difficulty(score)
+    return cachedDiff
   }
 
   function rollRunOrb(index) {
@@ -70,15 +86,14 @@ export function createSpawner({ gates, powerups, bends, run, rand = Math.random 
   function spawnAhead() {
     const diff = currentDifficulty()
     if (run.bends) {
-      gates.ensureAhead(run.score, diff, spawned, { gapFor, horizon: BEND_SPAWN_HORIZON_Z })
-      for (const gate of spawned) fillBendGap(gate)
+      gates.ensureAhead(run.score, diff, spawned, bendsOpts)
+      for (let i = 0; i < spawned.length; i++) fillBendGap(spawned[i])
       return
     }
-    gates.ensureAhead(run.score, diff, spawned, {
-      typeFor: run.tutorial ? tutorialGateType : undefined,
-      course: run.challenge ? run.course : undefined,
-    })
-    for (const gate of spawned) dropOrb(gate, diff.spacing)
+    runOpts.typeFor = run.tutorial ? tutorialGateType : undefined
+    runOpts.course = run.challenge ? run.course : undefined
+    gates.ensureAhead(run.score, diff, spawned, runOpts)
+    for (let i = 0; i < spawned.length; i++) dropOrb(spawned[i], diff.spacing)
   }
 
   return { reset, spawnAhead, currentDifficulty }

@@ -130,8 +130,11 @@ varying vec3 vWorld;
 
 void main() {
   float phase = vWorld.z * uPulseScale - uTime * 1.15;
-  float wave = pow(0.5 + 0.5 * sin(phase * 6.2831), 6.0);
-  float wave2 = pow(0.5 + 0.5 * sin(phase * 6.2831 * 0.37 + 1.7), 3.0) * 0.35;
+  float w0 = 0.5 + 0.5 * sin(phase * 6.2831);
+  float w02 = w0 * w0;
+  float wave = w02 * w02 * w02;
+  float w1 = 0.5 + 0.5 * sin(phase * 6.2831 * 0.37 + 1.7);
+  float wave2 = w1 * w1 * w1 * 0.35;
 
   // Approaching hazard triggers a warning strobe wave accelerating down the ribs
   float strobe = 0.0;
@@ -147,7 +150,9 @@ void main() {
   // Shunt overdrive energy surge: conduit neon ribs pulse with high-frequency ice-cyan waves
   if (uOverdrive > 0.001) {
     float drivePhase = vWorld.z * (uPulseScale * 1.8) - uTime * 3.6;
-    float driveWave = pow(0.5 + 0.5 * sin(drivePhase * 6.2831), 4.0);
+    float dw0 = 0.5 + 0.5 * sin(drivePhase * 6.2831);
+    float dw2 = dw0 * dw0;
+    float driveWave = dw2 * dw2;
     vec3 iceCyan = vec3(0.24, 0.88, 1.0);
     col = mix(col, iceCyan * (i + 1.2), uOverdrive * 0.75);
     col += vec3(0.55, 0.95, 1.0) * driveWave * uOverdrive * 2.2;
@@ -202,7 +207,10 @@ void main() {
   float edgeJitter = 0.032 * arc1 * noiseArc;
   
   // Dancing coronal tendrils leaping into the clearance gap
-  float tendril = pow(max(0.0, sin(along * 16.0 + sin(uTime * 34.0) * 3.5)), 7.0);
+  float t0 = max(0.0, sin(along * 16.0 + sin(uTime * 34.0) * 3.5));
+  float t2 = t0 * t0;
+  float t4 = t2 * t2;
+  float tendril = t4 * t2 * t0;
   float corona = exp(-edgeWorld * 4.5) * tendril * 1.6;
 
   // Internal plasma currents
@@ -286,52 +294,61 @@ void main() {
   }
 
   float laneH = 0.4;
-  float ly = st.y / laneH;
+  float ly = st.y * 2.5;
   float lane = floor(ly);
   vec2 p = vec2(st.x, (fract(ly) - 0.5) * laneH);
 
   float r1 = hash21(vec2(lane, 3.1));
   float r2 = hash21(vec2(lane, 7.7));
   float r3 = hash21(vec2(lane, 11.3));
-  float r4 = hash21(vec2(lane, 19.9));
-  // "active" is reserved in GLSL ES 3.00, hence "routed".
-  float routed = step(0.52, r1);
-
-  // Route: pad at x0, run, dogleg at xj, run to x1 (or off the open edge).
-  float x0 = r2 * ext.x * 0.42 + 0.12;
-  float toEdge = step(0.55, r4);
-  float x1 = mix(ext.x - r3 * ext.x * 0.3, ext.x + 0.5, toEdge);
-  float xj = mix(x0 + 0.35, x1 - 0.45, fract(r3 * 5.3));
-  float straight = step(0.78, r2);
-  float lift = laneH * 0.2 * (1.0 - straight);
-  float yA = mix(-lift, lift, step(0.5, r4));
-  float yB = -yA;
-  float dj = abs(yB - yA);
-
-  float d = sdSeg(p, vec2(x0, yA), vec2(xj, yA));
-  d = min(d, sdSeg(p, vec2(xj, yA), vec2(xj + dj, yB)));
-  d = min(d, sdSeg(p, vec2(xj + dj, yB), vec2(x1, yB)));
-  float tw = 0.028 + step(0.9, r1) * 0.016;
-  float trace = smoothstep(tw, tw * 0.45, d) * routed;
-
   float padR = 0.07;
-  float pads = pad(p, vec2(x0, yA), padR);
-  pads += pad(p, vec2(x1, yB), padR) * (1.0 - toEdge);
-  pads *= routed;
+  float trace = 0.0;
+  float pads = 0.0;
+  float via = 0.0;
 
-  // Sparse standalone vias on lanes that carry no trace.
-  float vx = fract(r3 * 9.7) * ext.x;
-  float via = pad(p, vec2(vx, 0.0), padR * 0.8) * (1.0 - routed) * step(0.7, r2);
+  if (r1 >= 0.52) {
+    float r4 = hash21(vec2(lane, 19.9));
+    // Route: pad at x0, run, dogleg at xj, run to x1 (or off the open edge).
+    float x0 = r2 * ext.x * 0.42 + 0.12;
+    float toEdge = step(0.55, r4);
+    float x1 = mix(ext.x - r3 * ext.x * 0.3, ext.x + 0.5, toEdge);
+    float xj = mix(x0 + 0.35, x1 - 0.45, fract(r3 * 5.3));
+    float straight = step(0.78, r2);
+    float lift = laneH * 0.2 * (1.0 - straight);
+    float yA = mix(-lift, lift, step(0.5, r4));
+    float yB = -yA;
+    float dj = abs(yB - yA);
 
-  float packet = pow(0.5 + 0.5 * sin(st.x * 2.6 - uTime * 5.2 + lane * 1.9), 12.0);
-  float packet2 = pow(0.5 + 0.5 * sin(st.x * 1.1 - uTime * 2.1 + r1 * 6.2831), 5.0) * 0.4;
+    float d = sdSeg(p, vec2(x0, yA), vec2(xj, yA));
+    d = min(d, sdSeg(p, vec2(xj, yA), vec2(xj + dj, yB)));
+    d = min(d, sdSeg(p, vec2(xj + dj, yB), vec2(x1, yB)));
+    float tw = 0.028 + step(0.9, r1) * 0.016;
+    trace = smoothstep(tw, tw * 0.45, d);
+
+    pads = pad(p, vec2(x0, yA), padR);
+    if (toEdge < 0.5) {
+      pads += pad(p, vec2(x1, yB), padR);
+    }
+  } else if (r2 >= 0.7) {
+    // Sparse standalone vias on lanes that carry no trace.
+    float vx = fract(r3 * 9.7) * ext.x;
+    via = pad(p, vec2(vx, 0.0), padR * 0.8);
+  }
+
+  float pk0 = 0.5 + 0.5 * sin(st.x * 2.6 - uTime * 5.2 + lane * 1.9);
+  float pk2 = pk0 * pk0;
+  float pk4 = pk2 * pk2;
+  float packet = pk4 * pk4 * pk4;
+  float qk0 = 0.5 + 0.5 * sin(st.x * 1.1 - uTime * 2.1 + r1 * 6.2831);
+  float qk2 = qk0 * qk0;
+  float packet2 = qk2 * qk2 * qk0 * 0.4;
   float current = packet + packet2;
 
   float openBus = exp(-(0.5 - vLocal.x) * 15.0);
   float openFace = smoothstep(0.42, 0.5, vLocal.x);
   float breathe = 0.9 + 0.1 * sin(uTime * 2.1 + r1 * 3.0);
 
-  float prox = clamp(1.0 - vDepth / 38.0, 0.0, 1.0);
+  float prox = clamp(1.0 - vDepth * (1.0 / 38.0), 0.0, 1.0);
   float boost = 0.72 + prox * prox * 0.9;
 
   // Substrate stays dim so the board reads as a lit panel, not a laser field.
@@ -357,9 +374,9 @@ varying vec3 vViewPos;
 varying vec3 vViewNormal;
 varying float vDepth;
 void main() {
-  vec4 mv = bendModelView(position);
+  vec4 mv;
+  bendModelViewAndNormal(position, normal, mv, vViewNormal);
   vViewPos = mv.xyz;
-  vViewNormal = bendViewNormal(normal, position);
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
 }
@@ -454,16 +471,24 @@ varying float vDepth;
 
 void main() {
   float age = uTime - aBirth;
-  float t = clamp(age / aLife, 0.0, 1.0);
-  float alive = step(0.0, age) * step(t, 0.999);
+  if (age < 0.0 || age >= aLife) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    gl_PointSize = 0.0;
+    vAlpha = 0.0;
+    vDepth = 0.0;
+    vColor = vec3(0.0);
+    return;
+  }
+  float t = age / aLife;
   vec3 p = position + aVel * age * (1.0 - t * 0.55);
   p.y -= aGravity * age * age * 0.5;
   p.z += uScroll - aScroll0;
   vec4 mv = bendModelView(p);
   vDepth = -mv.z;
   vColor = aColor;
-  vAlpha = alive * (1.0 - t) * (1.0 - t) * smoothstep(0.3, 2.2, -mv.z);
-  float size = aSize * (1.0 - t * 0.5) * alive;
+  float invT = 1.0 - t;
+  vAlpha = invT * invT * smoothstep(0.3, 2.2, -mv.z);
+  float size = aSize * (1.0 - t * 0.5);
   gl_PointSize = min(size * uPixelRatio * 260.0 / max(0.5, -mv.z), 72.0 * uPixelRatio);
   gl_Position = projectionMatrix * mv;
 }
@@ -574,11 +599,20 @@ void main() {
 // forming over swept wings during high-velocity Shunt overdrive.
 // ---------------------------------------------------------------------------
 export const SHOCK_CONE_VERT = /* glsl */ `
+uniform float uOverdrive;
 varying vec3 vPosition;
 varying vec3 vViewNormal;
 varying vec3 vViewPos;
 varying float vDepth;
 void main() {
+  if (uOverdrive <= 0.001) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    vPosition = vec3(0.0);
+    vViewNormal = vec3(0.0, 0.0, 1.0);
+    vViewPos = vec3(0.0);
+    vDepth = 0.0;
+    return;
+  }
   vPosition = position;
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   vViewNormal = normalize(normalMatrix * normal);
@@ -632,8 +666,12 @@ void main() {
   vUv = uv;
   vec4 w = modelMatrix * vec4(position, 1.0);
   vWorld = w.xyz;
-  vec4 mv = viewMatrix * vec4(bendWorld(w.xyz), 1.0);
-  vViewNormal = bendViewNormal(normal, position);
+  vec3 c = bendFrame(-w.z);
+  float cs = cos(c.z);
+  float sn = sin(c.z);
+  vec4 mv = viewMatrix * vec4(c.x + w.x * cs, w.y, c.y + w.x * sn, 1.0);
+  vec3 wn = normalize(mat3(modelMatrix) * normal);
+  vViewNormal = normalize(mat3(viewMatrix) * vec3(wn.x * cs - wn.z * sn, wn.y, wn.x * sn + wn.z * cs));
   vViewPos = mv.xyz;
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
@@ -699,7 +737,8 @@ void main() {
   float coreNeedle = exp(-along * 5.2) * 1.6;
 
   // Ionized plasma mantle
-  float mantle = pow(1.0 - along, 2.0) * 0.72;
+  float invAlong = 1.0 - along;
+  float mantle = invAlong * invAlong * 0.72;
 
   // Expansion shock wave rings
   float shockRing = smoothstep(0.2, 0.0, abs(cell - 0.5)) * cellEnvelope * 0.35;

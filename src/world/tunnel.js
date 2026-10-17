@@ -49,7 +49,7 @@ function ringOf(w, h, d, radius, z, atVertices = false, slices = 1) {
 
 let sharedGeometry = null
 
-/** Geometry every segment shares: plates, rib, vertex strips, gantry. Built once. */
+/** Geometry every segment shares: plates, rib, vertex strips, gantry, shaft, cable, panel. Built once. */
 function segmentGeometry() {
   if (!sharedGeometry) {
     sharedGeometry = {
@@ -66,6 +66,8 @@ function segmentGeometry() {
       strip: ringOf(0.055, 0.055, SEGMENT_LENGTH, TUNNEL_VERTEX_RADIUS - 0.09, 0, true, BEND_SLICES),
       gantry: ringOf(WALL_WIDTH * 0.9, 0.3, 0.34, TUNNEL_APOTHEM - 0.14, SEGMENT_LENGTH * 0.5 - 0.3),
       shaft: new THREE.CylinderGeometry(0.35, 1.5, 5.2, 16, 1, true),
+      cable: new THREE.BoxGeometry(0.07, 0.07, SEGMENT_LENGTH * 0.85, 1, 1, BEND_SLICES),
+      panel: new THREE.BoxGeometry(1.4, 0.9, 0.06),
     }
   }
   return sharedGeometry
@@ -76,14 +78,17 @@ function faceAngle(i) {
   return (i % 6) * (Math.PI / 3) + Math.PI / 6
 }
 
+const SHAFT_Z = SEGMENT_LENGTH * 0.5 - 0.3
+
 function createSegment(materials, index) {
   const geo = segmentGeometry()
   const group = new THREE.Group()
   const even = index % 2 === 0
 
-  group.add(new THREE.Mesh(geo.plate, materials.metal))
-  group.add(new THREE.Mesh(geo.rib, even ? materials.ribIce : materials.ribSodium))
-  group.add(new THREE.Mesh(geo.strip, materials.stripIce))
+  const plate = new THREE.Mesh(geo.plate, materials.metal)
+  const rib = new THREE.Mesh(geo.rib, even ? materials.ribIce : materials.ribSodium)
+  const strip = new THREE.Mesh(geo.strip, materials.stripIce)
+  group.add(plate, rib, strip)
 
   // Detail props are toggled at random on each recycle so the loop never reads as a loop.
   const gantry = new THREE.Mesh(geo.gantry, materials.metalHi)
@@ -91,14 +96,11 @@ function createSegment(materials, index) {
   group.add(gantry)
 
   const shaft = new THREE.Mesh(geo.shaft, materials.volumetricShaft)
-  shaft.position.set(0, 1.3, SEGMENT_LENGTH * 0.5 - 0.3)
+  shaft.position.set(0, 1.3, SHAFT_Z)
   shaft.visible = even && index % 4 === 0
   group.add(shaft)
 
-  const cable = new THREE.Mesh(
-    new THREE.BoxGeometry(0.07, 0.07, SEGMENT_LENGTH * 0.85, 1, 1, BEND_SLICES),
-    materials.metalHi,
-  )
+  const cable = new THREE.Mesh(geo.cable, materials.metalHi)
   const cableTheta = faceAngle(index)
   cable.position.set(
     Math.cos(cableTheta) * (TUNNEL_APOTHEM - 0.12),
@@ -108,7 +110,7 @@ function createSegment(materials, index) {
   cable.visible = index % 3 !== 0
   group.add(cable)
 
-  const panel = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.9, 0.06), materials.plate)
+  const panel = new THREE.Mesh(geo.panel, materials.plate)
   const panelTheta = faceAngle(index + 2)
   panel.position.set(
     Math.cos(panelTheta) * (TUNNEL_APOTHEM - 0.08),
@@ -119,25 +121,47 @@ function createSegment(materials, index) {
   panel.visible = even
   group.add(panel)
 
+  group.updateMatrixWorld(true)
   // Culling reads straight-conduit bounds, which a bend moves the mesh away from.
   group.traverse((o) => {
     o.frustumCulled = false
+    o.matrixAutoUpdate = false
+    o.matrixWorldAutoUpdate = false
   })
-  return { group, gantry, shaft, cable, panel }
+  return { group, plate, rib, strip, gantry, shaft, cable, panel }
+}
+
+function setSegmentZ(segment, z) {
+  const { group, plate, rib, strip, gantry, shaft, cable, panel } = segment
+  group.position.z = z
+  group.matrix.elements[14] = z
+  group.matrixWorld.elements[14] = z
+  plate.matrixWorld.elements[14] = z
+  rib.matrixWorld.elements[14] = z
+  strip.matrixWorld.elements[14] = z
+  gantry.matrixWorld.elements[14] = z
+  shaft.matrixWorld.elements[14] = z + SHAFT_Z
+  cable.matrixWorld.elements[14] = z
+  panel.matrixWorld.elements[14] = z + panel.position.z
 }
 
 /** Randomise the detail props when a segment wraps to the back. */
 function rerollDetails(segment) {
+  const gantryVis = Math.random() > 0.5
   segment.cable.visible = Math.random() > 0.35
-  segment.gantry.visible = Math.random() > 0.5
-  segment.shaft.visible = segment.gantry.visible && Math.random() > 0.35
+  segment.gantry.visible = gantryVis
+  segment.shaft.visible = gantryVis && Math.random() > 0.35
   segment.panel.visible = Math.random() > 0.45
-  segment.panel.position.z = (Math.random() - 0.5) * 4
+  const pz = (Math.random() - 0.5) * 4
+  segment.panel.position.z = pz
+  segment.panel.matrix.elements[14] = pz
 }
 
 export function createTunnel(scene, materials) {
   const root = new THREE.Group()
   root.name = 'tunnel'
+  root.matrixAutoUpdate = false
+  root.matrixWorldAutoUpdate = false
   const segments = []
 
   for (let i = 0; i < SEGMENT_COUNT; i++) {
@@ -148,22 +172,23 @@ export function createTunnel(scene, materials) {
   scene.add(root)
 
   function reset() {
-    segments.forEach((segment, i) => {
-      segment.group.position.z = HEAD_Z - i * SEGMENT_LENGTH
-    })
+    for (let i = 0; i < SEGMENT_COUNT; i++) {
+      setSegmentZ(segments[i], HEAD_Z - i * SEGMENT_LENGTH)
+    }
   }
 
   function scroll(dz) {
-    for (const segment of segments) {
-      const p = segment.group.position
-      p.z += dz
-      if (p.z > WRAP_Z) {
-        p.z -= POOL_LENGTH
+    for (let i = 0; i < SEGMENT_COUNT; i++) {
+      const segment = segments[i]
+      let z = segment.group.position.z + dz
+      if (z > WRAP_Z) {
+        z -= POOL_LENGTH
         rerollDetails(segment)
-      } else if (p.z <= WRAP_Z - POOL_LENGTH) {
+      } else if (z <= WRAP_Z - POOL_LENGTH) {
         // Rewinding (spare life) can pull a segment off the far end; bring it round to the front.
-        p.z += POOL_LENGTH
+        z += POOL_LENGTH
       }
+      setSegmentZ(segment, z)
     }
   }
 

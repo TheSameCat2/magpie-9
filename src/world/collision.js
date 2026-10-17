@@ -6,28 +6,20 @@ import { GATE_KINDS } from './gates/kinds.js'
 // axis-aligned box). Wings stay visual-only. Per-hazard rules live in
 // gates/kinds.js; this file is the dispatch and the conduit wall.
 
-// Outward normals of the flat-topped hex walls (30° + 60°·i), precomputed so
-// the per-frame wall test does not allocate.
-const HEX_WALL_NORMALS = []
-for (let i = 0; i < 6; i++) {
-  const t = i * (Math.PI / 3) + Math.PI / 6
-  HEX_WALL_NORMALS.push(Math.cos(t), Math.sin(t))
-}
+// Outward normal of the first quadrant slanted hex wall (30°); flat-topped hex
+// symmetry maps all 6 walls to |y| <= apothem and |x|*cos(30°) + |y|*sin(30°) <= apothem.
+const HEX_NX = Math.cos(Math.PI / 6)
+const HEX_NY = 0.5
+const _contact = { margin: Infinity, x: 0, y: 0, nx: 0, ny: 0 }
 
 export function hexOutside(x, y, apothem) {
-  for (let i = 0; i < HEX_WALL_NORMALS.length; i += 2) {
-    if (x * HEX_WALL_NORMALS[i] + y * HEX_WALL_NORMALS[i + 1] > apothem) return true
-  }
-  return false
+  const ay = Math.abs(y)
+  return ay > apothem || Math.abs(x) * HEX_NX + ay * HEX_NY > apothem
 }
 
 export function hitTunnel(pos, hit) {
-  for (let i = 0; i < HEX_WALL_NORMALS.length; i += 2) {
-    const nx = HEX_WALL_NORMALS[i]
-    const ny = HEX_WALL_NORMALS[i + 1]
-    if (pos.x * nx + pos.y * ny + hit.x * Math.abs(nx) + hit.y * Math.abs(ny) > TUNNEL_APOTHEM) return true
-  }
-  return false
+  const ay = Math.abs(pos.y) + hit.y
+  return ay > TUNNEL_APOTHEM || (Math.abs(pos.x) + hit.x) * HEX_NX + ay * HEX_NY > TUNNEL_APOTHEM
 }
 
 export function hitObstacle(pos, hit, gate) {
@@ -47,9 +39,15 @@ export function passMargin(pos, hit, gate) {
 }
 
 /** Exact contact location and spray normal for a near miss. */
-export function passContact(pos, hit, gate) {
+export function passContact(pos, hit, gate, out = _contact) {
   const kind = GATE_KINDS[gate.type]
-  return kind ? kind.contact(pos, hit, gate) : { margin: Infinity, x: pos.x, y: pos.y, nx: 0, ny: 0 }
+  if (kind) return kind.contact(pos, hit, gate, out)
+  out.margin = Infinity
+  out.x = pos.x
+  out.y = pos.y
+  out.nx = 0
+  out.ny = 0
+  return out
 }
 
 /** Sphere (orb) vs the bird's box. */

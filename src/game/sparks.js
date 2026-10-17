@@ -9,21 +9,32 @@ const IGNITION_TIME = 1
 
 export function createSparks({ fx, gates, bird, run }) {
   const shape = { x: 0, y: 0, hw: 0, hh: 0, edges: 0, nx: 0 }
+  const proxCache = new Float32Array(16)
   let level = 0
 
   function sparkGates(dt, phase) {
     // One gate at full proximity owns the whole stream budget. When several
     // gates overlap, normalise so their summed proximity never exceeds it.
     // Two passes over the pool, no allocation.
+    const slots = gates.slots
+    const count = slots.length
     let proxSum = 0
-    for (const gate of gates.slots) {
-      if (!gate.active) continue
-      proxSum += edgeProx(gate.z + gate.depth * 0.5)
+    for (let i = 0; i < count; i++) {
+      const gate = slots[i]
+      if (!gate.active) {
+        proxCache[i] = 0
+        continue
+      }
+      const p = edgeProx(gate.z + gate.depth * 0.5)
+      proxCache[i] = p
+      proxSum += p
     }
     if (proxSum <= 0) return
     const step = proxSum > 1 ? dt / proxSum : dt
-    for (const gate of gates.slots) {
-      if (!gate.active) continue
+    for (let i = 0; i < count; i++) {
+      const prox = proxCache[i]
+      if (prox <= 0) continue
+      const gate = slots[i]
       gates.edgeShape(gate, shape)
       fx.edgeSparks(
         shape.x,
@@ -35,6 +46,7 @@ export function createSparks({ fx, gates, bird, run }) {
         shape.nx,
         phase,
         step,
+        prox,
       )
     }
   }

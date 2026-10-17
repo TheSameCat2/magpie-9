@@ -98,17 +98,27 @@ function hatchMargin(pos, hit, gate) {
   return Math.min(mx, my)
 }
 
-function hatchContact(pos, hit, gate) {
+function hatchContact(pos, hit, gate, out = {}) {
   const dx = pos.x - gate.hole.x
   const dy = pos.y - gate.hole.y
   const mx = gate.hole.w * 0.5 - Math.abs(dx) - hit.x
   const my = gate.hole.h * 0.5 - Math.abs(dy) - hit.y
   if (mx < my) {
     const signX = dx >= 0 ? 1 : -1
-    return { margin: mx, x: pos.x + signX * hit.x, y: pos.y, nx: -signX, ny: 0 }
+    out.margin = mx
+    out.x = pos.x + signX * hit.x
+    out.y = pos.y
+    out.nx = -signX
+    out.ny = 0
+    return out
   }
   const signY = dy >= 0 ? 1 : -1
-  return { margin: my, x: pos.x, y: pos.y + signY * hit.y, nx: 0, ny: -signY }
+  out.margin = my
+  out.x = pos.x
+  out.y = pos.y + signY * hit.y
+  out.nx = 0
+  out.ny = -signY
+  return out
 }
 
 function laserBarHit(pos, hit, gate) {
@@ -119,16 +129,15 @@ function laserBarMargin(pos, hit, gate) {
   return gate.gapH * 0.5 - Math.abs(pos.y - gate.gapY) - hit.y
 }
 
-function laserBarContact(pos, hit, gate) {
+function laserBarContact(pos, hit, gate, out = {}) {
   const dy = pos.y - gate.gapY
   const signY = dy >= 0 ? 1 : -1
-  return {
-    margin: gate.gapH * 0.5 - Math.abs(dy) - hit.y,
-    x: pos.x,
-    y: pos.y + signY * hit.y,
-    nx: 0,
-    ny: -signY,
-  }
+  out.margin = gate.gapH * 0.5 - Math.abs(dy) - hit.y
+  out.x = pos.x
+  out.y = pos.y + signY * hit.y
+  out.nx = 0
+  out.ny = -signY
+  return out
 }
 
 function laserColHit(pos, hit, gate) {
@@ -139,16 +148,15 @@ function laserColMargin(pos, hit, gate) {
   return gate.gapW * 0.5 - Math.abs(pos.x - gate.gapX) - hit.x
 }
 
-function laserColContact(pos, hit, gate) {
+function laserColContact(pos, hit, gate, out = {}) {
   const dx = pos.x - gate.gapX
   const signX = dx >= 0 ? 1 : -1
-  return {
-    margin: gate.gapW * 0.5 - Math.abs(dx) - hit.x,
-    x: pos.x + signX * hit.x,
-    y: pos.y,
-    nx: -signX,
-    ny: 0,
-  }
+  out.margin = gate.gapW * 0.5 - Math.abs(dx) - hit.x
+  out.x = pos.x + signX * hit.x
+  out.y = pos.y
+  out.nx = -signX
+  out.ny = 0
+  return out
 }
 
 function pylonHit(pos, hit, gate) {
@@ -160,10 +168,15 @@ function pylonMargin(pos, hit, gate) {
   return Math.abs(pos.x - gate.edge) - hit.x
 }
 
-function pylonContact(pos, hit, gate) {
+function pylonContact(pos, hit, gate, out = {}) {
   const dx = pos.x - gate.edge
   const signX = dx >= 0 ? 1 : -1
-  return { margin: Math.abs(dx) - hit.x, x: pos.x - signX * hit.x, y: pos.y, nx: signX, ny: 0 }
+  out.margin = Math.abs(dx) - hit.x
+  out.x = pos.x - signX * hit.x
+  out.y = pos.y
+  out.nx = signX
+  out.ny = 0
+  return out
 }
 
 // ------------------------------------------------------------ spark shapes

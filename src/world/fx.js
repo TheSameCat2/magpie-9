@@ -38,37 +38,30 @@ const _c = new THREE.Color()
 const _tint = new THREE.Color()
 const _v = { x: 0, y: 0, z: 0 }
 
+const PARTICLE_STRIDE = 14
+
 function createParticles(scene) {
   const geo = new THREE.BufferGeometry()
-  const pos = new Float32Array(MAX_PARTICLES * 3)
-  const vel = new Float32Array(MAX_PARTICLES * 3)
-  const col = new Float32Array(MAX_PARTICLES * 3)
-  const birth = new Float32Array(MAX_PARTICLES).fill(-1e9)
-  const scroll0 = new Float32Array(MAX_PARTICLES)
-  const life = new Float32Array(MAX_PARTICLES).fill(1)
-  const size = new Float32Array(MAX_PARTICLES)
-  const grav = new Float32Array(MAX_PARTICLES)
-
-  const aPos = new THREE.BufferAttribute(pos, 3)
-  const aVel = new THREE.BufferAttribute(vel, 3)
-  const aCol = new THREE.BufferAttribute(col, 3)
-  const aBirth = new THREE.BufferAttribute(birth, 1)
-  const aScroll0 = new THREE.BufferAttribute(scroll0, 1)
-  const aLife = new THREE.BufferAttribute(life, 1)
-  const aSize = new THREE.BufferAttribute(size, 1)
-  const aGrav = new THREE.BufferAttribute(grav, 1)
-  for (const a of [aPos, aVel, aCol, aBirth, aScroll0, aLife, aSize, aGrav]) {
-    a.setUsage(THREE.DynamicDrawUsage)
+  const data = new Float32Array(MAX_PARTICLES * PARTICLE_STRIDE)
+  for (let i = 0; i < MAX_PARTICLES; i++) {
+    const o = i * PARTICLE_STRIDE
+    data[o + 9] = -1e9 // aBirth
+    data[o + 11] = 1 // aLife
   }
-  geo.setAttribute('position', aPos)
-  geo.setAttribute('aVel', aVel)
-  geo.setAttribute('aColor', aCol)
-  geo.setAttribute('aBirth', aBirth)
-  geo.setAttribute('aScroll0', aScroll0)
-  geo.setAttribute('aLife', aLife)
-  geo.setAttribute('aSize', aSize)
-  geo.setAttribute('aGravity', aGrav)
+
+  const interleaved = new THREE.InterleavedBuffer(data, PARTICLE_STRIDE)
+  interleaved.setUsage(THREE.DynamicDrawUsage)
+
+  geo.setAttribute('position', new THREE.InterleavedBufferAttribute(interleaved, 3, 0))
+  geo.setAttribute('aVel', new THREE.InterleavedBufferAttribute(interleaved, 3, 3))
+  geo.setAttribute('aColor', new THREE.InterleavedBufferAttribute(interleaved, 3, 6))
+  geo.setAttribute('aBirth', new THREE.InterleavedBufferAttribute(interleaved, 1, 9))
+  geo.setAttribute('aScroll0', new THREE.InterleavedBufferAttribute(interleaved, 1, 10))
+  geo.setAttribute('aLife', new THREE.InterleavedBufferAttribute(interleaved, 1, 11))
+  geo.setAttribute('aSize', new THREE.InterleavedBufferAttribute(interleaved, 1, 12))
+  geo.setAttribute('aGravity', new THREE.InterleavedBufferAttribute(interleaved, 1, 13))
   geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, -30), 200)
+  geo.setDrawRange(0, 0)
 
   const mat = new THREE.ShaderMaterial({
     vertexShader: PARTICLE_VERT,
@@ -86,41 +79,94 @@ function createParticles(scene) {
   })
   const points = new THREE.Points(geo, mat)
   points.frustumCulled = false
+  points.matrixAutoUpdate = false
+  points.matrixWorldAutoUpdate = false
   points.name = 'particles'
   scene.add(points)
 
   let head = 0
+  let filled = 0
+  let maxExpireTime = -1e9
   let dirty = false
-  const attrs = [aPos, aVel, aCol, aBirth, aScroll0, aLife, aSize, aGrav]
+  const range0 = { start: 0, count: 0 }
+  const range1 = { start: 0, count: 0 }
 
-  function emit(x, y, z, vx, vy, vz, color, lifeS, sizeU, g) {
-    const i = head
-    head = (head + 1) % MAX_PARTICLES
-    dirty = true
-    pos[i * 3] = x
-    pos[i * 3 + 1] = y
-    pos[i * 3 + 2] = z
-    vel[i * 3] = vx
-    vel[i * 3 + 1] = vy
-    vel[i * 3 + 2] = vz
-    col[i * 3] = color.r
-    col[i * 3 + 1] = color.g
-    col[i * 3 + 2] = color.b
-    birth[i] = UNIFORMS.uTime.value
-    scroll0[i] = UNIFORMS.uScroll.value
-    life[i] = lifeS
-    size[i] = sizeU
-    grav[i] = g
+  function recordRange(offset) {
+    const ranges = interleaved.updateRanges
+    const len = ranges.length
+    if (len === 0) {
+      range0.start = offset
+      range0.count = PARTICLE_STRIDE
+      ranges.push(range0)
+      return
+    }
+    const last = ranges[len - 1]
+    if (last.start + last.count === offset) {
+      last.count += PARTICLE_STRIDE
+      return
+    }
+    if (len === 1) {
+      range1.start = offset
+      range1.count = PARTICLE_STRIDE
+      ranges.push(range1)
+      return
+    }
+    // More than one wraparound before upload: fall back to full-buffer upload.
+    ranges.dataFull = true
   }
 
-  // Uploads the whole ring, so streams that emitted nothing this frame skip it.
+  function emit(x, y, z, vx, vy, vz, color, lifeS, sizeU, g) {
+    const t = UNIFORMS.uTime.value
+    if (t > maxExpireTime && !dirty) {
+      head = 0
+      filled = 0
+    }
+    const i = head
+    head = (head + 1) % MAX_PARTICLES
+    if (filled < MAX_PARTICLES) filled += 1
+    const expire = t + lifeS
+    if (expire > maxExpireTime) maxExpireTime = expire
+    dirty = true
+
+    const o = i * PARTICLE_STRIDE
+    data[o] = x
+    data[o + 1] = y
+    data[o + 2] = z
+    data[o + 3] = vx
+    data[o + 4] = vy
+    data[o + 5] = vz
+    data[o + 6] = color.r
+    data[o + 7] = color.g
+    data[o + 8] = color.b
+    data[o + 9] = t
+    data[o + 10] = UNIFORMS.uScroll.value
+    data[o + 11] = lifeS
+    data[o + 12] = sizeU
+    data[o + 13] = g
+    recordRange(o)
+  }
+
+  // Marks the interleaved buffer for upload once per emission batch.
   function flush() {
     if (!dirty) return
     dirty = false
-    for (const a of attrs) a.needsUpdate = true
+    if (interleaved.updateRanges.dataFull) {
+      interleaved.updateRanges.length = 0
+      interleaved.updateRanges.dataFull = false
+    }
+    geo.setDrawRange(0, filled)
+    interleaved.needsUpdate = true
   }
 
-  return { emit, flush }
+  function cullExpired() {
+    if (filled > 0 && !dirty && UNIFORMS.uTime.value > maxExpireTime) {
+      head = 0
+      filled = 0
+      geo.setDrawRange(0, 0)
+    }
+  }
+
+  return { emit, flush, cullExpired }
 }
 
 function createStreaks(scene) {
@@ -167,6 +213,8 @@ function createStreaks(scene) {
   )
   const lines = new THREE.LineSegments(geo, mat)
   lines.frustumCulled = false
+  lines.matrixAutoUpdate = false
+  lines.matrixWorldAutoUpdate = false
   lines.name = 'streaks'
   scene.add(lines)
 
@@ -175,18 +223,21 @@ function createStreaks(scene) {
     const overdrive = UNIFORMS.uOverdrive.value
     const len = 0.5 + speed * 0.13 + kick * 3.5 + overdrive * 2.2
     for (let i = 0; i < STREAKS; i++) {
-      sz[i] += dz
-      if (sz[i] > 8) {
-        sz[i] -= 70
+      let z = sz[i] + dz
+      if (z > 8) {
+        z -= 70
         place(i)
       }
+      sz[i] = z
+      const x = sx[i]
+      const y = sy[i]
       const o = i * 6
-      pos[o] = sx[i]
-      pos[o + 1] = sy[i]
-      pos[o + 2] = sz[i]
-      pos[o + 3] = sx[i]
-      pos[o + 4] = sy[i]
-      pos[o + 5] = sz[i] - len
+      pos[o] = x
+      pos[o + 1] = y
+      pos[o + 2] = z
+      pos[o + 3] = x
+      pos[o + 4] = y
+      pos[o + 5] = z - len
     }
     aPos.needsUpdate = true
     mat.opacity = THREE.MathUtils.clamp((speed - 6) / 16, 0.08, 0.6) + kick * 0.5 + overdrive * 0.35
@@ -229,6 +280,8 @@ function createDust(scene) {
   })
   const points = new THREE.Points(geo, mat)
   points.frustumCulled = false
+  points.matrixAutoUpdate = false
+  points.matrixWorldAutoUpdate = false
   points.name = 'dust'
   scene.add(points)
 }
@@ -269,8 +322,7 @@ export function createFx(scene) {
    * Call once per live gate per frame; the caller normalises `dt` when
    * several gates overlap so stacked gates cannot multiply the budget.
    */
-  function edgeSparks(x, y, z, hw, hh, edges, nx, phase, dt) {
-    const prox = edgeProx(z)
+  function edgeSparks(x, y, z, hw, hh, edges, nx, phase, dt, prox = edgeProx(z)) {
     if (prox <= 0 || dt <= 0) return
     const gain = sparkGain(phase)
     const pops = rollCount(EDGE_RATE * gain * density * prox * dt)
@@ -544,6 +596,7 @@ export function createFx(scene) {
     kick = Math.max(0, kick - dt * 3)
     scrollSpeed = speed
     streaks.update(dt, speed, kick)
+    particles.cullExpired()
   }
 
   return {

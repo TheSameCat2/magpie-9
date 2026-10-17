@@ -73,6 +73,8 @@ export function keyActivatesButton(target, key) {
   return (name === 'enter' || name === 'space') && fromButton(target)
 }
 
+const CHAR_RE = /^[A-Z0-9]$/
+
 /**
  * @param onGesture   fired on any key or pointer press; the audio unlock hook
  * @param onModeChange fired when the player switches between 'keys' and 'touch'
@@ -81,7 +83,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
   const held = { left: false, right: false }
   const stick = { active: false, originX: 0, originY: 0, dx: 0 }
   const lastTap = { x: 0, y: 0, at: 0 }
-  const edges = { ...EDGE_DEFAULTS }
+  let dirtyEdges = false
   let stickId = null
   let axis = 0
   let mode = preferTouch() ? 'touch' : 'keys'
@@ -100,34 +102,54 @@ export function createInput({ onGesture, onModeChange } = {}) {
     const k = normalizeKey(e.key)
     if (FLAP_KEYS.has(k)) {
       e.preventDefault()
-      edges.flapEdge = true
-      edges.restartEdge = true
+      api.flapEdge = true
+      api.restartEdge = true
+      dirtyEdges = true
     }
     if (LEFT_KEYS.has(k)) {
       held.left = true
-      edges.strafeEdge = -1
+      api.strafeEdge = -1
+      dirtyEdges = true
     }
     if (RIGHT_KEYS.has(k)) {
       held.right = true
-      edges.strafeEdge = 1
+      api.strafeEdge = 1
+      dirtyEdges = true
     }
-    if (UP_KEYS.has(k)) edges.navEdge = -1
-    if (DOWN_KEYS.has(k)) edges.navEdge = 1
+    if (UP_KEYS.has(k)) {
+      api.navEdge = -1
+      dirtyEdges = true
+    }
+    if (DOWN_KEYS.has(k)) {
+      api.navEdge = 1
+      dirtyEdges = true
+    }
     if (SELECT_KEYS.has(k)) {
       e.preventDefault()
-      edges.selectEdge = true
+      api.selectEdge = true
+      dirtyEdges = true
     }
     if (BACK_KEYS.has(k)) {
       e.preventDefault()
-      edges.backEdge = true
+      api.backEdge = true
+      dirtyEdges = true
     }
-    if (k === 'backspace') edges.eraseEdge = true
+    if (k === 'backspace') {
+      api.eraseEdge = true
+      dirtyEdges = true
+    }
     if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
       const ch = e.key.toUpperCase()
-      if (/^[A-Z0-9]$/.test(ch)) edges.charEdge = ch
+      if (CHAR_RE.test(ch)) {
+        api.charEdge = ch
+        dirtyEdges = true
+      }
     }
     const single = KEY_EDGES[k]
-    if (single) edges[single] = true
+    if (single) {
+      api[single] = true
+      dirtyEdges = true
+    }
   }
 
   function onKeyUp(e) {
@@ -153,8 +175,9 @@ export function createInput({ onGesture, onModeChange } = {}) {
       setMode('touch')
     }
 
-    edges.restartEdge = true
-    edges.tapEdge = true
+    api.restartEdge = true
+    api.tapEdge = true
+    dirtyEdges = true
 
     const captureEl = e.target instanceof Element ? e.target : document.documentElement
     try {
@@ -164,7 +187,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
     }
 
     if (e.pointerType === 'mouse') {
-      edges.flapEdge = true
+      api.flapEdge = true
       return
     }
 
@@ -179,7 +202,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
       stick.dx = 0
       axis = 0
     } else {
-      edges.flapEdge = true
+      api.flapEdge = true
       lastTap.x = e.clientX
       lastTap.y = e.clientY
       lastTap.at = performance.now()
@@ -212,6 +235,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
   window.addEventListener('blur', resetHeld)
 
   const api = {
+    ...EDGE_DEFAULTS,
     get left() {
       return held.left || axis < 0
     },
@@ -231,11 +255,22 @@ export function createInput({ onGesture, onModeChange } = {}) {
       return lastTap
     },
     endFrame() {
-      Object.assign(edges, EDGE_DEFAULTS)
+      if (!dirtyEdges) return
+      dirtyEdges = false
+      api.flapEdge = false
+      api.restartEdge = false
+      api.tapEdge = false
+      api.muteEdge = false
+      api.debugEdge = false
+      api.selectEdge = false
+      api.backEdge = false
+      api.helpEdge = false
+      api.pauseEdge = false
+      api.eraseEdge = false
+      api.navEdge = 0
+      api.strafeEdge = 0
+      api.charEdge = ''
     },
-  }
-  for (const name of Object.keys(EDGE_DEFAULTS)) {
-    Object.defineProperty(api, name, { get: () => edges[name], enumerable: true })
   }
   return api
 }

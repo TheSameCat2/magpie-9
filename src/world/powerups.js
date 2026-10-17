@@ -129,6 +129,9 @@ export function createPowerups(scene) {
     root.add(slot.group)
     pool.push(slot)
   }
+  // A full pool silently loses an orb; count it so `?debug=1` can tell a
+  // tuning problem from a spawn-rule problem. Lifetime counter, not reset.
+  let dropped = 0
   // Culling reads straight-conduit bounds, which a bend moves the mesh away from.
   root.traverse((o) => {
     o.frustumCulled = false
@@ -160,7 +163,10 @@ export function createPowerups(scene) {
    */
   function spawn(z, type = 'damper', spread = ORB_SPREAD, at) {
     const orb = pool.find((o) => !o.active)
-    if (!orb) return null
+    if (!orb) {
+      dropped += 1
+      return null
+    }
     if (at) {
       orb.x = at.x
       orb.y = at.y
@@ -229,5 +235,16 @@ export function createPowerups(scene) {
     }
   }
 
-  return { reset, spawn, scroll, collect, cullBehind, pool }
+  return {
+    reset,
+    spawn,
+    scroll,
+    collect,
+    cullBehind,
+    pool,
+    /** Spawns refused because the pool was full, for the debug overlay. */
+    get dropped() {
+      return dropped
+    },
+  }
 }

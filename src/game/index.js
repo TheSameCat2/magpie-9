@@ -98,6 +98,8 @@ export function createGame({
   const passedGates = []
   const collectedOrbs = []
   const burst = { x: 0, y: 0, hw: 0, hh: 0, color: 0 }
+  /** Reused per-frame input snapshot so update() does not allocate. */
+  const frame = { tapped: false, blocked: false }
 
   // ---------------------------------------------------------------- helpers
 
@@ -654,7 +656,8 @@ export function createGame({
     const tapped = input.flapEdge || input.restartEdge || input.tapEdge
     // While the manual is open, flaps must not start or reset a run.
     const blocked = screen.needsRotate || hud.helpOpen
-    const frame = { tapped, blocked }
+    frame.tapped = tapped
+    frame.blocked = blocked
 
     if (scene !== 'playing') UNIFORMS.uOverdrive.value = 0
 
@@ -673,7 +676,7 @@ export function createGame({
     fx.update(dt, live ? run.speed : IDLE_SPEED)
     sparks.update(dt, live)
     postfx.update(frozen ? 0 : realDt)
-    rig.update(frozen ? 0 : realDt, { follow: !MENU_SCENES.has(scene), banking: scene === 'playing' })
+    rig.update(frozen ? 0 : realDt, !MENU_SCENES.has(scene), scene === 'playing')
   }
 
   // ------------------------------------------------------------- bootstrap

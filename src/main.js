@@ -89,7 +89,8 @@ game = createGame({
 screen.onChange = () => game.syncScreen()
 game.syncScreen()
 
-if (params.has('god') || params.has('debug')) window.__magpie = { game, bird, input, screen, powerups, bends }
+if (params.has('god') || params.has('debug'))
+  window.__magpie = { game, bird, input, screen, gates, powerups, bends }
 
 function applySize() {
   const canvas = renderer.domElement

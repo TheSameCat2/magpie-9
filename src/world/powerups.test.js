@@ -96,3 +96,20 @@ test('collect deactivates touched orb and populates out array', () => {
   assert.equal(orb.active, false)
   assert.equal(orb.group.visible, false)
 })
+
+test('spawn counts orbs dropped when the pool is full', () => {
+  const scene = new THREE.Scene()
+  const powerups = createPowerups(scene)
+
+  for (let i = 0; i < powerups.pool.length; i++) {
+    assert.ok(powerups.spawn(-10 - i, 'damper', 0, { x: 0, y: 0 }))
+  }
+  assert.equal(powerups.dropped, 0)
+  assert.equal(powerups.spawn(-40, 'life', 0, { x: 0, y: 0 }), null)
+  assert.equal(powerups.dropped, 1)
+
+  // Reset recycles the pool but keeps the lifetime diagnostic.
+  powerups.reset()
+  assert.ok(powerups.spawn(-40, 'life', 0, { x: 0, y: 0 }))
+  assert.equal(powerups.dropped, 1)
+})

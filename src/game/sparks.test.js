@@ -115,6 +115,14 @@ test('a lone gate keeps the full frame budget', () => {
   assert.equal(calls.edge[0][8], 1 / 60)
 })
 
+test('proximity cache covers every pooled gate', () => {
+  const slots = Array.from({ length: 17 }, () => hatch(-20))
+  const { sparks, calls } = harness({ slots })
+  sparks.update(1 / 60, true)
+  assert.equal(calls.edge.length, slots.length)
+  for (const args of calls.edge) assert.equal(typeof args[9], 'number', 'proximity is passed to every gate')
+})
+
 test('stacked gates share one gate worth of proximity-weighted budget', () => {
   const dt = 1 / 60
   const { sparks, calls } = harness({ slots: [hatch(-2), hatch(-4), hatch(-6)] })

@@ -69,6 +69,10 @@ export function createScene(camera) {
   scene.add(shaft)
   scene.userData.shaft = shaft
 
+  // Dynamic roots (tunnel, gates, powerups, bird) keep their matrixWorld
+  // current themselves, so the renderer only needs the camera refreshed.
+  // A forced update falls back to three's traversal; those roots must keep
+  // their local matrices current for that path to stay correct.
   scene.updateMatrixWorld = function (force) {
     if (force) {
       THREE.Scene.prototype.updateMatrixWorld.call(this, true)

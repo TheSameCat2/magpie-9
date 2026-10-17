@@ -4,6 +4,7 @@ import { BIRD_HIT, TUNNEL_APOTHEM } from '../../config/world.js'
 import { difficulty } from '../../config/rules.js'
 import { createRng } from '../../lib/rng.js'
 import { hexOutside, hitObstacle } from '../collision.js'
+import { PLATE_DEPTH, createBulkheadGeometry } from './geometry.js'
 import {
   GATE_TYPES,
   HOLE_W,
@@ -379,4 +380,16 @@ test('configureGate updates bulkhead geometry in place without reallocating', as
   slot.hole.x = 0.9
   updateSledX(slot)
   assert.equal(slot.rims[0].matrixWorld.elements[12], 0.9)
+})
+
+test('bulkhead side-wall UVs keep the ExtrudeGeometry V direction', () => {
+  const geo = createBulkheadGeometry(0, 0)
+  const uv = geo.getAttribute('uv').array
+  const vAt = (vertex) => uv[vertex * 2 + 1]
+
+  // Outer walls start at vertex 60; hole walls start at vertex 96.
+  assert.equal(vAt(60), 1)
+  assert.ok(Math.abs(vAt(62) - (1 - PLATE_DEPTH)) < 1e-6)
+  assert.equal(vAt(96), 1)
+  assert.ok(Math.abs(vAt(98) - (1 - PLATE_DEPTH)) < 1e-6)
 })

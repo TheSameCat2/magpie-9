@@ -125,10 +125,10 @@ function initTemplate() {
     const ub = horiz ? bx : by
     emitVertex(ax, ay, -HALF_DEPTH, nx, ny, 0, ua, 1, -1, 0)
     emitVertex(bx, by, -HALF_DEPTH, nx, ny, 0, ub, 1, -1, 0)
-    emitVertex(ax, ay, HALF_DEPTH, nx, ny, 0, ua, 1 + PLATE_DEPTH, -1, 0)
+    emitVertex(ax, ay, HALF_DEPTH, nx, ny, 0, ua, 1 - PLATE_DEPTH, -1, 0)
     emitVertex(bx, by, -HALF_DEPTH, nx, ny, 0, ub, 1, -1, 0)
-    emitVertex(bx, by, HALF_DEPTH, nx, ny, 0, ub, 1 + PLATE_DEPTH, -1, 0)
-    emitVertex(ax, ay, HALF_DEPTH, nx, ny, 0, ua, 1 + PLATE_DEPTH, -1, 0)
+    emitVertex(bx, by, HALF_DEPTH, nx, ny, 0, ub, 1 - PLATE_DEPTH, -1, 0)
+    emitVertex(ax, ay, HALF_DEPTH, nx, ny, 0, ua, 1 - PLATE_DEPTH, -1, 0)
   }
 
   // 4. Inner 4 hole walls (positions and UVs move with the hole corners; normals are static)
@@ -137,10 +137,10 @@ function initTemplate() {
     const uvMode = uvUsesY ? 2 : 1
     emitVertex(0, 0, -HALF_DEPTH, nx, ny, 0, 0, 1, ca, uvMode)
     emitVertex(0, 0, -HALF_DEPTH, nx, ny, 0, 0, 1, cb, uvMode)
-    emitVertex(0, 0, HALF_DEPTH, nx, ny, 0, 0, 1 + PLATE_DEPTH, ca, uvMode)
+    emitVertex(0, 0, HALF_DEPTH, nx, ny, 0, 0, 1 - PLATE_DEPTH, ca, uvMode)
     emitVertex(0, 0, -HALF_DEPTH, nx, ny, 0, 0, 1, cb, uvMode)
-    emitVertex(0, 0, HALF_DEPTH, nx, ny, 0, 0, 1 + PLATE_DEPTH, cb, uvMode)
-    emitVertex(0, 0, HALF_DEPTH, nx, ny, 0, 0, 1 + PLATE_DEPTH, ca, uvMode)
+    emitVertex(0, 0, HALF_DEPTH, nx, ny, 0, 0, 1 - PLATE_DEPTH, cb, uvMode)
+    emitVertex(0, 0, HALF_DEPTH, nx, ny, 0, 0, 1 - PLATE_DEPTH, ca, uvMode)
   }
 }
 

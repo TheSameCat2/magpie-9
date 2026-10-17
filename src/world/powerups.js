@@ -198,6 +198,38 @@ export function createPowerups(scene) {
     elements[14] = pz
   }
 
+  function writeRotXZScalePos(elements, rx, rz, p, px, py, pz) {
+    const a = Math.cos(rx) * p
+    const b = Math.sin(rx) * p
+    const e = Math.cos(rz)
+    const f = Math.sin(rz)
+    elements[0] = e * p
+    elements[1] = a * f
+    elements[2] = b * f
+    elements[4] = -f * p
+    elements[5] = a * e
+    elements[6] = b * e
+    elements[8] = 0
+    elements[9] = -b
+    elements[10] = a
+    elements[12] = px
+    elements[13] = py
+    elements[14] = pz
+  }
+
+  /** Scale a child's local matrix by the orb's uniform scale and move it to world space. */
+  function localToWorld(local, world, p, px, py, pz) {
+    for (let i = 0; i < 12; i++) world[i] = local[i] * p
+    world[12] = px
+    world[13] = py
+    world[14] = pz
+  }
+
+  /**
+   * Write each orb part's local and world matrix. Local matrices must stay
+   * current: a forced scene.updateMatrixWorld(true) rebuilds world matrices
+   * from them instead of using the cached world values.
+   */
   function syncOrbMatrices(orb, px, py, pz, p) {
     writeScalePos(orb.group.matrix.elements, p, px, py, pz)
     writeScalePos(orb.group.matrixWorld.elements, p, px, py, pz)
@@ -205,63 +237,23 @@ export function createPowerups(scene) {
     writeScalePos(orb.halo.matrixWorld.elements, p * HALO_SCALE, px, py, pz)
 
     // ringOuter: Euler(rx, 0, rz)
-    const rxO = orb.ringOuter.rotation._x
-    const rzO = orb.ringOuter.rotation._z
-    const aO = Math.cos(rxO) * p
-    const bO = Math.sin(rxO) * p
-    const eO = Math.cos(rzO)
-    const fO = Math.sin(rzO)
-    const oe = orb.ringOuter.matrixWorld.elements
-    oe[0] = eO * p
-    oe[1] = aO * fO
-    oe[2] = bO * fO
-    oe[4] = -fO * p
-    oe[5] = aO * eO
-    oe[6] = bO * eO
-    oe[8] = 0
-    oe[9] = -bO
-    oe[10] = aO
-    oe[12] = px
-    oe[13] = py
-    oe[14] = pz
+    const ringOuter = orb.ringOuter
+    writeRotXZScalePos(ringOuter.matrix.elements, ringOuter.rotation._x, ringOuter.rotation._z, 1, 0, 0, 0)
+    localToWorld(ringOuter.matrix.elements, ringOuter.matrixWorld.elements, p, px, py, pz)
 
     // ringInner & crystal: Euler(rx, ry, 0)
-    writeRotXYScalePos(
-      orb.ringInner.matrixWorld.elements,
-      orb.ringInner.rotation._x,
-      orb.ringInner.rotation._y,
-      p,
-      px,
-      py,
-      pz,
-    )
-    writeRotXYScalePos(
-      orb.crystal.matrixWorld.elements,
-      orb.crystal.rotation._x,
-      orb.crystal.rotation._y,
-      p,
-      px,
-      py,
-      pz,
-    )
+    const ringInner = orb.ringInner
+    writeRotXYScalePos(ringInner.matrix.elements, ringInner.rotation._x, ringInner.rotation._y, 1, 0, 0, 0)
+    localToWorld(ringInner.matrix.elements, ringInner.matrixWorld.elements, p, px, py, pz)
+
+    const crystal = orb.crystal
+    writeRotXYScalePos(crystal.matrix.elements, crystal.rotation._x, crystal.rotation._y, 1, 0, 0, 0)
+    localToWorld(crystal.matrix.elements, crystal.matrixWorld.elements, p, px, py, pz)
 
     // icon: Euler(0, ry, 0)
-    const ryI = orb.icon.rotation._y
-    const cI = Math.cos(ryI) * p
-    const dI = Math.sin(ryI) * p
-    const ie = orb.icon.matrixWorld.elements
-    ie[0] = cI
-    ie[1] = 0
-    ie[2] = -dI
-    ie[4] = 0
-    ie[5] = p
-    ie[6] = 0
-    ie[8] = dI
-    ie[9] = 0
-    ie[10] = cI
-    ie[12] = px
-    ie[13] = py
-    ie[14] = pz
+    const icon = orb.icon
+    writeRotXYScalePos(icon.matrix.elements, 0, icon.rotation._y, 1, 0, 0, 0)
+    localToWorld(icon.matrix.elements, icon.matrixWorld.elements, p, px, py, pz)
   }
 
   /**

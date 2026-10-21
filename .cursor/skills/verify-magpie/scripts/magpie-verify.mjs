@@ -269,19 +269,6 @@ async function killTree(pid) {
   if (tree.some(alive)) signal('SIGKILL')
 }
 
-function listeners(port) {
-  const result = spawnSync('ss', ['-ltnp'], { encoding: 'utf8' })
-  if (result.status !== 0) return { error: result.stderr || 'ss failed', rows: [] }
-  const rows = []
-  const needle = new RegExp(`:${port}(?:\\s|$)`)
-  for (const line of result.stdout.split('\n')) {
-    if (!needle.test(line)) continue
-    const pids = [...line.matchAll(/pid=(\d+)/g)].map((match) => Number(match[1]))
-    rows.push({ line: line.trim(), pids })
-  }
-  return { rows }
-}
-
 function cmdline(pid) {
   try {
     return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ')
@@ -290,15 +277,59 @@ function cmdline(pid) {
   }
 }
 
+// `ss` is not installed here. A listening socket's inode in /proc/net/tcp
+// matched against the Vite process tree is the ownership check.
+function listenInodes(port) {
+  const hexPort = port.toString(16).toUpperCase().padStart(4, '0')
+  const inodes = []
+  for (const file of ['/proc/net/tcp', '/proc/net/tcp6']) {
+    let text = ''
+    try {
+      text = fs.readFileSync(file, 'utf8')
+    } catch {
+      continue
+    }
+    for (const line of text.split('\n').slice(1)) {
+      const parts = line.trim().split(/\s+/)
+      if (parts.length < 10 || parts[3] !== '0A') continue
+      const portHex = parts[1].split(':')[1]
+      if (portHex?.toUpperCase() === hexPort) inodes.push(parts[9])
+    }
+  }
+  return inodes
+}
+
+function socketInodes(pid) {
+  const inodes = new Set()
+  let fds = []
+  try {
+    fds = fs.readdirSync(`/proc/${pid}/fd`)
+  } catch {
+    return inodes
+  }
+  for (const fd of fds) {
+    try {
+      const target = fs.readlinkSync(`/proc/${pid}/fd/${fd}`)
+      const match = /^socket:\[(\d+)\]$/.exec(target)
+      if (match) inodes.add(match[1])
+    } catch {
+      /* fd closed while we looked */
+    }
+  }
+  return inodes
+}
+
 function ownsPort(pid, port) {
-  const found = listeners(port)
-  if (found.error) return { ok: false, reason: found.error }
-  const row = found.rows.find((item) => item.pids.length)
-  if (!row) return { ok: false, reason: `nothing is listening on ${port}` }
-  const tree = new Set(processTree(pid))
-  const owned = row.pids.some((listener) => tree.has(listener))
-  if (!owned) return { ok: false, reason: `port ${port} is owned by ${row.pids.join(',')} not ${pid}` }
-  return { ok: true, pids: row.pids }
+  const listening = listenInodes(port)
+  if (!listening.length) return { ok: false, reason: `nothing is listening on ${port}` }
+  const owned = new Set()
+  for (const member of processTree(pid)) {
+    for (const inode of socketInodes(member)) owned.add(inode)
+  }
+  if (!listening.some((inode) => owned.has(inode))) {
+    return { ok: false, reason: `port ${port} is not held by pid ${pid}` }
+  }
+  return { ok: true }
 }
 
 function statePath(home) {
@@ -900,16 +931,19 @@ async function click(args) {
           }
           return { ok: false, reason: 'no backdrop point outside the card' }
         }
-        const rect = root.getBoundingClientRect()
         const style = getComputedStyle(root)
         if (root.classList.contains('hidden') || style.display === 'none' || style.visibility === 'hidden') {
           return { ok: false, reason: 'not visible' }
         }
-        if (rect.width < 1 || rect.height < 1) return { ok: false, reason: 'zero box' }
-        const x = rect.left + rect.width / 2
-        const y = rect.top + rect.height / 2
+        root.scrollIntoView({ block: 'center', inline: 'center' })
+        const box = root.getBoundingClientRect()
+        if (box.width < 1 || box.height < 1) return { ok: false, reason: 'zero box' }
+        const x = box.left + box.width / 2
+        const y = box.top + box.height / 2
         const hit = document.elementFromPoint(x, y)
-        if (hit !== root && !root.contains(hit)) return { ok: false, reason: 'obscured by ' + describe(hit) }
+        if (hit !== root && !root.contains(hit)) {
+          return { ok: false, reason: 'obscured by ' + describe(hit) + ' at ' + Math.round(x) + ',' + Math.round(y) }
+        }
         return { ok: true, x, y }
       })()`,
     )

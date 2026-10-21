@@ -57,6 +57,7 @@ Preconditions:
 ## Gotchas
 
 - `#btnHelp` sits under the manual. Closing by clicking HELP again fails the hit test. Use CLOSE, Escape, H, or the backdrop.
+- CLOSE is at the bottom of the scrolling card, so the open screenshot does not show it. `click` scrolls it into view before the press. If that press is obscured, the step fails.
 - Space while CLOSE is focused activates CLOSE. It does not prove that a flap was ignored. Use W for that check.
 - W on the bare menu moves the highlight. Use it as a flap only while the manual is open.
 - M mutes even while the manual is open and writes `magpie9.mute`. This recipe must not press M.

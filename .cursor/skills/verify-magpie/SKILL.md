@@ -53,7 +53,7 @@ node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs wait --field <field>
 node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs wait --ms 800
 ```
 
-`click` moves the mouse to the element and sends `mousePressed` / `mouseReleased`. It fails if the element is missing, hidden, or not the topmost hit. `--region backdrop` presses a point on `#help` that is outside `.help-card`.
+`click` scrolls the target into view, then moves the mouse to its centre and sends `mousePressed` / `mouseReleased`. CLOSE sits at the bottom of the field manual, below an 800px window, so the scroll is the player's scroll. It fails if the element is missing, hidden, or not the topmost hit. `--region backdrop` does not scroll; it presses a point on `#help` that is outside `.help-card`.
 
 `press --key` sends a keydown and keyup, then waits two animation frames so the game can consume the edge. Keys: `h w s a d m p r b Space Enter Escape ArrowUp ArrowDown ArrowLeft ArrowRight Backspace`.
 

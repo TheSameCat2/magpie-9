@@ -33,6 +33,7 @@ desktop/               Electron shell; loads dist/, never imports src/
 | `tutorial.js` | Tutorial-mode overrides for speed, gate order, and orb order.             |
 | `fx.js`       | Spark colour ramp per sector, `sparkPhase()`, afterburner score.          |
 | `bends.js`    | BENDS: turn angle/length clamps, lead/trail straights, slip, `rollBend`.  |
+| `audio.js`    | Soundtrack level and the crash duck.                                      |
 
 Shared with the API: `rules.js` is imported by `api/scores.js` to reject
 impossible times, so keep it free of browser globals.
@@ -84,8 +85,8 @@ test fails until both exist.
 ### `src/audio/`
 
 `graph.js` owns the lazily created `AudioContext`, master gain, and the wet
-bus; `oneshots.js` makes tones and noise bursts; `drone.js` is the engine
-hum tied to scroll speed; `hum.js` is the proximity hazard hum. `index.js`
+bus; `oneshots.js` makes tones and noise bursts; `music.js` streams the
+soundtrack into that bus; `hum.js` is the proximity hazard hum. `index.js`
 composes them into the game-facing API (`flap`, `gate`, `crash`, …).
 
 ### `src/hud/`

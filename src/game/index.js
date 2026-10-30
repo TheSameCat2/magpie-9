@@ -103,9 +103,8 @@ export function createGame({
 
   // ---------------------------------------------------------------- helpers
 
-  function syncSpeed({ toAudio = true } = {}) {
+  function syncSpeed() {
     hud.setSpeed(run.speed)
-    if (toAudio) audio.setSpeed(run.speed)
   }
 
   function scrollWorld(dz, dt) {
@@ -143,10 +142,9 @@ export function createGame({
     if (typeof globalThis.requestAnimationFrame === 'function') globalThis.requestAnimationFrame(blur)
   }
 
-  /** The run is live again after any hold: restore the drone and tell the loop. */
+  /** Hold released. The soundtrack keeps playing across the hold. */
   function goLive() {
     blurHudFocus()
-    audio.setSpeed(run.speed)
     onResume?.()
   }
 
@@ -487,8 +485,7 @@ export function createGame({
     bird.reset()
     slip = 0
     UNIFORMS.uOverdrive.value = 0
-    // Speed goes to the HUD only: audio.setSpeed would re-assert the drone that crash() silences.
-    syncSpeed({ toAudio: false })
+    syncSpeed()
     audio.crash()
     fx.orbBurst(bird.x, bird.y, 0, THEME.green)
     postfx.flash(THEME.green, 0.5)

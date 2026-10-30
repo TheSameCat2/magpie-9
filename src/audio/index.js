@@ -1,8 +1,7 @@
-import { BASE_SPEED } from '../config/rules.js'
 import { loadMuted, saveMuted } from '../lib/storage.js'
 import { createAudioGraph } from './graph.js'
 import { createOneShots } from './oneshots.js'
-import { createDrone } from './drone.js'
+import { createMusic } from './music.js'
 import { createHazardHum } from './hum.js'
 
 export { HAZARD_MAX_GAIN, hazardGain } from './hum.js'
@@ -17,23 +16,29 @@ function noteHz(index) {
   return ROOT_HZ * Math.pow(2, (step + 12 * (lap % 2)) / 12)
 }
 
-/** Every sound the game makes. Procedural WebAudio; nothing is loaded. */
+/** Every sound the game makes. The soundtrack is a file; the rest is procedural. */
 export function createAudio() {
   const graph = createAudioGraph({ muted: loadMuted() })
   const { tone, noise } = createOneShots(graph)
-  const drone = createDrone(graph)
+  const music = createMusic(graph)
   const hum = createHazardHum(graph)
 
   return {
     get muted() {
       return graph.muted
     },
-    /** Call from a user gesture so the context is allowed to start. */
+    /** Call from a user gesture so the context and the song are allowed to start. */
     start() {
-      graph.ensure()
+      music.start()
     },
-    suspend: graph.suspend,
-    resume: graph.resume,
+    suspend() {
+      music.suspend()
+      graph.suspend()
+    },
+    resume() {
+      graph.resume()
+      music.resume()
+    },
     toggleMute() {
       graph.setMuted(!graph.muted)
       saveMuted(graph.muted)
@@ -84,7 +89,7 @@ export function createAudio() {
       for (let i = 0; i < 7; i++) {
         tone(200 + Math.random() * 1800, 0.05, 'square', 0.045, { when: 0.05 + i * 0.045 })
       }
-      drone.crash()
+      music.crash()
       hum.silence()
     },
     /** One blip per resume-countdown digit. */
@@ -97,22 +102,15 @@ export function createAudio() {
     hazard: hum.set,
     clearHazard: hum.silence,
 
-    /** Run start: bring the drone up and play the arm sting. */
+    /** Run start: the arm sting. The song is already playing from the gesture. */
     arm() {
       graph.ensure()
-      drone.resetPitch()
-      drone.set(1, BASE_SPEED)
       tone(180, 0.35, 'sawtooth', 0.06, { endFreq: 420 })
       tone(660, 0.12, 'sine', 0.05, { toWet: 0.6, when: 0.12 })
     },
-    setSpeed(speed) {
-      drone.set(1, speed)
-    },
-    /** Menu bed: drone at a quarter, hazard hum off. */
+    /** Hazard hum off. The soundtrack keeps the same level on the menu and in a run. */
     title() {
       if (!graph.ready) return
-      drone.resetPitch()
-      drone.set(0.25, BASE_SPEED)
       hum.silence()
     },
   }

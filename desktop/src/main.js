@@ -3,7 +3,9 @@
 // "simplify" them back to the old insecure recipe.
 
 import { app, BrowserWindow, Menu, ipcMain, session } from 'electron'
-import { autoUpdater } from 'electron-updater'
+// electron-updater is CommonJS. A named import crashes the packaged main
+// process: Node does not treat autoUpdater as a static named export.
+import electronUpdater from 'electron-updater'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { APP_ORIGIN, isAppUrl, sanitizeApiOrigin } from './files.js'
@@ -15,6 +17,8 @@ import {
   isPortableEnv,
   shouldCheckForUpdates,
 } from './updates.js'
+
+const { autoUpdater } = electronUpdater
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 

@@ -1,11 +1,14 @@
 # Unsigned Windows installer and the GitHub Releases update feed.
 #
-# A tag push vX.Y.Z builds the NSIS installer on windows-latest and publishes
-# it with electron-builder (--publish always) to that tag's GitHub Release,
-# along with latest.yml and the blockmap. releaseType is release, so the
-# feed is not left as a draft. A hyphenated tag (vX.Y.Z-rc.1) is a prerelease
-# and is not the update channel. Re-run the workflow on the same tag to
-# replace the files.
+# A tag push vX.Y.Z builds the NSIS installer on windows-latest. electron-builder
+# writes latest.yml and the blockmap and does not publish. Its GitHub publisher
+# races: the exe and the blockmap each call createRelease, and GitHub keeps two
+# releases for one tag. publish-release.js creates or updates exactly one
+# release and uploads the installer, the blockmap, and latest.yml. The following
+# step sets the title and notes when they differ, and never creates a release.
+#
+# A hyphenated tag (vX.Y.Z-rc.1) is a prerelease and is not the update channel.
+# Re-run the workflow on the same tag to replace the files on that release.
 #
 # Pull requests that touch the shell build the installer and upload it as an
 # Actions artifact only. They do not publish a Release.
@@ -27,6 +30,11 @@ on:
 
 permissions:
   contents: read
+
+# One publish at a time per tag. Cancelling mid-upload would leave a partial release.
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   windows:
@@ -65,8 +73,8 @@ jobs:
         working-directory: desktop
         run: npm pkg set version="$RELEASE_VERSION"
 
-      # electron-builder reads desktop/release-notes.md when it creates the
-      # GitHub Release. Write it before the publish build.
+      # latest.yml embeds these notes, and the publish step uses the same file
+      # as the release body. Write it before the build.
       - name: Write release notes
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         shell: bash
@@ -90,15 +98,6 @@ jobs:
           EOF
 
       - name: Build the NSIS installer
-        if: ${{ github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v') }}
-        run: npm run desktop:dist:win
-
-      - name: Publish the NSIS installer
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        env:
-          GH_TOKEN: ${{ github.token }}
-          MAGPIE_PUBLISH: always
-          MAGPIE_RELEASE_TYPE: ${{ contains(github.ref_name, '-') && 'prerelease' || 'release' }}
         run: npm run desktop:dist:win
 
       - name: Require the installer and the update feed
@@ -147,19 +146,14 @@ jobs:
             desktop/release/latest.yml
           if-no-files-found: error
 
-      - name: Title the GitHub Release
+      - name: Publish one GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          extra=()
-          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
-            extra+=(--prerelease)
-          else
-            extra+=(--latest)
-          fi
-          gh release edit "$GITHUB_REF_NAME" \
-            --title "MAGPIE-9 $GITHUB_REF_NAME" \
-            --notes-file desktop/release-notes.md \
-            "${extra[@]}"
+        run: node desktop/scripts/publish-release.js
+
+      - name: Title the GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node desktop/scripts/publish-release.js --notes-only

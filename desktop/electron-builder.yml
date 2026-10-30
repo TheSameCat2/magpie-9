@@ -18,8 +18,11 @@ extraResources:
   - from: renderer
     to: renderer
 asar: true
-# Public GitHub Releases feed. releaseType release so the feed is not left
-# in a draft (electron-updater ignores drafts). No token belongs in this file.
+# Updater feed only (app-update.yml and latest.yml). The desktop release
+# workflow uploads the GitHub Release. Publishing from here as well races two
+# createRelease calls and opens a second release for the same tag.
+# releaseType stays release so a feed is not left as a draft (electron-updater
+# ignores drafts). No token belongs in this file.
 publish:
   provider: github
   owner: TheSameCat2

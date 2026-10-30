@@ -20,7 +20,17 @@ export const SIGNING_ENV_KEYS = [
 export function unsignedPackEnv(base) {
   const env = { ...base, CSC_IDENTITY_AUTO_DISCOVERY: 'false' }
   for (const key of SIGNING_ENV_KEYS) delete env[key]
+  // A stray draft flag would hide the release from electron-updater.
+  delete env.EP_DRAFT
+  if (base.MAGPIE_RELEASE_TYPE === 'prerelease') env.EP_PRE_RELEASE = 'true'
+  else delete env.EP_PRE_RELEASE
+  delete env.EP_PRELEASE
   return env
+}
+
+export function builderArgs(env) {
+  const publish = env.MAGPIE_PUBLISH === 'always' ? 'always' : 'never'
+  return ['--win', '--x64', '--publish', publish]
 }
 
 function isDirectRun() {
@@ -36,7 +46,7 @@ function pack() {
     process.exit(1)
   }
 
-  const result = spawnSync(process.execPath, [cli, '--win', '--x64', '--publish', 'never'], {
+  const result = spawnSync(process.execPath, [cli, ...builderArgs(process.env)], {
     cwd: desktop,
     stdio: 'inherit',
     env: unsignedPackEnv(process.env),

@@ -1,12 +1,16 @@
-# Unsigned Windows installer.
+# Unsigned Windows installer and the GitHub Releases update feed.
 #
-# A tag push vX.Y.Z (or vX.Y.Z-prerelease) builds the NSIS installer on
-# windows-latest and creates or updates that tag's GitHub Release.
-# Re-run the workflow on the same tag to replace the uploaded installer.
+# A tag push vX.Y.Z builds the NSIS installer on windows-latest and publishes
+# it with electron-builder (--publish always) to that tag's GitHub Release,
+# along with latest.yml and the blockmap. releaseType is release, so the
+# feed is not left as a draft. A hyphenated tag (vX.Y.Z-rc.1) is a prerelease
+# and is not the update channel. Re-run the workflow on the same tag to
+# replace the files.
+#
 # Pull requests that touch the shell build the installer and upload it as an
 # Actions artifact only. They do not publish a Release.
 #
-# The installer is unsigned. Do not add a certificate or an updater here.
+# The installer is unsigned. Do not add a certificate or publisherName.
 
 name: Desktop release
 
@@ -61,13 +65,51 @@ jobs:
         working-directory: desktop
         run: npm pkg set version="$RELEASE_VERSION"
 
+      # electron-builder reads desktop/release-notes.md when it creates the
+      # GitHub Release. Write it before the publish build.
+      - name: Write release notes
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        working-directory: desktop
+        run: |
+          cat > release-notes.md <<EOF
+          Unsigned Windows build of MAGPIE-9 ${GITHUB_REF_NAME}. Windows does not trust this file. The app can download a newer release in the background and will ask before restarting.
+
+          Download **MAGPIE-9-Setup-${RELEASE_VERSION}.exe** from the assets below. The \`.blockmap\` and \`latest.yml\` next to it are the update feed.
+
+          1. If Edge says the file isn't commonly downloaded, open the download warning, choose **Keep**, then **Show more**, then **Keep anyway**. In Chrome, choose **Keep**.
+          2. Open the installer. Windows shows **Windows protected your PC**.
+          3. Click **More info**, then **Run anyway**.
+          4. Open **MAGPIE-9** from the Start menu or the desktop shortcut. The first launch can show the same prompt. Click **More info**, then **Run anyway**, again.
+
+          A work or school PC can hide **Run anyway**. If the message is from Smart App Control, it has no **Run anyway**. Turning Smart App Control off (Windows Security → App & browser control → Smart App Control) allows the installer. Windows will not let you turn Smart App Control back on without resetting the PC.
+
+          After install, a newer release shows **Update available — Restart now / Later** at the bottom of the window. The run keeps going until you choose. The update is unsigned too, so SmartScreen can ask again.
+
+          The same steps are at the top of the README: https://github.com/TheSameCat2/magpie-9#download-for-windows
+          EOF
+
       - name: Build the NSIS installer
+        if: ${{ github.event_name != 'push' || !startsWith(github.ref, 'refs/tags/v') }}
         run: npm run desktop:dist:win
 
-      - name: Require one installer
+      - name: Publish the NSIS installer
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAGPIE_PUBLISH: always
+          MAGPIE_RELEASE_TYPE: ${{ contains(github.ref_name, '-') && 'prerelease' || 'release' }}
+        run: npm run desktop:dist:win
+
+      - name: Require the installer and the update feed
         shell: bash
         run: |
           shopt -s nullglob
+          version="${RELEASE_VERSION:-}"
+          if [[ -z "$version" ]]; then
+            version="$(node -p "require('./desktop/package.json').version")"
+          fi
+          expected="MAGPIE-9-Setup-${version}.exe"
           files=(desktop/release/*.exe)
           if (( ${#files[@]} != 1 )); then
             echo "expected one NSIS installer in desktop/release, found ${#files[@]}"
@@ -77,12 +119,21 @@ jobs:
           fi
           base="$(basename "${files[0]}")"
           echo "installer=$base"
-          if [[ ! "$base" =~ ^MAGPIE-9\ Setup\ .+\.exe$ ]]; then
-            echo "unexpected installer name: $base"
+          if [[ "$base" != "$expected" ]]; then
+            echo "expected $expected, found $base"
             exit 1
           fi
-          if [[ -n "${RELEASE_VERSION:-}" && "$base" != "MAGPIE-9 Setup ${RELEASE_VERSION}.exe" ]]; then
-            echo "installer $base does not match tag version ${RELEASE_VERSION}"
+          test -f "desktop/release/${expected}.blockmap"
+          test -f desktop/release/latest.yml
+          grep -q "$expected" desktop/release/latest.yml
+          config="desktop/release/win-unpacked/resources/app-update.yml"
+          test -f "$config"
+          grep -q 'github' "$config"
+          grep -q 'TheSameCat2' "$config"
+          grep -q 'magpie-9' "$config"
+          if grep -Eq 'publisherName|token:' "$config"; then
+            echo "app-update.yml must not name a publisher or carry a token"
+            cat "$config"
             exit 1
           fi
           echo "INSTALLER_NAME=$base" >> "$GITHUB_ENV"
@@ -90,48 +141,25 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: desktop/release/*.exe
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.exe.blockmap
+            desktop/release/latest.yml
           if-no-files-found: error
 
-      - name: Write release notes
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        run: |
-          cat > release-notes.md <<EOF
-          Unsigned Windows build of MAGPIE-9 ${GITHUB_REF_NAME}. Windows does not trust this file. There is no in-app update.
-
-          Download **${INSTALLER_NAME}** from the assets below.
-
-          1. If Edge says the file isn't commonly downloaded, open the download warning, choose **Keep**, then **Show more**, then **Keep anyway**. In Chrome, choose **Keep**.
-          2. Open the installer. Windows shows **Windows protected your PC**.
-          3. Click **More info**, then **Run anyway**.
-          4. Open **MAGPIE-9** from the Start menu or the desktop shortcut. The first launch can show the same prompt. Click **More info**, then **Run anyway**, again.
-
-          A work or school PC can hide **Run anyway**. If the message is from Smart App Control, it has no **Run anyway**. Turning Smart App Control off (Windows Security → App & browser control → Smart App Control) allows the installer. Windows will not let you turn Smart App Control back on without resetting the PC.
-
-          The same steps are at the top of the README: https://github.com/TheSameCat2/magpie-9#download-for-windows
-          EOF
-
-      - name: Publish the GitHub Release
+      - name: Title the GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="$GITHUB_REF_NAME"
           extra=()
-          if [[ "$tag" == *-* ]]; then
+          if [[ "$GITHUB_REF_NAME" == *-* ]]; then
             extra+=(--prerelease)
           else
             extra+=(--latest)
           fi
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "desktop/release/${INSTALLER_NAME}" --clobber
-            gh release edit "$tag" --title "MAGPIE-9 $tag" --notes-file release-notes.md "${extra[@]}"
-          else
-            gh release create "$tag" "desktop/release/${INSTALLER_NAME}" \
-              --verify-tag \
-              --title "MAGPIE-9 $tag" \
-              --notes-file release-notes.md \
-              "${extra[@]}"
-          fi
+          gh release edit "$GITHUB_REF_NAME" \
+            --title "MAGPIE-9 $GITHUB_REF_NAME" \
+            --notes-file desktop/release-notes.md \
+            "${extra[@]}"

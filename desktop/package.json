@@ -9,12 +9,15 @@
     "sync": "node scripts/sync-renderer.js",
     "start": "node scripts/sync-renderer.js && electron .",
     "smoke": "node scripts/sync-renderer.js && node scripts/smoke.js",
-    "pack": "node scripts/sync-renderer.js && electron-builder --mac --dir --arm64",
-    "dist": "node scripts/sync-renderer.js && electron-builder",
+    "pack": "node scripts/sync-renderer.js && electron-builder --mac --dir --arm64 --publish never",
+    "dist": "node scripts/sync-renderer.js && electron-builder --publish never",
     "dist:win": "node scripts/sync-renderer.js && node scripts/dist-win.js"
   },
   "devDependencies": {
     "electron": "44.4.5",
     "electron-builder": "26.17.0"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.12"
   }
 }

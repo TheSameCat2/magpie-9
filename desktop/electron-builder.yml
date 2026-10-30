@@ -8,6 +8,8 @@ copyright: Copyright © 2026
 directories:
   output: release
   buildResources: build
+# `files` replaces the default glob. Production dependencies such as
+# electron-updater are still packed by electron-builder's node_modules pass.
 files:
   - src/**
   - '!src/**/*.test.js'
@@ -16,6 +18,13 @@ extraResources:
   - from: renderer
     to: renderer
 asar: true
+# Public GitHub Releases feed. releaseType release so the feed is not left
+# in a draft (electron-updater ignores drafts). No token belongs in this file.
+publish:
+  provider: github
+  owner: TheSameCat2
+  repo: magpie-9
+  releaseType: release
 electronFuses:
   runAsNode: false
   enableCookieEncryption: true
@@ -40,5 +49,15 @@ linux:
     - AppImage
     - deb
 win:
+  # Resource editing (icon, name, version) still runs. Signing stays off so a
+  # certificate in the environment cannot mark the installer as trusted.
+  # publisherName stays unset. verifyUpdateCodeSignature false is the opt-out
+  # that keeps an unsigned feed from being rejected as a bad signature.
+  signExecutable: false
+  verifyUpdateCodeSignature: false
   target:
     - nsis
+nsis:
+  # Dashes, not spaces. GitHub asset names and latest.yml have to be the
+  # same string; a space is published as a dash and the updater misses it.
+  artifactName: ${productName}-Setup-${version}.${ext}

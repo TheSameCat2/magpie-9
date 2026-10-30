@@ -3,10 +3,18 @@
 // "simplify" them back to the old insecure recipe.
 
 import { app, BrowserWindow, Menu, ipcMain, session } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { APP_ORIGIN, isAppUrl, sanitizeApiOrigin } from './files.js'
 import { registerScheme, handleScheme, rendererRoot } from './protocol.js'
+import {
+  UPDATE_LATER_CHANNEL,
+  UPDATE_READY,
+  UPDATE_RESTART_CHANNEL,
+  isPortableEnv,
+  shouldCheckForUpdates,
+} from './updates.js'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 
@@ -123,6 +131,41 @@ function createWindow() {
   return win
 }
 
+// One check after launch, for a packaged NSIS install only. The download
+// stays in the background. Restart now is the only path that quits the
+// process; Later leaves the run up and installs on the next quit.
+function startUpdateCheck(win) {
+  if (!shouldCheckForUpdates({ packaged: app.isPackaged, portable: isPortableEnv(process.env) })) return
+
+  let ready = false
+  let dismissed = false
+  const notify = () => {
+    if (!ready || dismissed || win.isDestroyed()) return
+    win.webContents.send(UPDATE_READY)
+  }
+
+  ipcMain.on(UPDATE_LATER_CHANNEL, (event) => {
+    if (event.sender !== win.webContents) return
+    dismissed = true
+  })
+  ipcMain.on(UPDATE_RESTART_CHANNEL, (event) => {
+    if (event.sender !== win.webContents) return
+    autoUpdater.quitAndInstall(false, true)
+  })
+
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.on('update-downloaded', () => {
+    ready = true
+    notify()
+  })
+  autoUpdater.on('error', (error) => {
+    console.error('update check failed:', error instanceof Error ? error.message : String(error))
+  })
+  win.webContents.on('did-finish-load', notify)
+  autoUpdater.checkForUpdates().catch(() => {})
+}
+
 function installMenu() {
   const view = [{ role: 'reload' }, { role: 'togglefullscreen' }]
   if (!app.isPackaged || process.env.MAGPIE_DEBUG === '1') {
@@ -157,6 +200,7 @@ if (!gotLock) {
     if (!devServer) handleScheme(rendererRoot(), apiOrigin)
     installMenu()
     mainWindow = createWindow()
+    startUpdateCheck(mainWindow)
   })
 
   app.on('window-all-closed', () => app.quit())

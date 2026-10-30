@@ -2,6 +2,45 @@
 
 3D conduit runner. Flap to climb, idle to fall, A/D to strafe.
 
+## Download for Windows
+
+Get the installer from the latest
+[GitHub Release](https://github.com/TheSameCat2/magpie-9/releases/latest).
+The file is **MAGPIE-9-Setup** and the version, for example
+`MAGPIE-9-Setup-1.2.3.exe`.
+
+This build is unsigned. Windows does not show a publisher it trusts, so
+Microsoft Defender SmartScreen stops the installer until you choose to
+continue. That warning is expected.
+
+1. If Edge says the file isn't commonly downloaded, open the download
+   warning, choose **Keep**, then **Show more**, then **Keep anyway**. In
+   Chrome, choose **Keep**.
+2. Open the installer. Windows shows **Windows protected your PC**.
+3. Click **More info**, then **Run anyway**.
+4. Open **MAGPIE-9** from the Start menu or the desktop shortcut. The first
+   launch can show the same prompt. Click **More info**, then **Run anyway**,
+   again.
+
+A work or school PC can hide **Run anyway**. If the message is from Smart
+App Control, it has no **Run anyway**. Turning Smart App Control off
+(Windows Security → App & browser control → Smart App Control) allows the
+installer. Windows will not let you turn Smart App Control back on without
+resetting the PC.
+
+A newer release downloads in the background while you play. The run keeps
+going. A bar at the bottom of the window reads **Update available —** with
+**Restart now** and **Later**. Restart now quits and installs. Later leaves
+the run alone and installs the next time you quit. The update is unsigned
+too, so SmartScreen can ask again.
+
+Push a tag `vX.Y.Z` (for example `v1.2.3`) to publish. The workflow stamps
+that version, then electron-builder uploads `MAGPIE-9-Setup-X.Y.Z.exe`, its
+`.blockmap`, and `latest.yml` to the GitHub Release for the tag. That
+release is the update channel. A tag with a hyphen, such as `v1.2.3-rc.1`,
+is a prerelease and is not the channel. Re-run the workflow on the same tag
+to replace the files.
+
 ```bash
 cd ~/Projects/magpie-9
 npm install
@@ -117,7 +156,7 @@ screen-space pulses.
 ## Working on it
 
 ```bash
-npm test            # node:test under src/, api/, and desktop/src/
+npm test            # node:test under src/, api/, desktop/src/, and desktop/scripts/
 npm run build       # vite production build
 npm run format      # prettier --write (format:check in CI)
 ```
@@ -142,6 +181,7 @@ Not a workspace — install it on its own so the Vercel deploy never sees Electr
 npm install --prefix desktop   # once
 npm run desktop                # production build, then the shell
 npm run desktop:smoke          # build, launch, check WebGL came up, quit
+npm run desktop:dist:win       # unsigned Windows installer (NSIS)
 ```
 
 Window defaults to 1280×800. The score API stays on Vercel. Point the shell
@@ -150,7 +190,16 @@ for `localhost` / `127.0.0.1`). Unset, the board answers offline and a run
 still starts. `MAGPIE_DEV_SERVER=http://127.0.0.1:5173` loads `npm run dev`
 instead of the build. `MAGPIE_DEBUG=1` opens DevTools.
 
-Packaging (ad-hoc signed, this machine): `npm run build && npm run pack --prefix desktop`.
+Packaging for macOS (ad-hoc signed, this machine): `npm run build && npm run pack --prefix desktop`.
 Output is `desktop/release/`. The ad-hoc signature is so macOS will launch it
 after the fuse flip; it is not a Developer ID signature. Notarization and the
 Steam depot are not part of the shell.
+
+Packaging for Windows (unsigned, does not publish): `npm run desktop:dist:win`
+after `npm install` and `npm install --prefix desktop`. That production-builds
+the game, copies it into the shell, and runs the NSIS target. Output is
+`desktop/release/MAGPIE-9-Setup-<version>.exe` plus `latest.yml` and a
+`.blockmap`, using the version in `desktop/package.json`. Signing stays off.
+Players and the tag that publishes are under
+[Download for Windows](#download-for-windows). Pull requests that touch the
+shell build the installer as an Actions artifact and do not publish a Release.

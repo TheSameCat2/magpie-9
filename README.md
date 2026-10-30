@@ -35,11 +35,11 @@ the run alone and installs the next time you quit. The update is unsigned
 too, so SmartScreen can ask again.
 
 Push a tag `vX.Y.Z` (for example `v1.2.3`) to publish. The workflow stamps
-that version, then electron-builder uploads `MAGPIE-9-Setup-X.Y.Z.exe`, its
-`.blockmap`, and `latest.yml` to the GitHub Release for the tag. That
+that version, builds the installer, and publishes one GitHub Release for the
+tag: `MAGPIE-9-Setup-X.Y.Z.exe`, its `.blockmap`, and `latest.yml`. That
 release is the update channel. A tag with a hyphen, such as `v1.2.3-rc.1`,
 is a prerelease and is not the channel. Re-run the workflow on the same tag
-to replace the files.
+to replace the files on that same release.
 
 ```bash
 cd ~/Projects/magpie-9

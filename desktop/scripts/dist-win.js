@@ -28,9 +28,18 @@ export function unsignedPackEnv(base) {
   return env
 }
 
-export function builderArgs(env) {
-  const publish = env.MAGPIE_PUBLISH === 'always' ? 'always' : 'never'
-  return ['--win', '--x64', '--publish', publish]
+// Always never. electron-builder's GitHub publisher fills its publisher cache
+// only after `await createPublisher()`, so the exe and the blockmap each build
+// a publisher, each miss the release, and each call createRelease. GitHub then
+// keeps two releases for one tag. desktop/scripts/publish-release.js publishes.
+export function builderArgs(env = {}) {
+  const mode = env.MAGPIE_PUBLISH
+  if (mode != null && mode !== 'never') {
+    throw new Error(
+      `MAGPIE_PUBLISH=${mode} is disabled. electron-builder races createRelease and opens two GitHub Releases for one tag.`,
+    )
+  }
+  return ['--win', '--x64', '--publish', 'never']
 }
 
 function isDirectRun() {

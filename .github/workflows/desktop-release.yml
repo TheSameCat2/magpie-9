@@ -1,0 +1,137 @@
+# Unsigned Windows installer.
+#
+# A tag push vX.Y.Z (or vX.Y.Z-prerelease) builds the NSIS installer on
+# windows-latest and creates or updates that tag's GitHub Release.
+# Re-run the workflow on the same tag to replace the uploaded installer.
+# Pull requests that touch the shell build the installer and upload it as an
+# Actions artifact only. They do not publish a Release.
+#
+# The installer is unsigned. Do not add a certificate or an updater here.
+
+name: Desktop release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/desktop-release.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      actions: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag is semver
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Tag must be vX.Y.Z or vX.Y.Z-prerelease (got ${GITHUB_REF_NAME})"
+            exit 1
+          fi
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+
+      - run: npm ci
+      - run: npm ci --prefix desktop
+
+      - name: Stamp the installer version from the tag
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        working-directory: desktop
+        run: npm pkg set version="$RELEASE_VERSION"
+
+      - name: Build the NSIS installer
+        run: npm run desktop:dist:win
+
+      - name: Require one installer
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(desktop/release/*.exe)
+          if (( ${#files[@]} != 1 )); then
+            echo "expected one NSIS installer in desktop/release, found ${#files[@]}"
+            printf '%s\n' "${files[@]}"
+            ls -la desktop/release || true
+            exit 1
+          fi
+          base="$(basename "${files[0]}")"
+          echo "installer=$base"
+          if [[ ! "$base" =~ ^MAGPIE-9\ Setup\ .+\.exe$ ]]; then
+            echo "unexpected installer name: $base"
+            exit 1
+          fi
+          if [[ -n "${RELEASE_VERSION:-}" && "$base" != "MAGPIE-9 Setup ${RELEASE_VERSION}.exe" ]]; then
+            echo "installer $base does not match tag version ${RELEASE_VERSION}"
+            exit 1
+          fi
+          echo "INSTALLER_NAME=$base" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: desktop/release/*.exe
+          if-no-files-found: error
+
+      - name: Write release notes
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          cat > release-notes.md <<EOF
+          Unsigned Windows build of MAGPIE-9 ${GITHUB_REF_NAME}. Windows does not trust this file. There is no in-app update.
+
+          Download **${INSTALLER_NAME}** from the assets below.
+
+          1. If Edge says the file isn't commonly downloaded, open the download warning, choose **Keep**, then **Show more**, then **Keep anyway**. In Chrome, choose **Keep**.
+          2. Open the installer. Windows shows **Windows protected your PC**.
+          3. Click **More info**, then **Run anyway**.
+          4. Open **MAGPIE-9** from the Start menu or the desktop shortcut. The first launch can show the same prompt. Click **More info**, then **Run anyway**, again.
+
+          A work or school PC can hide **Run anyway**. If the message is from Smart App Control, it has no **Run anyway**. Turning Smart App Control off (Windows Security → App & browser control → Smart App Control) allows the installer. Windows will not let you turn Smart App Control back on without resetting the PC.
+
+          The same steps are at the top of the README: https://github.com/TheSameCat2/magpie-9#download-for-windows
+          EOF
+
+      - name: Publish the GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          extra=()
+          if [[ "$tag" == *-* ]]; then
+            extra+=(--prerelease)
+          else
+            extra+=(--latest)
+          fi
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "desktop/release/${INSTALLER_NAME}" --clobber
+            gh release edit "$tag" --title "MAGPIE-9 $tag" --notes-file release-notes.md "${extra[@]}"
+          else
+            gh release create "$tag" "desktop/release/${INSTALLER_NAME}" \
+              --verify-tag \
+              --title "MAGPIE-9 $tag" \
+              --notes-file release-notes.md \
+              "${extra[@]}"
+          fi

@@ -1,7 +1,7 @@
 {
   "name": "magpie-9-desktop",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.1.1",
   "description": "Electron shell for MAGPIE-9. Loads the Vite build; does not contain the game.",
   "main": "src/main.js",
   "type": "module",

@@ -6,8 +6,8 @@
 
 Get the installer from the latest
 [GitHub Release](https://github.com/TheSameCat2/magpie-9/releases/latest).
-Run **MAGPIE-9 Setup** and the version, for example
-`MAGPIE-9 Setup 1.2.3.exe`.
+The file is **MAGPIE-9-Setup** and the version, for example
+`MAGPIE-9-Setup-1.2.3.exe`.
 
 This build is unsigned. Windows does not show a publisher it trusts, so
 Microsoft Defender SmartScreen stops the installer until you choose to
@@ -28,8 +28,18 @@ App Control, it has no **Run anyway**. Turning Smart App Control off
 installer. Windows will not let you turn Smart App Control back on without
 resetting the PC.
 
-There is no in-app update. For a newer version, download that release's
-installer and run it the same way.
+A newer release downloads in the background while you play. The run keeps
+going. A bar at the bottom of the window reads **Update available —** with
+**Restart now** and **Later**. Restart now quits and installs. Later leaves
+the run alone and installs the next time you quit. The update is unsigned
+too, so SmartScreen can ask again.
+
+Push a tag `vX.Y.Z` (for example `v1.2.3`) to publish. The workflow stamps
+that version, then electron-builder uploads `MAGPIE-9-Setup-X.Y.Z.exe`, its
+`.blockmap`, and `latest.yml` to the GitHub Release for the tag. That
+release is the update channel. A tag with a hyphen, such as `v1.2.3-rc.1`,
+is a prerelease and is not the channel. Re-run the workflow on the same tag
+to replace the files.
 
 ```bash
 cd ~/Projects/magpie-9
@@ -185,16 +195,11 @@ Output is `desktop/release/`. The ad-hoc signature is so macOS will launch it
 after the fuse flip; it is not a Developer ID signature. Notarization and the
 Steam depot are not part of the shell.
 
-Packaging for Windows (unsigned): `npm run desktop:dist:win` after
-`npm install` and `npm install --prefix desktop`. That production-builds the
-game, copies it into the shell, and runs the NSIS target. Output is
-`desktop/release/MAGPIE-9 Setup <version>.exe`, using the version in
-`desktop/package.json`. Signing stays off. Players follow
-[Download for Windows](#download-for-windows).
-
-Push a tag `vX.Y.Z` (for example `v1.2.3`, or `v1.2.3-rc.1` for a prerelease)
-to publish. The Desktop release workflow on `windows-latest` stamps that
-version onto the installer, then creates or updates the GitHub Release for
-the tag and uploads `MAGPIE-9 Setup X.Y.Z.exe`. Re-run the workflow on the
-same tag to replace the file. Pull requests that touch the shell build the
-installer as an Actions artifact and do not publish a Release.
+Packaging for Windows (unsigned, does not publish): `npm run desktop:dist:win`
+after `npm install` and `npm install --prefix desktop`. That production-builds
+the game, copies it into the shell, and runs the NSIS target. Output is
+`desktop/release/MAGPIE-9-Setup-<version>.exe` plus `latest.yml` and a
+`.blockmap`, using the version in `desktop/package.json`. Signing stays off.
+Players and the tag that publishes are under
+[Download for Windows](#download-for-windows). Pull requests that touch the
+shell build the installer as an Actions artifact and do not publish a Release.

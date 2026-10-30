@@ -61,7 +61,7 @@ export function createHazardHum(graph) {
   let lastVoice = null
   let lastGain = 0
 
-  graph.onBuild(({ ctx, master, noiseBuffer }) => {
+  graph.onBuild(({ ctx, effects, noiseBuffer }) => {
     const osc = ctx.createOscillator()
     osc.type = 'sawtooth'
     osc.frequency.value = 55
@@ -72,7 +72,7 @@ export function createHazardHum(graph) {
     gain.gain.value = 0
     osc.connect(filter)
     filter.connect(gain)
-    gain.connect(master)
+    gain.connect(effects)
     osc.start()
 
     const noise = ctx.createBufferSource()
@@ -86,7 +86,7 @@ export function createHazardHum(graph) {
     noiseGain.gain.value = 0
     noise.connect(noiseFilter)
     noiseFilter.connect(noiseGain)
-    noiseGain.connect(master)
+    noiseGain.connect(effects)
     noise.start()
 
     nodes = { osc, filter, gain, noiseFilter, noiseGain }

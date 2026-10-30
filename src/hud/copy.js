@@ -2,7 +2,7 @@
 
 import { formatTime } from '../lib/time.js'
 
-export const MENU_ITEMS = ['new', 'bends', 'challenge', 'tutorial', 'scores', 'help', 'credits']
+export const MENU_ITEMS = ['new', 'bends', 'challenge', 'tutorial', 'scores', 'help', 'credits', 'settings']
 
 /** One line under the menu for the highlighted entry. */
 export const MENU_BLURBS = {
@@ -13,6 +13,18 @@ export const MENU_BLURBS = {
   scores: "ALL-TIME AND BENDS GATES · TODAY'S FASTEST EXTRACTS",
   help: 'CONTROLS, ORBS, AND HOW A CHALLENGE WORKS',
   credits: 'THE PEOPLE BEHIND MAGPIE-9',
+  settings: 'VOLUME CHANNELS AND GRAPHICS QUALITY',
+}
+
+/** Settings rows in on-screen order. Left and right adjust the highlighted row. */
+export const SETTINGS_ROWS = ['master', 'music', 'effects', 'quality']
+
+/** One line under the quality choices. */
+export const QUALITY_CAPTIONS = {
+  auto: 'DROPS A RUNG IF FRAMES RUN LONG',
+  0: 'NO BLOOM · FEWER SPARKS',
+  1: 'BLOOM · LIGHTER PICTURE',
+  2: 'FULL DETAIL',
 }
 
 /**
@@ -37,11 +49,12 @@ export function lessonHint(inputMode) {
   return inputMode === 'touch' ? 'TAP TO CONTINUE' : 'SPACE TO CONTINUE'
 }
 
-/** Return hint on the credits and scores screens. */
+/** Return hint on the credits, scores, and settings screens. */
 export function screenHint(scene, inputMode) {
   const touch = inputMode === 'touch'
   if (scene === 'credits') return touch ? 'TAP TO RETURN' : 'ESC TO RETURN'
   if (scene === 'scores') return touch ? 'TAP TO RETURN' : '← → BOARD · ESC RETURN'
+  if (scene === 'settings') return touch ? 'TAP TO RETURN' : '↑ ↓ ROW · ← → ADJUST · ESC RETURN'
   return null
 }
 
@@ -53,6 +66,7 @@ export function keysHint(scene) {
     scene === 'dead' ||
     scene === 'credits' ||
     scene === 'scores' ||
+    scene === 'settings' ||
     scene === 'entry'
   ) {
     return 'H HELP · M MUTE'

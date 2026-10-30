@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import {
   MENU_BLURBS,
   MENU_ITEMS,
+  QUALITY_CAPTIONS,
+  SETTINGS_ROWS,
   endCopy,
   entryCopy,
   keysHint,
@@ -13,8 +15,17 @@ import {
   stepMenu,
 } from './copy.js'
 
-test('menu lists the seven entries in order', () => {
-  assert.deepEqual(MENU_ITEMS, ['new', 'bends', 'challenge', 'tutorial', 'scores', 'help', 'credits'])
+test('menu lists the eight entries in order', () => {
+  assert.deepEqual(MENU_ITEMS, [
+    'new',
+    'bends',
+    'challenge',
+    'tutorial',
+    'scores',
+    'help',
+    'credits',
+    'settings',
+  ])
 })
 
 test('stepMenu moves one row and wraps at both ends', () => {
@@ -42,8 +53,16 @@ test('lesson, screen, and key hints follow the input device', () => {
   assert.equal(screenHint('credits', 'touch'), 'TAP TO RETURN')
   assert.equal(screenHint('scores', 'keys'), '← → BOARD · ESC RETURN')
   assert.equal(screenHint('scores', 'touch'), 'TAP TO RETURN')
+  assert.equal(screenHint('settings', 'keys'), '↑ ↓ ROW · ← → ADJUST · ESC RETURN')
+  assert.equal(screenHint('settings', 'touch'), 'TAP TO RETURN')
   assert.equal(screenHint('menu', 'keys'), null)
   assert.equal(keysHint('menu'), 'H HELP · M MUTE')
+  assert.equal(keysHint('settings'), 'H HELP · M MUTE')
+  assert.equal(MENU_BLURBS.settings, 'VOLUME CHANNELS AND GRAPHICS QUALITY')
+  assert.deepEqual(SETTINGS_ROWS, ['master', 'music', 'effects', 'quality'])
+  assert.equal(QUALITY_CAPTIONS.auto, 'DROPS A RUNG IF FRAMES RUN LONG')
+  assert.equal(QUALITY_CAPTIONS[0], 'NO BLOOM · FEWER SPARKS')
+  assert.equal(QUALITY_CAPTIONS[2], 'FULL DETAIL')
   assert.equal(keysHint('playing'), 'P PAUSE · M MUTE')
   assert.equal(keysHint('respawn'), 'P PAUSE · M MUTE')
   assert.equal(MENU_BLURBS.challenge, "TODAY'S 40-GATE COURSE · RANKED BY TIME")

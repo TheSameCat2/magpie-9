@@ -12,6 +12,16 @@ export const QUALITY = [
 
 const TOP = QUALITY.length - 1
 
+/** Settings order: AUTO lets the governor walk down; a digit pins that rung. */
+export const QUALITY_MODES = ['auto', '0', '1', '2']
+
+/** Move one step along QUALITY_MODES. The ends hold. */
+export function stepQualityMode(mode, dir) {
+  const index = Math.max(0, QUALITY_MODES.indexOf(mode))
+  const next = index + Math.sign(dir)
+  return QUALITY_MODES[Math.min(QUALITY_MODES.length - 1, Math.max(0, next))]
+}
+
 /**
  * Starting rung. `?q=0|1|2` pins one; coarse pointers (phones) start one
  * rung down because their GPUs rarely hold the top rung.
@@ -50,10 +60,26 @@ export function createQualityGovernor({ level, pinned = false, onChange }) {
     }
   }
 
+  /**
+   * Manual choice. `pin` true holds `next` against the governor; false lets
+   * the governor walk down from the rung already running.
+   */
+  function apply(next, pin) {
+    level = clamp(Math.round(next), 0, TOP)
+    if (typeof pin === 'boolean') pinned = pin
+    slowFor = 0
+    warmup = 2
+    onChange?.(level)
+  }
+
   return {
     observe,
+    apply,
     get level() {
       return level
+    },
+    get pinned() {
+      return pinned
     },
     get settings() {
       return QUALITY[level]

@@ -1,6 +1,7 @@
 // Bootstrap: build the renderer and world, wire platform services into the
 // game, and run the frame loop. Everything interesting lives in the modules.
 
+import { loadQualityChoice, saveQualityChoice } from './lib/storage.js'
 import { createInput } from './platform/input.js'
 import { createScreen } from './platform/screen.js'
 import { createRenderer, createCamera, createScene, placeLights } from './render/scene.js'
@@ -51,9 +52,16 @@ const bends = createBends()
 const fx = createFx(scene)
 const postfx = createPostFx(renderer, scene, camera, { reduceMotion })
 
+const savedQuality = loadQualityChoice()
+const queryPin = params.has('q')
+const bootFromDevice = queryPin || savedQuality === 'auto'
+const bootLevel = bootFromDevice ? initialQuality(params, coarse) : Number(savedQuality)
+const bootPinned = queryPin || savedQuality !== 'auto'
+const bootChoice = queryPin ? String(bootLevel) : savedQuality
+
 const quality = createQualityGovernor({
-  level: initialQuality(params, coarse),
-  pinned: params.has('q'),
+  level: bootLevel,
+  pinned: bootPinned,
   onChange(level) {
     postfx.applyQuality(level)
     fx.setDensity(QUALITY[level].particles)
@@ -85,6 +93,12 @@ game = createGame({
   },
   god: params.get('god') === '1',
   startLives: Math.max(1, Number(params.get('lives')) || 1),
+  qualityChoice: bootChoice,
+  onQuality(choice) {
+    saveQualityChoice(choice)
+    if (choice === 'auto') quality.apply(quality.level, false)
+    else quality.apply(Number(choice), true)
+  },
 })
 screen.onChange = () => game.syncScreen()
 game.syncScreen()

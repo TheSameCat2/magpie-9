@@ -55,7 +55,7 @@ test('createHazardHum skips redundant voice retuning and repeated silence calls'
       createGain: () => makeNode(null, () => gainCalls++),
       createBufferSource: () => makeNode(null, null),
     },
-    master: {},
+    effects: {},
     noiseBuffer: {},
   })
 

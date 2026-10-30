@@ -61,6 +61,7 @@
           <button type="button" data-item="scores" aria-describedby="blurb" tabindex="-1">SCORES</button>
           <button type="button" data-item="help" aria-describedby="blurb" tabindex="-1">HELP</button>
           <button type="button" data-item="credits" aria-describedby="blurb" tabindex="-1">CREDITS</button>
+          <button type="button" data-item="settings" aria-describedby="blurb" tabindex="-1">SETTINGS</button>
         </nav>
         <div id="blurb">AN OPEN RUN · EVERY GATE COUNTS</div>
         <div id="prompt" class="hidden">FLAP TO ARM</div>
@@ -144,6 +145,105 @@
             <dd>Rinzler</dd>
           </dl>
           <div class="overlay-sub back-hint">ESC TO RETURN</div>
+          <button type="button" class="back" data-back>BACK</button>
+        </div>
+      </div>
+      <div
+        id="settings"
+        class="overlay screen hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settingsTitle"
+      >
+        <div class="overlay-card">
+          <div id="settingsTitle" class="overlay-title">SETTINGS</div>
+          <div class="settings-h">AUDIO</div>
+          <div class="settings-row sel" data-setting="master" aria-current="true">
+            <span class="settings-name">MASTER</span>
+            <button
+              type="button"
+              class="settings-nudge"
+              data-settings-nudge="-1"
+              aria-label="Lower master volume"
+            >
+              -
+            </button>
+            <span class="settings-meter" aria-hidden="true"
+              ><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i
+              ><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i
+            ></span>
+            <span class="settings-readout">100</span>
+            <button
+              type="button"
+              class="settings-nudge"
+              data-settings-nudge="1"
+              aria-label="Raise master volume"
+            >
+              +
+            </button>
+          </div>
+          <div class="settings-row" data-setting="music">
+            <span class="settings-name">MUSIC</span>
+            <button
+              type="button"
+              class="settings-nudge"
+              data-settings-nudge="-1"
+              aria-label="Lower music volume"
+            >
+              -
+            </button>
+            <span class="settings-meter" aria-hidden="true"
+              ><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i
+              ><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i
+            ></span>
+            <span class="settings-readout">100</span>
+            <button
+              type="button"
+              class="settings-nudge"
+              data-settings-nudge="1"
+              aria-label="Raise music volume"
+            >
+              +
+            </button>
+          </div>
+          <div class="settings-row" data-setting="effects">
+            <span class="settings-name">EFFECTS</span>
+            <button
+              type="button"
+              class="settings-nudge"
+              data-settings-nudge="-1"
+              aria-label="Lower effects volume"
+            >
+              -
+            </button>
+            <span class="settings-meter" aria-hidden="true"
+              ><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i
+              ><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i
+            ></span>
+            <span class="settings-readout">100</span>
+            <button
+              type="button"
+              class="settings-nudge"
+              data-settings-nudge="1"
+              aria-label="Raise effects volume"
+            >
+              +
+            </button>
+          </div>
+          <div class="settings-h">GRAPHICS</div>
+          <div class="settings-row" data-setting="quality">
+            <span class="settings-name">QUALITY</span>
+            <div class="settings-choices" role="radiogroup" aria-label="Graphics quality">
+              <button type="button" role="radio" data-quality="auto" class="sel" aria-checked="true">
+                AUTO
+              </button>
+              <button type="button" role="radio" data-quality="0" aria-checked="false">LOW</button>
+              <button type="button" role="radio" data-quality="1" aria-checked="false">MID</button>
+              <button type="button" role="radio" data-quality="2" aria-checked="false">HIGH</button>
+            </div>
+          </div>
+          <p id="settingsQualityCaption" class="settings-caption">DROPS A RUNG IF FRAMES RUN LONG</p>
+          <div class="overlay-sub back-hint">↑ ↓ ROW · ← → ADJUST · ESC RETURN</div>
           <button type="button" class="back" data-back>BACK</button>
         </div>
       </div>

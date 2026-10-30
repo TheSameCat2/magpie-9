@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { SETTINGS_ROWS } from './copy.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const HUD = path.join(ROOT, 'src', 'hud')
@@ -37,4 +38,10 @@ test('every HUD id lookup exists in index.html', () => {
   }
 
   assert.deepEqual(missing, [], `HUD ids missing from index.html:\n${missing.join('\n')}`)
+})
+
+test('settings rows follow the copy order', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')
+  const rows = [...html.matchAll(/data-setting="([^"]+)"/g)].map((match) => match[1])
+  assert.deepEqual(rows, [...SETTINGS_ROWS])
 })

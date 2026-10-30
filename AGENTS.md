@@ -33,7 +33,7 @@ desktop/               Electron shell; loads dist/, never imports src/
 | `tutorial.js` | Tutorial-mode overrides for speed, gate order, and orb order.             |
 | `fx.js`       | Spark colour ramp per sector, `sparkPhase()`, afterburner score.          |
 | `bends.js`    | BENDS: turn angle/length clamps, lead/trail straights, slip, `rollBend`.  |
-| `audio.js`    | Soundtrack level and the crash duck.                                      |
+| `audio.js`    | Soundtrack level, the crash duck, and the volume-channel step.            |
 
 Shared with the API: `rules.js` is imported by `api/scores.js` to reject
 impossible times, so keep it free of browser globals.
@@ -84,10 +84,11 @@ test fails until both exist.
 
 ### `src/audio/`
 
-`graph.js` owns the lazily created `AudioContext`, master gain, and the wet
-bus; `oneshots.js` makes tones and noise bursts; `music.js` streams the
-soundtrack into that bus; `hum.js` is the proximity hazard hum. `index.js`
-composes them into the game-facing API (`flap`, `gate`, `crash`, …).
+`graph.js` owns the lazily created `AudioContext`, master gain, the effects
+bus, and the wet bus; `oneshots.js` makes tones and noise bursts; `music.js`
+streams the soundtrack into the master bus; `hum.js` is the proximity hazard
+hum. `index.js` composes them into the game-facing API (`flap`, `gate`,
+`crash`, `setVolume`, …).
 
 ### `src/hud/`
 
@@ -96,7 +97,7 @@ composes them into the game-facing API (`flap`, `gate`, `crash`, …).
 to decide what chrome is visible. `copy.js` is pure text (menu items, pause
 copy, end-of-run titles) and is tested. `dom.js` has the helpers (`byId`,
 `onPress`, `retrigger`). Panels: `readouts` (score, best, lives, speed,
-toast), `screens` (menu, end card, entry, credits, scores, lessons),
+toast), `screens` (menu, end card, entry, credits, scores, settings, lessons),
 `overlays` (pause card, respawn, rotate), `help` (field manual modal),
 `touch` (stick + tap ring).
 
@@ -116,7 +117,7 @@ toast), `screens` (menu, end card, entry, credits, scores, lessons),
 | `board.js`      | Pure ranking + initials entry state machine.                                            |
 | `api.js`        | fetch wrappers for `/api/run` and `/api/scores`.                                        |
 
-Scene names: `menu | credits | scores | playing | respawn | dead | entry`.
+Scene names: `menu | credits | scores | settings | playing | respawn | dead | entry`.
 Modes: `run | bends | tutorial | challenge`; `run` and `bends` each have a board and a best.
 Help is a modal, not a scene. Pause is a hold inside `playing`, not a scene.
 

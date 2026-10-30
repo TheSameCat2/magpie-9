@@ -192,3 +192,96 @@
 #scoresList .pts {
   font-variant-numeric: tabular-nums;
 }
+
+#settings .overlay-card {
+  width: min(40em, calc(100vw - 56px));
+  max-width: min(40em, calc(100vw - 56px));
+  max-height: calc(100dvh - 28px - var(--sat) - var(--sab));
+  overflow-y: auto;
+}
+.settings-h {
+  margin: 18px 0 8px;
+  color: var(--ice);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.24em;
+  text-shadow: 0 0 10px rgba(61, 224, 255, 0.35);
+}
+.settings-row {
+  display: grid;
+  grid-template-columns: 7.2em var(--hit) minmax(6em, 1fr) 3.2em var(--hit);
+  align-items: center;
+  column-gap: 10px;
+  min-height: var(--hit);
+}
+.settings-row[data-setting='quality'] {
+  grid-template-columns: 7.2em minmax(0, 1fr);
+  margin-top: 4px;
+}
+.settings-name {
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.16em;
+}
+.settings-row.sel .settings-name {
+  color: var(--ice);
+  text-shadow: 0 0 10px rgba(61, 224, 255, 0.45);
+}
+.settings-nudge {
+  width: var(--hit);
+  height: var(--hit);
+  padding: 0;
+  border: 1px solid rgba(61, 224, 255, 0.45);
+  background: rgba(7, 8, 12, 0.72);
+  color: var(--ice);
+  font-size: var(--fs-sm);
+}
+.settings-meter {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+  height: 10px;
+}
+.settings-meter i {
+  display: block;
+  height: 100%;
+  background: rgba(61, 224, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(61, 224, 255, 0.35);
+}
+.settings-meter i.on {
+  background: var(--ice);
+  box-shadow: 0 0 8px rgba(61, 224, 255, 0.55);
+}
+.settings-readout {
+  font-family: Orbitron, sans-serif;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+}
+.settings-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.settings-choices button {
+  min-height: var(--hit);
+  padding: 6px 14px;
+  border: 1px solid rgba(61, 224, 255, 0.28);
+  background: rgba(7, 8, 12, 0.72);
+  color: var(--ink);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.2em;
+}
+.settings-choices button.sel {
+  color: var(--ice);
+  border-color: rgba(61, 224, 255, 0.7);
+  text-shadow: 0 0 10px rgba(61, 224, 255, 0.45);
+}
+.settings-caption {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}

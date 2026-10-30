@@ -15,7 +15,7 @@ export function createOneShots(graph) {
     gain.gain.exponentialRampToValueAtTime(peak, t + attack)
     gain.gain.exponentialRampToValueAtTime(0.0001, t + dur)
     osc.connect(gain)
-    gain.connect(graph.master)
+    gain.connect(graph.effects)
     if (toWet > 0) {
       const send = ctx.createGain()
       send.gain.value = toWet
@@ -44,7 +44,7 @@ export function createOneShots(graph) {
     gain.gain.exponentialRampToValueAtTime(0.0001, t + dur)
     source.connect(filter)
     filter.connect(gain)
-    gain.connect(graph.master)
+    gain.connect(graph.effects)
     source.start(t, Math.random() * 1.5)
     source.stop(t + dur + 0.05)
   }

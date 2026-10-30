@@ -182,6 +182,24 @@ test('a crash ducks the song and schedules the return to the session level', () 
   ])
 })
 
+test('the music channel scales the resting level and both crash ramps', () => {
+  const { music, gainParam } = harness({ tracks: ['/audio/one.mp3'] })
+  music.setLevel(0.5)
+  assert.equal(music.level, 0.5)
+  music.start()
+  assert.equal(gainParam.value, MUSIC_GAIN * 0.5)
+  music.crash()
+  assert.deepEqual(gainParam.calls, [
+    ['cancel', 5],
+    ['set', MUSIC_GAIN * 0.5, 5],
+    ['ramp', MUSIC_CRASH_GAIN * 0.5, 5 + MUSIC_CRASH_DIP_S],
+    ['ramp', MUSIC_GAIN * 0.5, 5 + MUSIC_CRASH_DIP_S + MUSIC_CRASH_RECOVER_S],
+  ])
+  music.setLevel(0.2)
+  assert.deepEqual(gainParam.calls.at(-2), ['cancel', 5])
+  assert.deepEqual(gainParam.calls.at(-1), ['set', MUSIC_GAIN * 0.2, 5])
+})
+
 test('a rejected play() does not escape the gesture start', async () => {
   const { music } = harness({
     tracks: ['/audio/one.mp3'],

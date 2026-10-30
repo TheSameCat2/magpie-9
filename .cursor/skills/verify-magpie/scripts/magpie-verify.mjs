@@ -24,6 +24,7 @@ const MENU_BLURBS = {
   scores: "ALL-TIME AND BENDS GATES · TODAY'S FASTEST EXTRACTS",
   help: 'CONTROLS, ORBS, AND HOW A CHALLENGE WORKS',
   credits: 'THE PEOPLE BEHIND MAGPIE-9',
+  settings: 'VOLUME CHANNELS AND GRAPHICS QUALITY',
 }
 
 const KEYS = {
@@ -78,7 +79,13 @@ const PROBE = `(() => {
   const center = document.getElementById('center')
   const score = document.getElementById('score')
   const credits = document.getElementById('credits')
+  const settings = document.getElementById('settings')
   const toast = document.getElementById('toast')
+  const readout = (name) => {
+    const row = settings && settings.querySelector('[data-setting="' + name + '"]')
+    const el = row && row.querySelector('.settings-readout')
+    return ((el && el.textContent) || '').trim()
+  }
   return {
     title: document.title,
     href: location.href,
@@ -119,6 +126,15 @@ const PROBE = `(() => {
     creditsHidden: hidden(credits),
     creditsTitle: document.getElementById('creditsTitle')?.textContent ?? '',
     creditsText: (credits?.innerText || '').replace(/\\s+/g, ' ').trim(),
+    settingsHidden: hidden(settings),
+    settingsTitle: (document.getElementById('settingsTitle')?.textContent || '').trim(),
+    settingsText: (settings?.innerText || '').replace(/\\s+/g, ' ').trim(),
+    settingsRow: settings?.querySelector('.settings-row.sel')?.dataset.setting || '',
+    settingsMaster: readout('master'),
+    settingsMusic: readout('music'),
+    settingsEffects: readout('effects'),
+    settingsQuality: settings?.querySelector('[data-quality][aria-checked="true"]')?.dataset.quality || '',
+    settingsCaption: (document.getElementById('settingsQualityCaption')?.textContent || '').trim(),
     lessonHidden: hidden(document.getElementById('lesson')),
     lessonTitle: (document.querySelector('#lesson .lesson:not(.hidden) .overlay-title')?.textContent || '').trim(),
     lessonTap: (document.getElementById('lessonTap')?.textContent || '').trim(),
@@ -273,8 +289,10 @@ function cmdline(pid) {
   try {
     return fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replaceAll('\0', ' ')
   } catch {
-    return ''
+    /* macOS has no /proc. ps is the same check doctor already makes. */
   }
+  const result = spawnSync('ps', ['-p', String(pid), '-o', 'command='], { encoding: 'utf8' })
+  return (result.stdout || '').trim()
 }
 
 // `ss` is not installed here. A listening socket's inode in /proc/net/tcp
@@ -321,15 +339,24 @@ function socketInodes(pid) {
 
 function ownsPort(pid, port) {
   const listening = listenInodes(port)
-  if (!listening.length) return { ok: false, reason: `nothing is listening on ${port}` }
-  const owned = new Set()
-  for (const member of processTree(pid)) {
-    for (const inode of socketInodes(member)) owned.add(inode)
-  }
-  if (!listening.some((inode) => owned.has(inode))) {
+  if (listening.length) {
+    const owned = new Set()
+    for (const member of processTree(pid)) {
+      for (const inode of socketInodes(member)) owned.add(inode)
+    }
+    if (listening.some((inode) => owned.has(inode))) return { ok: true }
     return { ok: false, reason: `port ${port} is not held by pid ${pid}` }
   }
-  return { ok: true }
+  // Linux reads /proc/net/tcp above. Elsewhere lsof names the listening pid.
+  if (process.platform === 'linux') return { ok: false, reason: `nothing is listening on ${port}` }
+  const result = spawnSync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN', '-t'], { encoding: 'utf8' })
+  const listeners = (result.stdout || '')
+    .split('\n')
+    .map((line) => Number(line.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0)
+  if (!listeners.length) return { ok: false, reason: `nothing is listening on ${port}` }
+  if (listeners.includes(pid)) return { ok: true }
+  return { ok: false, reason: `port ${port} is not held by pid ${pid}` }
 }
 
 function statePath(home) {
@@ -523,6 +550,14 @@ function formatProbe(probe, state) {
     `scoresTab: ${probe.scoresTab}`,
     `creditsHidden: ${probe.creditsHidden}`,
     `creditsTitle: ${probe.creditsTitle}`,
+    `settingsHidden: ${probe.settingsHidden}`,
+    `settingsTitle: ${probe.settingsTitle}`,
+    `settingsRow: ${probe.settingsRow}`,
+    `settingsMaster: ${probe.settingsMaster}`,
+    `settingsMusic: ${probe.settingsMusic}`,
+    `settingsEffects: ${probe.settingsEffects}`,
+    `settingsQuality: ${probe.settingsQuality}`,
+    `settingsCaption: ${probe.settingsCaption}`,
     `lessonHidden: ${probe.lessonHidden}`,
     `lessonTitle: ${probe.lessonTitle}`,
     `lessonTap: ${probe.lessonTap}`,
@@ -554,6 +589,7 @@ function problemsFor(name, probe, args) {
     need(probe.pausedHidden === true, 'pause card showing')
     need(probe.scoresHidden === true, 'scores showing')
     need(probe.creditsHidden === true, 'credits showing')
+    need(probe.settingsHidden === true, 'settings showing')
     need(probe.lessonHidden === true, 'lesson showing')
     need(probe.rotateHidden === true, 'rotate overlay showing')
     need(probe.mode === 'run', `mode ${probe.mode}`)
@@ -574,6 +610,7 @@ function problemsFor(name, probe, args) {
     need(probe.pausedHidden === true, 'pause card showing')
     need(probe.scoresHidden === true, 'scores showing')
     need(probe.creditsHidden === true, 'credits showing')
+    need(probe.settingsHidden === true, 'settings showing')
     need(probe.lessonHidden === true, 'lesson showing')
     need(probe.rotateHidden === true, 'rotate overlay showing')
   } else if (name === 'storage-empty') {
@@ -642,6 +679,7 @@ function problemsFor(name, probe, args) {
     need(probe.scoresTab === board, `tab ${probe.scoresTab}`)
     need(probe.helpHidden === true, 'help open')
     need(probe.creditsHidden === true, 'credits showing')
+    need(probe.settingsHidden === true, 'settings showing')
   } else if (name === 'credits') {
     need(probe.creditsHidden === false, 'credits hidden')
     need(probe.creditsTitle === 'CREDITS', `title ${probe.creditsTitle}`)
@@ -649,6 +687,21 @@ function problemsFor(name, probe, args) {
     need(probe.creditsText.includes('ESC TO RETURN'), 'missing ESC TO RETURN')
     need(probe.helpHidden === true, 'help open')
     need(probe.scoresHidden === true, 'scores showing')
+    need(probe.settingsHidden === true, 'settings showing')
+  } else if (name === 'settings') {
+    need(probe.settingsHidden === false, 'settings hidden')
+    need(probe.settingsTitle === 'SETTINGS', `title ${probe.settingsTitle}`)
+    need(probe.centerHidden === true, 'centre card still up')
+    need(probe.creditsHidden === true, 'credits showing')
+    need(probe.scoresHidden === true, 'scores showing')
+    need(probe.helpHidden === true, 'help open')
+    need(probe.settingsRow === 'master', `row ${probe.settingsRow}`)
+    need(probe.settingsMaster === '100', `master ${probe.settingsMaster}`)
+    need(probe.settingsMusic === '100', `music ${probe.settingsMusic}`)
+    need(probe.settingsEffects === '100', `effects ${probe.settingsEffects}`)
+    need(probe.settingsQuality === 'auto', `quality ${probe.settingsQuality}`)
+    need(probe.settingsCaption === 'DROPS A RUNG IF FRAMES RUN LONG', `caption ${probe.settingsCaption}`)
+    need(String(probe.settingsText).includes('ESC RETURN'), 'missing ESC RETURN')
   } else if (name === 'toast') {
     const text = args.text
     need(text, 'missing --text')
@@ -824,6 +877,7 @@ async function launch() {
           probe.helpHidden &&
           probe.pausedHidden &&
           probe.rotateHidden &&
+          probe.settingsHidden &&
           Object.keys(probe.storage || {}).length === 0
         if (booted && client.exceptions.length === 0) {
           ready = true
@@ -1117,7 +1171,7 @@ function usage() {
   screenshot --path <evidence-relative>
   snapshot --path <evidence-relative>
   storage
-  expect <menu|menu-item|help-open|storage-empty|jump-to-begin|live|pause-menu|flight-card|dead|scores-offline|credits|toast> [--item|--mode|--board|--text]
+  expect <menu|menu-item|help-open|storage-empty|jump-to-begin|live|pause-menu|flight-card|dead|scores-offline|credits|settings|toast> [--item|--mode|--board|--text]
   wait --field <probeField> --equals <value> [--timeout ms] | wait --ms <n>
   cleanup`
 }

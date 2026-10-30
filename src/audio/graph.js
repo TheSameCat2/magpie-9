@@ -2,19 +2,31 @@
 // let a context start from a user gesture, so everything is built lazily on
 // the first `ensure()` and the voices register `onBuild` hooks to attach.
 
+import { clampVolume } from '../config/audio.js'
+
 const MASTER_GAIN = 0.9
 
-export function createAudioGraph({ muted = false } = {}) {
+export function createAudioGraph({ muted = false, masterLevel = 1, effectsLevel = 1 } = {}) {
   let ctx = null
   let master = null
+  let effects = null
   let wet = null
   let noiseBuffer = null
   let isMuted = muted
+  let masterLevelNow = clampVolume(masterLevel)
+  let effectsLevelNow = clampVolume(effectsLevel)
   const buildHooks = []
+
+  function audibleMaster() {
+    return isMuted ? 0 : MASTER_GAIN * masterLevelNow
+  }
 
   function buildBus() {
     master = ctx.createGain()
-    master.gain.value = isMuted ? 0 : MASTER_GAIN
+    master.gain.value = audibleMaster()
+    effects = ctx.createGain()
+    effects.gain.value = effectsLevelNow
+    effects.connect(master)
     const compressor = ctx.createDynamicsCompressor()
     compressor.threshold.value = -14
     compressor.knee.value = 18
@@ -38,7 +50,7 @@ export function createAudioGraph({ muted = false } = {}) {
     delay.connect(damp)
     damp.connect(feedback)
     feedback.connect(delay)
-    damp.connect(master)
+    damp.connect(effects)
 
     const length = ctx.sampleRate * 2
     noiseBuffer = ctx.createBuffer(1, length, ctx.sampleRate)
@@ -71,6 +83,16 @@ export function createAudioGraph({ muted = false } = {}) {
     get master() {
       return master
     },
+    /** One-shots and the hazard hum. Music stays on `master` so it has its own channel. */
+    get effects() {
+      return effects
+    },
+    get masterLevel() {
+      return masterLevelNow
+    },
+    get effectsLevel() {
+      return effectsLevelNow
+    },
     get wet() {
       return wet
     },
@@ -86,7 +108,15 @@ export function createAudioGraph({ muted = false } = {}) {
     },
     setMuted(next) {
       isMuted = next
-      if (master) master.gain.setTargetAtTime(next ? 0 : MASTER_GAIN, ctx.currentTime, 0.05)
+      if (master) master.gain.setTargetAtTime(audibleMaster(), ctx.currentTime, 0.05)
+    },
+    setMasterLevel(next) {
+      masterLevelNow = clampVolume(next)
+      if (master) master.gain.setTargetAtTime(audibleMaster(), ctx.currentTime, 0.05)
+    },
+    setEffectsLevel(next) {
+      effectsLevelNow = clampVolume(next)
+      if (effects) effects.gain.setTargetAtTime(effectsLevelNow, ctx.currentTime, 0.05)
     },
     suspend() {
       if (ctx && ctx.state === 'running') ctx.suspend()

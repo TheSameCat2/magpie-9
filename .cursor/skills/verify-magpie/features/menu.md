@@ -1,6 +1,6 @@
 # Main menu
 
-The menu is the game's front door. The highlight moves with the arrow keys, the line under the list describes the highlighted entry, and choosing NEW GAME or BENDS drops the player into a held run. CHALLENGE cannot start on this launch. CREDITS is a separate screen with a way back.
+The menu is the game's front door. The highlight moves with the arrow keys, the line under the list describes the highlighted entry, and choosing NEW GAME or BENDS drops the player into a held run. CHALLENGE cannot start on this launch. CREDITS and SETTINGS are separate screens with a way back.
 
 ## Sub-features
 
@@ -16,7 +16,7 @@ The menu is the game's front door. The highlight moves with the arrow keys, the 
 - The game opens on the menu. NEW GAME is highlighted.
 - Press ArrowDown or ArrowUp to move the highlight. Press Enter or Space to choose it, or click the row.
 - Choose NEW GAME, BENDS, CHALLENGE, or CREDITS.
-- TUTORIAL is specified in `tutorial.md`. SCORES is specified in `scores.md`. HELP is specified in `help.md`.
+- TUTORIAL is specified in `tutorial.md`. SCORES is specified in `scores.md`. HELP is specified in `help.md`. SETTINGS is specified in `settings.md`.
 
 ## Driving it with magpie-verify
 

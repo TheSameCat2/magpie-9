@@ -5,7 +5,13 @@
 // Scroll speed does not retune it. The element is paused with the context,
 // because suspending the context leaves a media element running.
 
-import { MUSIC_CRASH_DIP_S, MUSIC_CRASH_GAIN, MUSIC_CRASH_RECOVER_S, MUSIC_GAIN } from '../config/audio.js'
+import {
+  clampVolume,
+  MUSIC_CRASH_DIP_S,
+  MUSIC_CRASH_GAIN,
+  MUSIC_CRASH_RECOVER_S,
+  MUSIC_GAIN,
+} from '../config/audio.js'
 
 function publicUrl(file) {
   const base = import.meta.env?.BASE_URL ?? '/'
@@ -32,14 +38,19 @@ function playElement(el) {
   if (pending && typeof pending.then === 'function') pending.then(null, () => {})
 }
 
-export function createMusic(graph, { tracks = MUSIC_TRACKS, rand = Math.random, AudioCtor } = {}) {
+export function createMusic(graph, { tracks = MUSIC_TRACKS, rand = Math.random, AudioCtor, level = 1 } = {}) {
   const order = shuffleTracks(tracks, rand)
   let index = 0
   let el = null
   let gain = null
   let started = false
   let nextSrc = ''
+  let channel = clampVolume(level)
   const Ctor = AudioCtor ?? globalThis.Audio
+
+  function restingGain() {
+    return MUSIC_GAIN * channel
+  }
 
   graph.onBuild(({ ctx, master }) => {
     if (typeof Ctor !== 'function' || order.length === 0) return
@@ -49,7 +60,7 @@ export function createMusic(graph, { tracks = MUSIC_TRACKS, rand = Math.random, 
     el.src = order[0]
     const source = ctx.createMediaElementSource(el)
     gain = ctx.createGain()
-    gain.gain.value = MUSIC_GAIN
+    gain.gain.value = restingGain()
     source.connect(gain)
     gain.connect(master)
     el.addEventListener('ended', advance)
@@ -91,16 +102,35 @@ export function createMusic(graph, { tracks = MUSIC_TRACKS, rand = Math.random, 
     playElement(el)
   }
 
-  /** Duck under the crash noise, then return to the session level. */
+  /** Player music channel. Cancels a crash ramp so the slider wins immediately. */
+  function setLevel(next) {
+    channel = clampVolume(next)
+    if (!gain) return
+    const param = gain.gain
+    const t = graph.now
+    param.cancelScheduledValues(t)
+    param.setValueAtTime(restingGain(), t)
+  }
+
+  /** Duck under the crash noise, then return to the current music level. */
   function crash() {
     if (!gain) return
     const t = graph.now
     const param = gain.gain
     param.cancelScheduledValues(t)
     param.setValueAtTime(param.value, t)
-    param.linearRampToValueAtTime(MUSIC_CRASH_GAIN, t + MUSIC_CRASH_DIP_S)
-    param.linearRampToValueAtTime(MUSIC_GAIN, t + MUSIC_CRASH_DIP_S + MUSIC_CRASH_RECOVER_S)
+    param.linearRampToValueAtTime(MUSIC_CRASH_GAIN * channel, t + MUSIC_CRASH_DIP_S)
+    param.linearRampToValueAtTime(restingGain(), t + MUSIC_CRASH_DIP_S + MUSIC_CRASH_RECOVER_S)
   }
 
-  return { start, suspend, resume, crash }
+  return {
+    start,
+    suspend,
+    resume,
+    crash,
+    setLevel,
+    get level() {
+      return channel
+    },
+  }
 }

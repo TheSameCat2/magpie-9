@@ -14,12 +14,18 @@ M mutes, B shows the body hitbox.
 ## Menu
 
 The game opens on a menu: **NEW GAME**, **BENDS**, **CHALLENGE**, **TUTORIAL**,
-**SCORES**, **HELP**, **CREDITS**. Click / tap an entry, or use ↑ ↓ (W S) and
-Enter / Space. The line under the list describes the highlighted entry. NEW
-GAME, BENDS, and TUTORIAL drop you into a held run — jump to begin. Esc (or a
-tap) backs out of Help, Credits, and Scores; after a crash, a tap returns to
-the menu once a short grace has passed, so the flap that ended the run cannot
-dismiss the card.
+**SCORES**, **HELP**, **CREDITS**, **SETTINGS**. Click / tap an entry, or use
+↑ ↓ (W S) and Enter / Space. The line under the list describes the highlighted
+entry. NEW GAME, BENDS, and TUTORIAL drop you into a held run — jump to begin.
+Esc (or a tap) backs out of Help, Credits, Scores, and Settings; after a crash,
+a tap returns to the menu once a short grace has passed, so the flap that ended
+the run cannot dismiss the card.
+
+**SETTINGS** sets master, music, and effects volume, and chooses graphics
+quality: AUTO, LOW, MID, or HIGH. AUTO keeps the usual picture and drops a rung
+when frames run long. Mute still silences everything without moving the master
+slider. The browser keeps the choice (`magpie9.volume.master`,
+`magpie9.volume.music`, `magpie9.volume.effects`, `magpie9.quality`).
 
 ## Bends
 

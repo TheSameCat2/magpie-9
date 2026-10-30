@@ -1,6 +1,6 @@
 ---
 name: verify-magpie
-description: "Drive MAGPIE-9's web HUD (Vite plus a Chrome DevTools Protocol harness) the way a player does, and prove menu, help, scores, pause, or tutorial behavior with screenshots and HUD snapshots. Use when a change to the running game needs evidence from the real page."
+description: "Drive MAGPIE-9's web HUD (Vite plus a Chrome DevTools Protocol harness) the way a player does, and prove menu, help, scores, settings, pause, or tutorial behavior with screenshots and HUD snapshots. Use when a change to the running game needs evidence from the real page."
 ---
 
 # Verify MAGPIE-9
@@ -25,7 +25,7 @@ Omit `MAGPIE_VERIFY_EVIDENCE` to write proof under `/tmp/magpie-verify-evidence/
 3. Starts `google-chrome` headless on its own DevTools port, pointed at that empty profile, at 1280×800. SwiftShader (`--use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist`) is harness scaffolding so WebGL comes up on a machine with no GPU. `--no-sandbox` is required for Chrome in this kind of container. Background throttling is disabled so a headless page keeps simulating while no one is watching it.
 4. Opens `http://127.0.0.1:<port>/` with no query string.
 
-Ready means the page is usable, not merely that Vite returned HTML. The helper prints `ready url=...` only after the document title is `MAGPIE-9`, a canvas has a WebGL renderer string, the document is visible, input mode is `keys`, the menu highlight is `NEW GAME` with blurb `AN OPEN RUN · EVERY GATE COUNTS`, the gate count is `0`, best is `BEST 0`, help, pause, and the rotate overlay are hidden, and no `magpie9.*` storage keys exist. A software renderer string is acceptable. A missing canvas or context is not.
+Ready means the page is usable, not merely that Vite returned HTML. The helper prints `ready url=...` only after the document title is `MAGPIE-9`, a canvas has a WebGL renderer string, the document is visible, input mode is `keys`, the menu highlight is `NEW GAME` with blurb `AN OPEN RUN · EVERY GATE COUNTS`, the gate count is `0`, best is `BEST 0`, help, pause, settings, and the rotate overlay are hidden, and no `magpie9.*` storage keys exist. A software renderer string is acceptable. A missing canvas or context is not.
 
 The helper refuses to launch into the default slot while another instance's pid is still alive. A second instance needs its own `MAGPIE_VERIFY_HOME`, `MAGPIE_VERIFY_EVIDENCE`, and (if you pin them) `MAGPIE_VERIFY_PORT` plus `MAGPIE_VERIFY_CDP_PORT`. Do not drive a Chrome this helper did not start.
 
@@ -61,20 +61,22 @@ node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs wait --ms 800
 
 Stable handles:
 
-| Player control                                              | Handle                                                                                                         |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| NEW GAME, BENDS, CHALLENGE, TUTORIAL, SCORES, HELP, CREDITS | `#menu button[data-item="new"]` and the same for `bends`, `challenge`, `tutorial`, `scores`, `help`, `credits` |
-| Field-manual button                                         | `#btnHelp` (`aria-label` Help)                                                                                 |
-| Close the manual                                            | `#btnHelpClose` (`aria-label` Close help)                                                                      |
-| Manual surface                                              | `#help` (`role` dialog, heading `#helpTitle`)                                                                  |
-| Pause / Continue / Quit                                     | `#pause`, `#btnContinue`, `#btnQuit`                                                                           |
-| Leave tutorial                                              | `#exit` (`aria-label` Exit tutorial to menu)                                                                   |
-| Score tabs                                                  | `#scoresTabs button[data-board="run"]`, `bends`, `challenge`                                                   |
-| Back from credits or scores                                 | `#credits button.back`, `#scores button.back`                                                                  |
-| Initials                                                    | `[aria-label="Letter 1 up"]` and the matching down / letter 2 / letter 3 labels, `#btnEnter`, `#btnSkip`       |
-| Canvas flap                                                 | `canvas`                                                                                                       |
+| Player control                                                        | Handle                                                                                                                     |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| NEW GAME, BENDS, CHALLENGE, TUTORIAL, SCORES, HELP, CREDITS, SETTINGS | `#menu button[data-item="new"]` and the same for `bends`, `challenge`, `tutorial`, `scores`, `help`, `credits`, `settings` |
+| Field-manual button                                                   | `#btnHelp` (`aria-label` Help)                                                                                             |
+| Close the manual                                                      | `#btnHelpClose` (`aria-label` Close help)                                                                                  |
+| Manual surface                                                        | `#help` (`role` dialog, heading `#helpTitle`)                                                                              |
+| Pause / Continue / Quit                                               | `#pause`, `#btnContinue`, `#btnQuit`                                                                                       |
+| Leave tutorial                                                        | `#exit` (`aria-label` Exit tutorial to menu)                                                                               |
+| Score tabs                                                            | `#scoresTabs button[data-board="run"]`, `bends`, `challenge`                                                               |
+| Back from credits, scores, or settings                                | `#credits button.back`, `#scores button.back`, `#settings button.back`                                                     |
+| Settings volume nudge                                                 | `#settings [data-setting="master"] [data-settings-nudge="-1"]` and `1`; same for `music` and `effects`                     |
+| Settings quality                                                      | `#settings [data-quality="auto"]`, `0` (LOW), `1` (MID), `2` (HIGH)                                                        |
+| Initials                                                              | `[aria-label="Letter 1 up"]` and the matching down / letter 2 / letter 3 labels, `#btnEnter`, `#btnSkip`                   |
+| Canvas flap                                                           | `canvas`                                                                                                                   |
 
-`expect` states used by the feature map: `menu`, `menu-item --item <id>`, `help-open`, `storage-empty`, `jump-to-begin --mode run|bends|tutorial`, `live --mode run|bends|tutorial`, `pause-menu`, `flight-card`, `dead`, `scores-offline --board run|bends|challenge`, `credits`, `toast --text <text>`. `dead` means the reboot card `REBOOT` / `RUN 0`. `scores-offline` means the status text `BOARD OFFLINE`.
+`expect` states used by the feature map: `menu`, `menu-item --item <id>`, `help-open`, `storage-empty`, `jump-to-begin --mode run|bends|tutorial`, `live --mode run|bends|tutorial`, `pause-menu`, `flight-card`, `dead`, `scores-offline --board run|bends|challenge`, `credits`, `settings`, `toast --text <text>`. `dead` means the reboot card `REBOOT` / `RUN 0`. `scores-offline` means the status text `BOARD OFFLINE`. `settings` means the fresh Settings screen: master row, every channel at 100, quality AUTO.
 
 Recipes are in `features/`. Start each one from the baseline menu unless that file says otherwise.
 
@@ -123,7 +125,7 @@ node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs storage
 node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs cleanup
 ```
 
-`MAGPIE_VERIFY_CHROME` overrides the Chrome binary. `MAGPIE_VERIFY_ROOT` overrides the repo root.
+`MAGPIE_VERIFY_CHROME` overrides the Chrome binary. On macOS that binary is `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`. `MAGPIE_VERIFY_ROOT` overrides the repo root. Port ownership uses `/proc` on Linux and `lsof` elsewhere.
 
 ## Other surfaces
 

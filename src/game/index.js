@@ -41,7 +41,7 @@ const HAZARD_RANGE = 38
 /** Per-second decay of the screen-wide kick pulse. */
 const KICK_DECAY = 2.6
 
-const MENU_SCENES = new Set(['menu', 'credits', 'scores'])
+const MENU_SCENES = new Set(['menu', 'credits', 'scores', 'settings'])
 /** SCORES tabs in on-screen order; left/right steps through them. */
 const BOARD_TABS = ['run', 'bends', 'challenge']
 
@@ -61,12 +61,15 @@ export function createGame({
   onResume,
   god = false,
   startLives = 1,
+  qualityChoice: initialQualityChoice = 'auto',
+  onQuality,
   hud = createHud(),
   api = scoreApi,
   now = Date.now,
 }) {
-  // menu | credits | playing | respawn | dead | entry | scores  (help is a modal)
+  // menu | credits | scores | settings | playing | respawn | dead | entry  (help is a modal)
   let scene = 'menu'
+  let qualityChoice = initialQualityChoice
   let best = loadBest()
   /** Bumped on every session start/abort so a slow challenge fetch cannot arm a stale run. */
   let sessionGen = 0
@@ -283,7 +286,14 @@ export function createGame({
     else if (item === 'credits') {
       scene = 'credits'
       hud.showCredits()
-    }
+    } else if (item === 'settings') openSettings()
+  }
+
+  function openSettings() {
+    scene = 'settings'
+    const volumes = audio.volumes
+    const levels = volumes && typeof volumes === 'object' ? volumes : { master: 1, music: 1, effects: 1 }
+    hud.showSettings({ ...levels, quality: qualityChoice })
   }
 
   function stepTab(tab, side) {
@@ -544,6 +554,11 @@ export function createGame({
       const side = input.strafeEdge || input.navEdge
       if (side) openScores(stepTab(scoreboard.tab, side))
       else if (tapped || input.backEdge || input.selectEdge) toMenu()
+    } else if (scene === 'settings') {
+      if (blocked) return
+      if (input.navEdge) hud.moveSettings(input.navEdge)
+      else if (input.strafeEdge) hud.adjustSettings(Math.sign(input.strafeEdge))
+      else if (tapped || input.backEdge || input.selectEdge) toMenu()
     } else if (tapped || input.backEdge || input.selectEdge) {
       toMenu()
     }
@@ -702,7 +717,15 @@ export function createGame({
       if (scene === 'menu' && !hud.helpOpen) selectMenuItem(item)
     },
     onBack() {
-      if (scene === 'credits' || scene === 'scores') toMenu()
+      if (scene === 'credits' || scene === 'scores' || scene === 'settings') toMenu()
+    },
+    onSettings(change) {
+      if (scene !== 'settings' || !change) return
+      if (change.channel) audio.setVolume?.(change.channel, change.value)
+      if (change.quality) {
+        qualityChoice = change.quality
+        onQuality?.(change.quality)
+      }
     },
     onExit() {
       if (run.tutorial && (scene === 'playing' || scene === 'respawn')) toMenu()

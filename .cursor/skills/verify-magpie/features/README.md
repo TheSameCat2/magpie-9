@@ -43,6 +43,7 @@ Keep implementation details out of the map. Name only player paths, stable handl
 ## Features
 
 - [Main menu](./menu.md) covers keyboard movement, NEW GAME, BENDS, CHALLENGE, and CREDITS.
+- [Settings](./settings.md) covers volume channels and graphics quality.
 - [Field manual](./help.md) covers the HELP button, the menu row, the H key, the reboot card, and every way to close the manual.
 - [Scores](./scores.md) covers the SCORES screen and its three boards on this Vite-only launch.
 - [Pause](./pause.md) covers the pause menu, ignored flaps, the resume countdown, and QUIT.

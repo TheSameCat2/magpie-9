@@ -7,6 +7,10 @@ const KEYS = {
   bendsBest: 'magpie9.bends.best',
   mute: 'magpie9.mute',
   fullscreen: 'magpie9.fullscreen',
+  quality: 'magpie9.quality',
+  volumeMaster: 'magpie9.volume.master',
+  volumeMusic: 'magpie9.volume.music',
+  volumeEffects: 'magpie9.volume.effects',
   challengeBest: (day) => `magpie9.challenge.${day}`,
 }
 
@@ -67,6 +71,47 @@ export function loadMuted() {
 
 export function saveMuted(muted) {
   write(KEYS.mute, muted ? '1' : '0')
+}
+
+/** A stored 0..1 channel. Missing or unreadable values stay at full. */
+function readUnit(key) {
+  const raw = read(key)
+  if (raw == null || raw === '') return 1
+  const n = Number(raw)
+  if (!Number.isFinite(n)) return 1
+  return Math.min(1, Math.max(0, n))
+}
+
+/** Master, music, and effects levels. Each defaults to full. */
+export function loadVolumes() {
+  return {
+    master: readUnit(KEYS.volumeMaster),
+    music: readUnit(KEYS.volumeMusic),
+    effects: readUnit(KEYS.volumeEffects),
+  }
+}
+
+const VOLUME_KEYS = {
+  master: KEYS.volumeMaster,
+  music: KEYS.volumeMusic,
+  effects: KEYS.volumeEffects,
+}
+
+export function saveVolume(channel, value) {
+  const key = VOLUME_KEYS[channel]
+  if (!key) return
+  write(key, String(value))
+}
+
+/** `'auto'` or a pinned rung `'0' | '1' | '2'`. */
+export function loadQualityChoice() {
+  const raw = read(KEYS.quality)
+  return raw === '0' || raw === '1' || raw === '2' ? raw : 'auto'
+}
+
+export function saveQualityChoice(choice) {
+  if (choice === '0' || choice === '1' || choice === '2') write(KEYS.quality, choice)
+  else remove(KEYS.quality)
 }
 
 export function loadFullscreenPreference() {

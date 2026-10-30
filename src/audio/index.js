@@ -1,4 +1,5 @@
-import { loadMuted, saveMuted } from '../lib/storage.js'
+import { clampVolume } from '../config/audio.js'
+import { loadMuted, loadVolumes, saveMuted, saveVolume } from '../lib/storage.js'
 import { createAudioGraph } from './graph.js'
 import { createOneShots } from './oneshots.js'
 import { createMusic } from './music.js'
@@ -18,15 +19,35 @@ function noteHz(index) {
 
 /** Every sound the game makes. The soundtrack is a file; the rest is procedural. */
 export function createAudio() {
-  const graph = createAudioGraph({ muted: loadMuted() })
+  const volumes = loadVolumes()
+  const graph = createAudioGraph({
+    muted: loadMuted(),
+    masterLevel: volumes.master,
+    effectsLevel: volumes.effects,
+  })
   const { tone, noise } = createOneShots(graph)
-  const music = createMusic(graph)
+  const music = createMusic(graph, { level: volumes.music })
   const hum = createHazardHum(graph)
+
+  function setVolume(channel, value) {
+    const next = clampVolume(value)
+    if (channel === 'master') graph.setMasterLevel(next)
+    else if (channel === 'music') music.setLevel(next)
+    else if (channel === 'effects') graph.setEffectsLevel(next)
+    else return null
+    saveVolume(channel, next)
+    return next
+  }
 
   return {
     get muted() {
       return graph.muted
     },
+    get volumes() {
+      return { master: graph.masterLevel, music: music.level, effects: graph.effectsLevel }
+    },
+    /** Store and apply a channel. Does not build the context; that waits for a gesture. */
+    setVolume,
     /** Call from a user gesture so the context and the song are allowed to start. */
     start() {
       music.start()

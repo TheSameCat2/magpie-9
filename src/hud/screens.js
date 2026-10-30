@@ -1,10 +1,12 @@
 // Full-screen scenes: the centre card (menu / end-of-run / initials entry),
-// the credits and scores panels, and the tutorial lesson cards.
+// the credits, scores, and settings panels, and the tutorial lesson cards.
 
+import { formatVolume, stepVolume } from '../config/audio.js'
 import { BOARD_SIZE } from '../config/rules.js'
 import { formatTime } from '../lib/time.js'
+import { stepQualityMode } from '../render/quality.js'
 import { byId, hide, onPress, queryAll, retrigger, setVisible, show } from './dom.js'
-import { MENU_BLURBS, MENU_ITEMS, endCopy, entryCopy, stepMenu } from './copy.js'
+import { MENU_BLURBS, MENU_ITEMS, QUALITY_CAPTIONS, endCopy, entryCopy, stepMenu } from './copy.js'
 
 /**
  * `state` is the HUD's shared scene/mode record; `refresh` re-applies the
@@ -19,6 +21,8 @@ export function createScreens(state, { refresh, help }) {
   const menuBtns = queryAll('button', menuEl)
   const creditsEl = byId('credits')
   const scoresEl = byId('scores')
+  const settingsEl = byId('settings')
+  const settingsCaption = byId('settingsQualityCaption')
   const scoresList = byId('scoresList')
   const scoresStatus = byId('scoresStatus')
   const scoresDay = document.getElementById('scoresDay')
@@ -31,11 +35,15 @@ export function createScreens(state, { refresh, help }) {
   const blurb = byId('blurb')
 
   let menuIndex = 0
+  let settingsIndex = 0
+  let settingsListener = null
+  const settingsModel = { master: 1, music: 1, effects: 1, quality: 'auto' }
 
   function hidePanels() {
     help.hideHelp()
     hide(creditsEl)
     hide(scoresEl)
+    hide(settingsEl)
   }
 
   function hideEntry() {
@@ -120,6 +128,82 @@ export function createScreens(state, { refresh, help }) {
     show(entryEl)
     renderEntry(entry)
     refresh()
+  }
+
+  function settingsRows() {
+    return queryAll('.settings-row', settingsEl)
+  }
+
+  function paintSettings() {
+    settingsRows().forEach((row, i) => {
+      const on = i === settingsIndex
+      row.classList.toggle('sel', on)
+      if (on) row.setAttribute('aria-current', 'true')
+      else row.removeAttribute('aria-current')
+    })
+    for (const channel of ['master', 'music', 'effects']) {
+      const row = settingsEl.querySelector(`[data-setting="${channel}"]`)
+      if (!row) continue
+      const steps = Math.round(settingsModel[channel] * 10)
+      row.querySelectorAll('.settings-meter i').forEach((seg, i) => seg.classList.toggle('on', i < steps))
+      const readout = row.querySelector('.settings-readout')
+      if (readout) readout.textContent = formatVolume(settingsModel[channel])
+    }
+    for (const btn of queryAll('[data-quality]', settingsEl)) {
+      const on = btn.dataset.quality === String(settingsModel.quality)
+      btn.classList.toggle('sel', on)
+      btn.setAttribute('aria-checked', on ? 'true' : 'false')
+    }
+    settingsCaption.textContent = QUALITY_CAPTIONS[settingsModel.quality] ?? ''
+  }
+
+  function showSettings(model = {}) {
+    state.scene = 'settings'
+    settingsModel.master = model.master ?? 1
+    settingsModel.music = model.music ?? 1
+    settingsModel.effects = model.effects ?? 1
+    settingsModel.quality = model.quality ?? 'auto'
+    settingsIndex = 0
+    hidePanels()
+    hideEntry()
+    hide(center)
+    show(settingsEl)
+    paintSettings()
+    settingsEl.querySelector('.back')?.focus({ preventScroll: true })
+    refresh()
+  }
+
+  function focusSettingsRow(row) {
+    const index = settingsRows().indexOf(row)
+    if (index >= 0) settingsIndex = index
+  }
+
+  function applyVolume(channel, dir) {
+    if (channel !== 'master' && channel !== 'music' && channel !== 'effects') return
+    const next = stepVolume(settingsModel[channel], dir)
+    const changed = next !== settingsModel[channel]
+    if (changed) settingsModel[channel] = next
+    paintSettings()
+    if (changed) settingsListener?.({ channel, value: next })
+  }
+
+  function applyQuality(next) {
+    const changed = next !== settingsModel.quality
+    if (changed) settingsModel.quality = next
+    paintSettings()
+    if (changed) settingsListener?.({ quality: settingsModel.quality })
+  }
+
+  function moveSettings(dir) {
+    settingsIndex = stepMenu(settingsIndex, dir, settingsRows().length)
+    paintSettings()
+  }
+
+  function adjustSettings(dir) {
+    const row = settingsRows()[settingsIndex]
+    if (!row) return
+    if (row.dataset.setting === 'quality') applyQuality(stepQualityMode(settingsModel.quality, dir))
+    else applyVolume(row.dataset.setting, dir)
   }
 
   function showCredits() {
@@ -209,7 +293,8 @@ export function createScreens(state, { refresh, help }) {
   // ignores pointerdown on buttons, and letting it through unlocks audio.
   // onPress also fires for a keyboard click (detail 0) once Enter/Space is
   // allowed to reach a focused button.
-  function bindMenu({ onSelect, onBack, onExit, onBoard }) {
+  function bindMenu({ onSelect, onBack, onExit, onBoard, onSettings }) {
+    settingsListener = onSettings
     menuBtns.forEach((btn, i) => {
       onPress(btn, () => {
         setMenuIndex(i)
@@ -221,6 +306,27 @@ export function createScreens(state, { refresh, help }) {
     scoresTabs.forEach((btn) => {
       onPress(btn, () => onBoard?.(btn.dataset.board), { stopPropagation: true })
     })
+    for (const btn of queryAll('[data-settings-nudge]', settingsEl)) {
+      onPress(
+        btn,
+        () => {
+          const row = btn.closest('.settings-row')
+          focusSettingsRow(row)
+          applyVolume(row?.dataset.setting, Number(btn.dataset.settingsNudge))
+        },
+        { stopPropagation: true },
+      )
+    }
+    for (const btn of queryAll('[data-quality]', settingsEl)) {
+      onPress(
+        btn,
+        () => {
+          focusSettingsRow(btn.closest('.settings-row'))
+          applyQuality(btn.dataset.quality)
+        },
+        { stopPropagation: true },
+      )
+    }
   }
 
   function bindEntry({ onAction }) {
@@ -245,6 +351,9 @@ export function createScreens(state, { refresh, help }) {
     hideEntry,
     renderEntry,
     showCredits,
+    showSettings,
+    moveSettings,
+    adjustSettings,
     showScores,
     showLesson,
     hideLesson,

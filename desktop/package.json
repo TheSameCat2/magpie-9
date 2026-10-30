@@ -10,7 +10,8 @@
     "start": "node scripts/sync-renderer.js && electron .",
     "smoke": "node scripts/sync-renderer.js && node scripts/smoke.js",
     "pack": "node scripts/sync-renderer.js && electron-builder --mac --dir --arm64",
-    "dist": "node scripts/sync-renderer.js && electron-builder"
+    "dist": "node scripts/sync-renderer.js && electron-builder",
+    "dist:win": "node scripts/sync-renderer.js && node scripts/dist-win.js"
   },
   "devDependencies": {
     "electron": "44.4.5",

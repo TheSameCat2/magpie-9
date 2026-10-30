@@ -40,5 +40,13 @@ linux:
     - AppImage
     - deb
 win:
+  # Resource editing (icon, name, version) still runs. Signing stays off so a
+  # certificate in the environment cannot mark the installer as trusted.
+  signExecutable: false
   target:
     - nsis
+nsis:
+  # Pinned to the NSIS default so Releases and the README name the same file.
+  artifactName: ${productName} Setup ${version}.${ext}
+  # Blockmaps and latest.yml feed an updater. This shell has none.
+  differentialPackage: false

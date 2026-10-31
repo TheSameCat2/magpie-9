@@ -157,17 +157,21 @@ screen-space pulses.
 
 ```bash
 npm test            # node:test under src/, api/, desktop/src/, and desktop/scripts/
+npm run lint        # oxlint on src/, api/, desktop/src/, desktop/scripts/, vite.config.js
 npm run build       # vite production build
 npm run format      # prettier --write (format:check in CI)
 ```
+
+`npm install` and `npm ci` run `prepare`, which installs a pre-push hook
+(format check, lint, and tests). GitHub Actions runs the format check, lint,
+tests, and the production build on every push and PR.
 
 Tests sit next to the code they cover. The rules (`src/config`, `src/lib`,
 `api/_lib`, and the pure `src/game` modules such as `run`, `hold`, and
 `board`) have no DOM or Three.js dependency and are tested directly;
 `src/game/game.test.js` drives the whole state machine with stubbed world and
 HUD. The suite also fails on an upward import, an import cycle, a broken
-API/desktop boundary, or a HUD id missing from `index.html`. GitHub Actions
-runs format check, tests, and the production build on every push and PR.
+API/desktop boundary, or a HUD id missing from `index.html`.
 
 See `PLAN.md` for rails, feel numbers, and non-goals, and `AGENTS.md` for the
 module map and conventions.

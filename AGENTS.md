@@ -178,8 +178,8 @@ in `src/config/`.
   modules get direct tests; `game.test.js` drives `createGame` with stubs.
   `architecture.test.js` enforces the layer rules above and
   `hud/markup.test.js` keeps the HUD's ids honest. Run `npm test`,
-  `npm run build`, and `npm run format:check` before you call a change done.
-  CI runs all three.
-- Formatting is Prettier (`npm run format`); config in `.prettierrc`.
+  `npm run lint`, `npm run build`, and `npm run format:check` before you call a change done.
+  CI runs all four. `npm install` installs a pre-push hook that runs format check, lint, and tests.
+- Formatting is Prettier (`npm run format`); config in `.prettierrc`. Oxlint (`.oxlintrc.json`) is the linter.
 - Renaming a `localStorage` key, an API field, or a scene name is a
   cross-layer change: grep for it, and update `README.md` if a player sees it.

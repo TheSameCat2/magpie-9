@@ -50,7 +50,7 @@ function srcGraph() {
 }
 
 test('src imports only point down the layer stack', () => {
-  const { files, edges } = srcGraph()
+  const { edges } = srcGraph()
   const violations = []
   for (const [file, targets] of edges) {
     for (const target of targets) {

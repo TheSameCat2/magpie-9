@@ -580,7 +580,9 @@ uniform float uOverdrive;
 varying float vT;
 
 void main() {
-  float fade = pow(1.0 - vT, 2.4) * smoothstep(0.0, 0.08, vT);
+  // Clamped: under MSAA an edge pixel can extrapolate vT past 1, and pow() of a
+  // negative is NaN, which bloom then smears over the whole frame.
+  float fade = pow(max(1.0 - vT, 0.0), 2.4) * smoothstep(0.0, 0.08, vT);
   float ripple = 0.8 + 0.2 * sin(vT * 30.0 - uTime * 24.0);
   vec3 tint = mix(uColor, vec3(1.0), 0.2 * (1.0 - vT));
   if (uOverdrive > 0.001) {
@@ -636,7 +638,7 @@ void main() {
   if (uOverdrive <= 0.001) discard;
 
   vec3 V = normalize(-vViewPos);
-  float fresnel = pow(1.0 - abs(dot(vViewNormal, V)), 2.6);
+  float fresnel = pow(max(1.0 - abs(dot(vViewNormal, V)), 0.0), 2.6);
 
   float normZ = vPosition.z / 0.525;
   float axial = smoothstep(-1.0, -0.6, normZ) * smoothstep(1.0, 0.45, normZ);
@@ -692,7 +694,9 @@ varying vec3 vViewPos;
 void main() {
   // vUv.y: 1 at ceiling emitter, 0 at bottom
   float along = vUv.y;
-  float verticalFade = pow(along, 1.3) * smoothstep(1.0, 0.9, along) * smoothstep(0.0, 0.22, along);
+  // Clamped: under MSAA an edge pixel can extrapolate vUv below 0, and pow() of a
+  // negative is NaN, which bloom then smears over the whole frame.
+  float verticalFade = pow(max(along, 0.0), 1.3) * smoothstep(1.0, 0.9, along) * smoothstep(0.0, 0.22, along);
 
   // Soft edge from view angle (fades at grazing silhouette angles so no sharp geometry edge is seen)
   vec3 viewDir = normalize(-vViewPos);

@@ -6,6 +6,20 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
 import { FullScreenQuad, Pass } from 'three/addons/postprocessing/Pass.js'
 import { CopyShader } from 'three/addons/shaders/CopyShader.js'
+
+// Copies the resolved scene into the composer's read buffer and zeroes any
+// NaN or infinite pixel on the way. Bloom blurs from here, so one bad pixel
+// (a shader edge case, a pow() of a negative) would otherwise spread across
+// the whole frame and black it out.
+const SCENE_COPY_FRAG = /* glsl */ `
+uniform sampler2D tDiffuse;
+varying vec2 vUv;
+void main() {
+  vec4 texel = texture2D(tDiffuse, vUv);
+  if (any(isnan(texel)) || any(isinf(texel))) texel = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_FragColor = texel;
+}
+`
 import { SCREEN_VERT, SCREEN_FRAG } from './shaders.js'
 import { QUALITY, msaaSamples } from './quality.js'
 
@@ -30,9 +44,9 @@ class SceneMsaaPass extends Pass {
     this.copy = new FullScreenQuad(
       new THREE.ShaderMaterial({
         name: 'SceneMsaaPass.copy',
-        uniforms: THREE.UniformsUtils.clone(CopyShader.uniforms),
+        uniforms: { tDiffuse: { value: null } },
         vertexShader: CopyShader.vertexShader,
-        fragmentShader: CopyShader.fragmentShader,
+        fragmentShader: SCENE_COPY_FRAG,
         depthTest: false,
         depthWrite: false,
       }),

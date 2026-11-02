@@ -4,7 +4,7 @@ SCORES is the top-10 board. On this launch the API is absent, so every tab says 
 
 ## Sub-features
 
-- `scores-open` opens SCORES from the menu on ALL-TIME.
+- `scores-open` opens SCORES from the menu on the board last viewed. The first visit of a session is ALL-TIME.
 - `scores-offline` shows BOARD OFFLINE for ALL-TIME, BENDS, and TODAY.
 - `scores-tabs` switches boards from the tab buttons and from the arrow keys.
 - `scores-back` returns to the menu with Escape or BACK.
@@ -32,11 +32,14 @@ Preconditions:
 - **Back to ALL-TIME.** Press ArrowLeft twice. Run `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs press --key ArrowLeft`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs press --key ArrowLeft`, and `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs expect scores-offline --board run`.
 - **Return.** Press Escape. Run `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs press --key Escape`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs expect menu`, and `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs expect menu-item --item scores`.
 - **BACK button.** Open SCORES again and choose BACK. Run `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs click --selector '#menu button[data-item="scores"]'`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs wait --field scoresStatus --equals 'BOARD OFFLINE' --timeout 5000`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs click --selector '#scores button.back'`, and `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs expect menu`.
+- **Remembered tab.** Choose SCORES, move to TODAY, return to the menu, and open SCORES again. Run `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs click --selector '#menu button[data-item="scores"]'`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs wait --field scoresStatus --equals 'BOARD OFFLINE' --timeout 5000`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs press --key ArrowRight`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs press --key ArrowRight`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs expect scores-offline --board challenge`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs press --key Escape`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs expect menu`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs click --selector '#menu button[data-item="scores"]'`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs wait --field scoresStatus --equals 'BOARD OFFLINE' --timeout 5000`, and `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs expect scores-offline --board challenge`.
+- **Remembered proof.** Run `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs screenshot --path scores/03-reopen-today.png` and `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs snapshot --path scores/03-reopen-today.txt`. The tab is TODAY and the status is still BOARD OFFLINE.
+- **Leave on ALL-TIME.** Press ArrowLeft twice, then Escape. Run `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs press --key ArrowLeft`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs press --key ArrowLeft`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs expect scores-offline --board run`, `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs press --key Escape`, and `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs expect menu`.
 
 ## Gotchas
 
 - Do not snapshot the status before `wait`. The first paint is LOADING, and treating LOADING as success hides a board that never resolves.
 - `NO ENTRIES YET` is the empty-board copy when the API responds. This launch does not produce it. If the status is `NO ENTRIES YET` or a list of initials, the API is up and this recipe's precondition failed.
 - ArrowDown also changes tabs, because the scores screen treats vertical nav as a board step. Use ArrowLeft and ArrowRight, which are the keys the hint names.
-- Escape on SCORES returns to the menu. It does not open the field manual.
+- Escape on SCORES returns to the menu. It does not open the field manual. It also does not put the board back on ALL-TIME. The next open shows the tab you left.
 - Initials entry is not on this screen. It appears after a scored crash that qualifies, which needs a live board this launch does not have.

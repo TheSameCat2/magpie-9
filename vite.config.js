@@ -15,7 +15,7 @@ export default defineConfig({
       },
     },
     // three alone is ~500 kB minified and cannot be split further; the
-    // per-chunk gzip budgets in tools/check-bundle-size.js are the real guard.
+    // per-chunk gzip budgets in scripts/check-bundle-size.js are the real guard.
     chunkSizeWarningLimit: 600,
   },
 })

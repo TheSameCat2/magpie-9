@@ -8,6 +8,7 @@
     "dev:full": "vercel dev",
     "build": "vite build",
     "size": "node scripts/check-bundle-size.js",
+    "bench": "node scripts/bench-frame.js",
     "preview": "vite preview",
     "test": "node --test 'src/**/*.test.js' 'api/**/*.test.js' 'desktop/src/**/*.test.js' 'desktop/scripts/**/*.test.js' 'scripts/**/*.test.js'",
     "desktop": "npm run build && npm start --prefix desktop",

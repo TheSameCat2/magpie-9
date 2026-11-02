@@ -175,6 +175,12 @@ in `src/config/`.
 - Hot path: no per-frame allocation. Pools reuse `out` arrays (`passedGates`,
   `collectedOrbs`) and scratch objects (`burst`).
 - Comments explain intent or a trap, never what the next line does.
+- `npm run bench` drives the real game, world, and post chain headless for a
+  few thousand frames and prints CPU time for `game.update()` and three's
+  render work, plus draw calls and WebGL calls per frame. The WebGL context
+  is a no-op stub, so it measures the CPU side only; compare before and after
+  on one machine. GPU cost (fill rate, bloom, shader work) still needs the
+  browser profiler.
 - Tests: `node:test`, placed beside the source as `name.test.js`. Pure
   modules get direct tests; `game.test.js` drives `createGame` with stubs.
   `architecture.test.js` enforces the layer rules above and

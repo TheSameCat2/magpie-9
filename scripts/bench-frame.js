@@ -107,7 +107,9 @@ function createMockGL(width, height) {
     drawingBufferHeight: height,
     getContextAttributes: () => ({ alpha: false, antialias: false, depth: false, stencil: false }),
     isContextLost: () => false,
-    getExtension: (name) => ({ name }),
+    // Desktop browsers don't expose multisampled render-to-texture; three then
+    // takes the renderbuffer + blit path for MSAA targets, which is what we measure.
+    getExtension: (name) => (name === 'WEBGL_multisampled_render_to_texture' ? null : { name }),
     getSupportedExtensions: () => [],
     getParameter(p) {
       if (p === enumFor('VERSION')) return 'WebGL 2.0'

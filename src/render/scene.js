@@ -9,10 +9,10 @@ const SHAFT_Z = -14
 
 export function createRenderer() {
   // Every frame goes through the EffectComposer: the scene renders into its
-  // (non-multisampled) half-float target and the canvas only ever receives
-  // the final full-screen grade pass. A multisampled or depth-tested canvas
-  // buffer would cost GPU memory and a per-frame resolve without changing a
-  // pixel. To antialias the scene, give the composer's target `samples`.
+  // own multisampled half-float target (postfx.js SceneMsaaPass) and the
+  // canvas only ever receives the final full-screen grade pass. A
+  // multisampled or depth-tested canvas buffer would cost GPU memory and a
+  // per-frame resolve without changing a pixel.
   const renderer = new THREE.WebGLRenderer({
     antialias: false,
     depth: false,

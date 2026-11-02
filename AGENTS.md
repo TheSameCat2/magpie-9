@@ -64,15 +64,24 @@ rebuilds from local matrices, so keep those local matrices current too.
 `uScroll`, `uKick`, `uBend`); the game loop writes them once per frame.
 `bend.js` is the vertex-side conduit bend: `BEND_GLSL` for the custom shaders
 and `bendMaterial` for built-in materials. Every world vertex shader goes
-through it; a straight table is the identity. `textures.js`
+through it; a straight table is the identity. World shaders read the model
+transform as `BEND_MODEL`, never `modelMatrix`, so they work on instanced
+batches too. `instancing.js` draws pooled props that share a geometry and a
+material as one `InstancedMesh`: the pool places plain `Object3D` stand-ins
+as it would meshes, and the batch packs the visible ones every time the scene
+renders. `textures.js`
 draws procedural canvases; `materials.js` turns them into Three materials;
-`shaders.js` is GLSL; `postfx.js` is bloom + the screen grade; `quality.js`
-is the DPR/bloom ladder and the governor that steps down on slow frames.
+`shaders.js` is GLSL; `postfx.js` is the multisampled scene pass, bloom and
+the screen grade; `quality.js` is the DPR/bloom/MSAA ladder and the governor
+that steps down on slow frames.
 
 ### `src/world/`
 
 Each file is a factory that adds pooled meshes to the scene and returns a
-small API (`reset`, `scroll`, …). `collision.js` is pure and tested. `bends.js` is the BENDS arcs as pure
+small API (`reset`, `scroll`, …). Tunnel parts and the gate parts that share
+a unit geometry (rims, clamps, pistons, slabs) are instanced stand-ins; give
+a new pooled prop a batch too unless it needs its own geometry, its own
+uniforms, or a mirroring negative scale. `collision.js` is pure and tested. `bends.js` is the BENDS arcs as pure
 data (no meshes): scroll, `curvatureAt`, and `sample` into `UNIFORMS.uBend`.
 Gameplay stays in straight path space; only the renderer bends. `gates/`
 is split into `kinds.js` (one descriptor per hazard: layout, collision, spark

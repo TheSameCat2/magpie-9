@@ -188,11 +188,13 @@ npm run desktop:smoke          # build, launch, check WebGL came up, quit
 npm run desktop:dist:win       # unsigned Windows installer (NSIS)
 ```
 
-Window defaults to 1280×800. The score API stays on Vercel. Point the shell
-at it with `MAGPIE_API_ORIGIN=https://your-deployment.vercel.app` (http only
-for `localhost` / `127.0.0.1`). Unset, the board answers offline and a run
-still starts. `MAGPIE_DEV_SERVER=http://127.0.0.1:5173` loads `npm run dev`
-instead of the build. `MAGPIE_DEBUG=1` opens DevTools.
+Window defaults to 1280×800. The score API stays on Vercel. A packaged
+build proxies `/api` to the public board at `https://magpie.nradavies.com`,
+the same origin the production site uses. Set `MAGPIE_API_ORIGIN` to point
+a launch at another deployment (https, or http only for `localhost` /
+`127.0.0.1`). `npm run desktop` leaves that variable unset, so the board
+answers offline and a run still starts. `MAGPIE_DEV_SERVER=http://127.0.0.1:5173`
+loads `npm run dev` instead of the build. `MAGPIE_DEBUG=1` opens DevTools.
 
 Packaging for macOS (ad-hoc signed, this machine): `npm run build && npm run pack --prefix desktop`.
 Output is `desktop/release/`. The ad-hoc signature is so macOS will launch it

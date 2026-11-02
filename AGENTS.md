@@ -148,11 +148,12 @@ window blurs or focuses (Cmd-Tab does not hide the document). `src/platform`
 folds that into `screen.hidden`, so the existing hold and `audio.suspend()`
 run. Do not expose `ipcRenderer`.
 
-`apiOrigin` is empty unless `MAGPIE_API_ORIGIN` is set (https, or http on
-loopback). Relative `/api/*` fetches stay relative. The shell proxies them
-to that origin, or answers `503 { error: 'BOARD OFFLINE' }` when it is unset.
-Do not prefix API URLs in the game to "help" the shell — that skips the proxy
-and hits CORS.
+`apiOrigin` is the origin the shell proxies `/api/*` to. A packaged build
+uses `https://magpie.nradavies.com` when `MAGPIE_API_ORIGIN` is unset. An
+unpackaged shell leaves it empty in that case and answers
+`503 { error: 'BOARD OFFLINE' }`. The variable, when set, is an https origin,
+or http on loopback. Relative `/api/*` fetches stay relative. Do not prefix
+API URLs in the game to "help" the shell — that skips the proxy and hits CORS.
 
 A desktop change may touch `desktop/` and, when the seam needs a new field,
 `src/platform/`. It may not touch `src/render/`, `src/world/`, or the numbers

@@ -13,6 +13,15 @@ const INV_BEND_STEP = 1 / BEND_STEP
 export const BEND_GLSL = /* glsl */ `
 uniform vec3 uBend[${BEND_SAMPLES}];
 
+// The model transform. An instanced batch (instancing.js) sits at the
+// identity and carries each copy's world matrix per instance, so the product
+// is the matrix a plain mesh would have had in modelMatrix.
+#ifdef USE_INSTANCING
+#define BEND_MODEL (modelMatrix * instanceMatrix)
+#else
+#define BEND_MODEL modelMatrix
+#endif
+
 // Centreline (x, z, heading) at distance d ahead; straight past either end of the table.
 vec3 bendFrame(float d) {
   float f = (d - ${f(BEND_NEAR)}) * ${f(INV_BEND_STEP)};
@@ -40,22 +49,22 @@ vec3 bendDirection(vec3 n, float z) {
 }
 
 vec4 bendModelView(vec3 p) {
-  vec4 w = modelMatrix * vec4(p, 1.0);
+  vec4 w = BEND_MODEL * vec4(p, 1.0);
   return viewMatrix * vec4(bendWorld(w.xyz), 1.0);
 }
 
 vec3 bendViewNormal(vec3 n, vec3 p) {
-  float z = (modelMatrix * vec4(p, 1.0)).z;
-  return normalize(mat3(viewMatrix) * bendDirection(normalize(mat3(modelMatrix) * n), z));
+  float z = (BEND_MODEL * vec4(p, 1.0)).z;
+  return normalize(mat3(viewMatrix) * bendDirection(normalize(mat3(BEND_MODEL) * n), z));
 }
 
 void bendModelViewAndNormal(vec3 p, vec3 n, out vec4 mv, out vec3 vNorm) {
-  vec4 w = modelMatrix * vec4(p, 1.0);
+  vec4 w = BEND_MODEL * vec4(p, 1.0);
   vec3 c = bendFrame(-w.z);
   float cs = cos(c.z);
   float sn = sin(c.z);
   mv = viewMatrix * vec4(c.x + w.x * cs, w.y, c.y + w.x * sn, 1.0);
-  vec3 wn = normalize(mat3(modelMatrix) * n);
+  vec3 wn = normalize(mat3(BEND_MODEL) * n);
   vNorm = normalize(mat3(viewMatrix) * vec3(wn.x * cs - wn.z * sn, wn.y, wn.x * sn + wn.z * cs));
 }
 `
@@ -78,8 +87,8 @@ bendModelViewAndNormal(position, objectNormal, _bendMv, transformedNormal);
 
 /**
  * Bend a built-in material (standard, basic, line). Returns the material.
- * Instancing and skinning are not used on bent meshes, so project_vertex
- * can be replaced outright.
+ * Skinning is not used on bent meshes, so project_vertex can be replaced
+ * outright; instancing goes through BEND_MODEL.
  */
 export function bendMaterial(material) {
   const previous = material.onBeforeCompile

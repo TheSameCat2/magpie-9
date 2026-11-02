@@ -108,7 +108,7 @@ ${BEND_GLSL}
 varying vec3 vWorld;
 varying float vDepth;
 void main() {
-  vec4 w = modelMatrix * vec4(position, 1.0);
+  vec4 w = BEND_MODEL * vec4(position, 1.0);
   vWorld = w.xyz;
   vec4 mv = viewMatrix * vec4(bendWorld(w.xyz), 1.0);
   vDepth = -mv.z;
@@ -176,9 +176,9 @@ varying float vDepth;
 varying float vScaleY;
 void main() {
   vLocal = position;
-  vScaleY = length(modelMatrix[1].xyz);
-  vec4 w = modelMatrix * vec4(position, 1.0);
-  vAxes = vec2(dot(w.xy, normalize(modelMatrix[0].xy)), dot(w.xy, normalize(modelMatrix[1].xy)));
+  vScaleY = length(BEND_MODEL[1].xyz);
+  vec4 w = BEND_MODEL * vec4(position, 1.0);
+  vAxes = vec2(dot(w.xy, normalize(BEND_MODEL[0].xy)), dot(w.xy, normalize(BEND_MODEL[1].xy)));
   vec4 mv = viewMatrix * vec4(bendWorld(w.xyz), 1.0);
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
@@ -246,9 +246,9 @@ varying vec3 vScale;
 void main() {
   vLocal = position;
   vScale = vec3(
-    length(modelMatrix[0].xyz),
-    length(modelMatrix[1].xyz),
-    length(modelMatrix[2].xyz)
+    length(BEND_MODEL[0].xyz),
+    length(BEND_MODEL[1].xyz),
+    length(BEND_MODEL[2].xyz)
   );
   vec4 mv = bendModelView(position);
   vDepth = -mv.z;
@@ -664,13 +664,13 @@ varying vec3 vViewPos;
 varying float vDepth;
 void main() {
   vUv = uv;
-  vec4 w = modelMatrix * vec4(position, 1.0);
+  vec4 w = BEND_MODEL * vec4(position, 1.0);
   vWorld = w.xyz;
   vec3 c = bendFrame(-w.z);
   float cs = cos(c.z);
   float sn = sin(c.z);
   vec4 mv = viewMatrix * vec4(c.x + w.x * cs, w.y, c.y + w.x * sn, 1.0);
-  vec3 wn = normalize(mat3(modelMatrix) * normal);
+  vec3 wn = normalize(mat3(BEND_MODEL) * normal);
   vViewNormal = normalize(mat3(viewMatrix) * vec3(wn.x * cs - wn.z * sn, wn.y, wn.x * sn + wn.z * cs));
   vViewPos = mv.xyz;
   vDepth = -mv.z;

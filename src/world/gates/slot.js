@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { THEME } from '../../config/theme.js'
 import { TUNNEL_APOTHEM, TUNNEL_VERTEX_RADIUS } from '../../config/world.js'
 import { createFrameMaterial, createRingMaterial } from '../../render/materials.js'
+import { createInstanceBatch } from '../../render/instancing.js'
 import { GATE_COLOR, HOLE_H, HOLE_W, LASER_GAP, PYLON_W } from './kinds.js'
 import {
   PLATE_DEPTH,
@@ -12,9 +13,15 @@ import {
   unitPlane,
 } from './geometry.js'
 
-// One pooled gate slot owns a mesh for every hazard type and shows only the
+// One pooled gate slot owns a part for every hazard type and shows only the
 // set its current type needs. Rebuilding meshes per spawn would allocate in
 // the hot path (PLAN.md rail 9).
+//
+// Parts that share a unit geometry and a material across slots (rims, clamps,
+// pistons, slabs) are stand-ins drawn through one instanced batch per kind
+// (render/instancing.js). The bulkhead (its own deforming geometry), the
+// frame and ring (per-slot uniforms) and the pylon (mirrored by a negative
+// scale, which instancing cannot flip per copy) stay ordinary meshes.
 
 const FRAME_MODE = { hatch: 0, band: 1, edge: 2 }
 const LASER_DEPTH = 0.16
@@ -35,8 +42,33 @@ function hiddenMesh(geometry, material) {
   return mesh
 }
 
-function hiddenMeshes(count, geometry, material) {
-  return Array.from({ length: count }, () => hiddenMesh(geometry, material))
+/** A hidden stand-in from `batch`, placed by hand like the meshes above. */
+function hiddenPart(batch) {
+  const part = batch.add()
+  part.matrixAutoUpdate = false
+  part.matrixWorldAutoUpdate = false
+  return part
+}
+
+function hiddenParts(count, batch) {
+  return Array.from({ length: count }, () => hiddenPart(batch))
+}
+
+/**
+ * The instanced batches every slot draws its shared parts through. Build one
+ * set per gate pool and attach it once all slots exist.
+ */
+export function createGateBatches(materials) {
+  return {
+    rim: createInstanceBatch(unitBox, materials.hatch, { name: 'gates.rim' }),
+    laserTop: createInstanceBatch(unitBox, materials.laserTop, { name: 'gates.laserTop' }),
+    laserBot: createInstanceBatch(unitBox, materials.laserBot, { name: 'gates.laserBot' }),
+    pylonEdge: createInstanceBatch(unitBox, materials.pylonEdge, { name: 'gates.pylonEdge' }),
+    plateBox: createInstanceBatch(unitBox, materials.plate, { name: 'gates.plateBox' }),
+    metalBox: createInstanceBatch(unitBox, materials.metalHi, { name: 'gates.metalBox' }),
+    piston: createInstanceBatch(unitCylinder, materials.metalHi, { name: 'gates.piston' }),
+    pistonRod: createInstanceBatch(unitCylinder, materials.beak, { name: 'gates.pistonRod' }),
+  }
 }
 
 function showPart(gate, part) {
@@ -47,7 +79,12 @@ function showPart(gate, part) {
   gate.activeParts.push(part)
 }
 
-export function createGateSlot(materials) {
+/**
+ * @param materials  shared materials (createMaterials)
+ * @param batches    the pool's instanced batches; a slot built alone (tests)
+ *                   gets its own, which are never attached or drawn
+ */
+export function createGateSlot(materials, batches = createGateBatches(materials)) {
   const group = new THREE.Group()
   group.visible = false
   group.matrixAutoUpdate = false
@@ -55,23 +92,23 @@ export function createGateSlot(materials) {
 
   const geometry = createBulkheadGeometry(0, 0)
   const bulkhead = hiddenMesh(geometry, materials.plate)
-  const rims = hiddenMeshes(4, unitBox, materials.hatch)
-  const laserTop = hiddenMesh(unitBox, materials.laserTop)
-  const laserBot = hiddenMesh(unitBox, materials.laserBot)
+  const rims = hiddenParts(4, batches.rim)
+  const laserTop = hiddenPart(batches.laserTop)
+  const laserBot = hiddenPart(batches.laserBot)
   const pylon = hiddenMesh(unitBox, materials.pylon)
-  const pylonEdge = hiddenMesh(unitBox, materials.pylonEdge)
+  const pylonEdge = hiddenPart(batches.pylonEdge)
   // Sled hatch: the plate carries a wide slot (full swing range) while two
   // shutter boxes ride with the hatch and cover the slot around it.
-  const sledTop = hiddenMesh(unitBox, materials.plate)
-  const sledBot = hiddenMesh(unitBox, materials.plate)
-  const shutters = hiddenMeshes(2, unitBox, materials.plate)
+  const sledTop = hiddenPart(batches.plateBox)
+  const sledBot = hiddenPart(batches.plateBox)
+  const shutters = hiddenParts(2, batches.plateBox)
 
   // Heavy industrial mechanics
-  const pistons = hiddenMeshes(2, unitCylinder, materials.metalHi)
-  const pistonRods = hiddenMeshes(2, unitCylinder, materials.beak)
-  const clamps = hiddenMeshes(4, unitBox, materials.metalHi)
-  const nozzles = hiddenMeshes(2, unitBox, materials.metalHi)
-  const pylonBrackets = hiddenMeshes(2, unitBox, materials.metalHi)
+  const pistons = hiddenParts(2, batches.piston)
+  const pistonRods = hiddenParts(2, batches.pistonRod)
+  const clamps = hiddenParts(4, batches.metalBox)
+  const nozzles = hiddenParts(2, batches.metalBox)
+  const pylonBrackets = hiddenParts(2, batches.metalBox)
 
   const frame = hiddenMesh(unitPlane, createFrameMaterial(THEME.ice))
   frame.renderOrder = 5

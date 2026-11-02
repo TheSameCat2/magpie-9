@@ -8,7 +8,7 @@ import { app, BrowserWindow, Menu, ipcMain, session } from 'electron'
 import electronUpdater from 'electron-updater'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { APP_ORIGIN, isAppUrl, sanitizeApiOrigin } from './files.js'
+import { APP_ORIGIN, isAppUrl, resolveApiOrigin } from './files.js'
 import { registerScheme, handleScheme, rendererRoot } from './protocol.js'
 import {
   UPDATE_LATER_CHANNEL,
@@ -25,7 +25,7 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 registerScheme()
 app.enableSandbox()
 
-const apiOrigin = sanitizeApiOrigin(process.env.MAGPIE_API_ORIGIN)
+const apiOrigin = resolveApiOrigin(process.env.MAGPIE_API_ORIGIN, { packaged: app.isPackaged })
 const devServer = sanitizeDevServer(process.env.MAGPIE_DEV_SERVER)
 
 let mainWindow = null

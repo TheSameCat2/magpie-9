@@ -59,6 +59,27 @@ export function sanitizeApiOrigin(raw) {
   return ''
 }
 
+/**
+ * Public production board. The `*.vercel.app` aliases on this project sit
+ * behind Vercel Authentication, and `magpie-9.vercel.app` is not a deployment.
+ * The custom domain is the origin the browser build uses for `/api/scores`.
+ */
+export const PRODUCTION_API_ORIGIN = 'https://magpie.nradavies.com'
+
+/**
+ * Origin the shell proxies `/api/*` to.
+ * A valid `MAGPIE_API_ORIGIN` wins, so a launch can point at `vercel dev`
+ * or another deployment. A packaged app with the variable unset uses the
+ * public board. An unpackaged shell (`electron .`) with it unset stays
+ * empty, and the protocol answers BOARD OFFLINE.
+ */
+export function resolveApiOrigin(raw, { packaged = false } = {}) {
+  const fromEnv = sanitizeApiOrigin(raw)
+  if (fromEnv) return fromEnv
+  if (packaged) return PRODUCTION_API_ORIGIN
+  return ''
+}
+
 /** Path under /api for a proxy, or null if it would leave that prefix. */
 export function resolveApiPath(requestUrl) {
   let url

@@ -1,6 +1,7 @@
-// Serves the Vite build on magpie://app. /api/* is proxied to MAGPIE_API_ORIGIN
-// so the game can keep fetching relative /api paths (no CORS, no game change).
-// With no origin configured, /api answers BOARD OFFLINE instead of a file 404.
+// Serves the Vite build on magpie://app. /api/* is proxied to the origin the
+// shell resolved (packaged default, or MAGPIE_API_ORIGIN) so the game can keep
+// fetching relative /api paths (no CORS, no game change). With no origin, /api
+// answers BOARD OFFLINE instead of a file 404.
 
 import { app, net, protocol } from 'electron'
 import fs from 'node:fs/promises'

@@ -179,8 +179,11 @@ in `src/config/`.
   modules get direct tests; `game.test.js` drives `createGame` with stubs.
   `architecture.test.js` enforces the layer rules above and
   `hud/markup.test.js` keeps the HUD's ids honest. Run `npm test`,
-  `npm run lint`, `npm run build`, and `npm run format:check` before you call a change done.
-  CI runs all four. `npm install` installs a pre-push hook that runs format check, lint, and tests.
+  `npm run lint`, `npm run build`, `npm run size`, and `npm run format:check` before you call a change done.
+  CI runs all five. `npm run size` holds each built chunk to a gzip budget in
+  `scripts/check-bundle-size.js`; raise one only in the change that needs it.
+- `three` builds into its own `three-<hash>.js` chunk (`vite.config.js`) so a
+  game deploy does not invalidate a returning player's cached copy of three. `npm install` installs a pre-push hook that runs format check, lint, and tests.
 - Formatting is Prettier (`npm run format`); config in `.prettierrc`. Oxlint (`.oxlintrc.json`) is the linter.
 - Renaming a `localStorage` key, an API field, or a scene name is a
   cross-layer change: grep for it, and update `README.md` if a player sees it.

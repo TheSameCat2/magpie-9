@@ -508,6 +508,41 @@ async function waitFrames(client) {
   )
 }
 
+// One devtools session for the whole poll. Reconnecting per sample spends
+// most of a one-second countdown digit on the socket handshake.
+async function pollProbe(client, { field, equals, timeout }) {
+  const deadline = Date.now() + timeout
+  let last = null
+  while (Date.now() < deadline) {
+    last = await readProbe(client)
+    if (String(last?.[field]) === equals) return last
+    await sleep(50)
+  }
+  throw new Error(`timed out after ${timeout}ms waiting for ${field}=${equals}, last ${last?.[field]}`)
+}
+
+async function writeScreenshot(client, state, rel) {
+  const target = evidenceFile(state, rel)
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  const shot = await client.call('Page.captureScreenshot', { format: 'png' })
+  fs.writeFileSync(target, Buffer.from(shot.data, 'base64'))
+  return target
+}
+
+async function writeSnapshot(state, probe, rel) {
+  const target = evidenceFile(state, rel)
+  fs.mkdirSync(path.dirname(target), { recursive: true })
+  fs.writeFileSync(target, formatProbe(probe, state))
+  return target
+}
+
+// Snapshot first. The frame capture reads the WebGL canvas and can take the
+// rest of a one-second countdown digit, so the PNG may already show the next one.
+async function captureMatch(client, state, probe, args) {
+  if (args.snapshot) console.log(`ok snapshot ${await writeSnapshot(state, probe, args.snapshot)}`)
+  if (args.screenshot) console.log(`ok screenshot ${await writeScreenshot(client, state, args.screenshot)}`)
+}
+
 function formatProbe(probe, state) {
   const menu = (probe.menu || []).map((item) => `${item.item}${item.current ? '*' : ''}`).join(' ')
   const storage = Object.keys(probe.storage || {})
@@ -965,6 +1000,19 @@ async function click(args) {
   if (!selector) throw new Error('click requires --selector')
   if (region && region !== 'backdrop') throw new Error(`unknown --region ${region}`)
   await withPage(state, async (client) => {
+    const field = args['wait-field']
+    const equals = args['wait-equals']
+    if ((field && equals == null) || (!field && equals != null)) {
+      throw new Error('click wait requires both --wait-field and --wait-equals')
+    }
+    // Without a wait, the shot is the screen the press is about to hit. Taking
+    // it in a later command lets a falling run crash before PAUSE can be clicked.
+    if (!field && (args.screenshot || args.snapshot)) {
+      const before = await readProbe(client)
+      if (args.snapshot) console.log(`ok snapshot ${await writeSnapshot(state, before, args.snapshot)}`)
+      if (args.screenshot)
+        console.log(`ok screenshot ${await writeScreenshot(client, state, args.screenshot)}`)
+    }
     const point = await evaluate(
       client,
       `(() => {
@@ -1021,9 +1069,20 @@ async function click(args) {
     })
     await waitFrames(client)
     if (client.exceptions.length) throw new Error(client.exceptions.join(' | '))
+    if (field) {
+      const matched = await pollProbe(client, {
+        field,
+        equals: String(equals),
+        timeout: Number(args.timeout || 2000),
+      })
+      await captureMatch(client, state, matched, args)
+    }
   })
-  logAction(state, `click ${selector}${region ? ` region=${region}` : ''}`)
-  console.log(`ok click ${selector}${region ? ` ${region}` : ''}`)
+  const waited = args['wait-field'] ? ` wait ${args['wait-field']}=${args['wait-equals']}` : ''
+  const shot = args.screenshot ? ` screenshot ${args.screenshot}` : ''
+  const snap = args.snapshot ? ` snapshot ${args.snapshot}` : ''
+  logAction(state, `click ${selector}${region ? ` region=${region}` : ''}${waited}${snap}${shot}`)
+  console.log(`ok click ${selector}${region ? ` ${region}` : ''}${waited}`)
 }
 
 async function press(args) {
@@ -1122,22 +1181,14 @@ async function wait(args) {
   }
   if (!args.field || args.equals == null) throw new Error('wait requires --ms, or --field and --equals')
   const timeout = Number(args.timeout || 5000)
-  const deadline = Date.now() + timeout
-  let last = null
-  while (Date.now() < deadline) {
-    await withPage(state, async (client) => {
-      last = await readProbe(client)
-    })
-    if (String(last?.[args.field]) === args.equals) {
-      logAction(state, `wait ${args.field}=${args.equals}`)
-      console.log(`ok wait ${args.field}=${args.equals}`)
-      return
-    }
-    await sleep(100)
-  }
-  throw new Error(
-    `timed out after ${timeout}ms waiting for ${args.field}=${args.equals}, last ${last?.[args.field]}`,
-  )
+  await withPage(state, async (client) => {
+    const matched = await pollProbe(client, { field: args.field, equals: String(args.equals), timeout })
+    await captureMatch(client, state, matched, args)
+  })
+  const shot = args.screenshot ? ` screenshot ${args.screenshot}` : ''
+  const snap = args.snapshot ? ` snapshot ${args.snapshot}` : ''
+  logAction(state, `wait ${args.field}=${args.equals}${snap}${shot}`)
+  console.log(`ok wait ${args.field}=${args.equals}`)
 }
 
 async function cleanup() {
@@ -1165,14 +1216,14 @@ function usage() {
   return `magpie-verify commands:
   launch
   doctor
-  click --selector <css> [--region backdrop]
+  click --selector <css> [--region backdrop] [--wait-field <field> --wait-equals <value> [--timeout ms] [--snapshot <path>] [--screenshot <path>]]
+  wait --field <probeField> --equals <value> [--timeout ms] [--snapshot <path>] [--screenshot <path>] | wait --ms <n>
   press --key <key>
   blur
   screenshot --path <evidence-relative>
   snapshot --path <evidence-relative>
   storage
   expect <menu|menu-item|help-open|storage-empty|jump-to-begin|live|pause-menu|flight-card|dead|scores-offline|credits|settings|toast> [--item|--mode|--board|--text]
-  wait --field <probeField> --equals <value> [--timeout ms] | wait --ms <n>
   cleanup`
 }
 

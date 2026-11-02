@@ -55,6 +55,8 @@ node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs wait --ms 800
 
 `click` scrolls the target into view, then moves the mouse to its centre and sends `mousePressed` / `mouseReleased`. CLOSE sits at the bottom of the field manual, below an 800px window, so the scroll is the player's scroll. It fails if the element is missing, hidden, or not the topmost hit. `--region backdrop` does not scroll; it presses a point on `#help` that is outside `.help-card`.
 
+A state that is only true for about a second after the press, such as the resume digit 3, has to be observed before this command exits. Each command opens its own DevTools connection, and that handshake is long enough to miss the digit. `--wait-field` and `--wait-equals` poll the same probe fields as `wait` on the connection that sent the click. `--timeout` defaults to 2000. `--snapshot` writes the probe that matched, then `--screenshot` captures the frame. The frame read can take the rest of that second, so the PNG may already show the next digit; the snapshot is the digit proof. `wait` accepts the same `--snapshot` and `--screenshot` and writes them on the poll that matched. A click that is not waiting writes `--snapshot` and `--screenshot` before the press, on that same connection. A live run falls during the gap between commands, so the PAUSE click after a countdown has to be the next command and has to carry the live screenshot itself.
+
 `press --key` sends a keydown and keyup, then waits two animation frames so the game can consume the edge. Keys: `h w s a d m p r b Space Enter Escape ArrowUp ArrowDown ArrowLeft ArrowRight Backspace`.
 
 `blur` drops focus. Enter and Space on a focused HUD button activate that button and never reach the game. After a click, blur before Space or Enter when the key is meant as a flap or a confirm.
@@ -114,6 +116,7 @@ The only helper is `scripts/magpie-verify.mjs` (executable). From the repo root:
 node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs launch
 node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs doctor
 node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs click --selector '#btnHelp'
+node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs click --selector '#btnContinue' --wait-field pausedTitle --wait-equals 3 --timeout 2000 --snapshot pause/02-countdown.txt --screenshot pause/02-countdown.png
 node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs press --key h
 node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs blur
 node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs expect help-open
@@ -129,7 +132,7 @@ node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs cleanup
 
 ## Other surfaces
 
-- Electron (`npm run desktop`, `npm run desktop:smoke`) loads a production build under `magpie://app`. The smoke script checks WebGL and quits. It does not play. Do not point this skill at that window.
+- Electron (`npm run desktop`, `npm run desktop:smoke`) loads a production build under `magpie://app`. The smoke script checks WebGL and quits. It does not play. Do not point this skill at that window. A packaged, non-portable NSIS install can show an update bar after a newer GitHub Release has downloaded: `#magpie-update`, label `Update available —`, buttons Restart now and Later (`desktop/src/preload.cjs`, `desktop/src/updates.js`). `shouldCheckForUpdates` is false for an unpackaged `electron .` and for this Vite page, so the bar is not here. Do not publish a release to force it.
 - `npm run dev:full` (`vercel dev`) is what serves the boards. Without it, offline copy is the honest result.
 
 ## Maintenance

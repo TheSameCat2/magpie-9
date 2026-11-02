@@ -48,3 +48,5 @@ Keep implementation details out of the map. Name only player paths, stable handl
 - [Scores](./scores.md) covers the SCORES screen and its three boards on this Vite-only launch.
 - [Pause](./pause.md) covers the pause menu, ignored flaps, the resume countdown, and QUIT.
 - [Tutorial](./tutorial.md) covers the flight card, jump to begin, and leaving back to the menu.
+
+The desktop update bar is not one of these features. It only appears in a packaged Windows install, which this Vite launch does not start. See Other surfaces in `SKILL.md`.

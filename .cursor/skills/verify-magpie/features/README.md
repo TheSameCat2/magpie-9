@@ -6,7 +6,7 @@ This directory is the maintained source for verifying the player-facing behavior
 
 - Launch with `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs launch` from the repo root.
 - The instance uses a new Chrome profile, so `localStorage` has no `magpie9.*` keys.
-- Vite is serving the game with no score API. SCORES and CHALLENGE show `BOARD OFFLINE`.
+- The baseline launch is Vite with no score API. SCORES and CHALLENGE show `BOARD OFFLINE`. Scores also drives production, unpackaged desktop, and packaged desktop; those are not the baseline for the other feature files.
 - The viewport is 1280×800 and input mode is `keys`.
 - Run `node .cursor/skills/verify-magpie/scripts/magpie-verify.mjs doctor` and require a healthy report for this url, revision, and profile.
 - Never drive a Chrome or Vite process that this launch did not start.
@@ -45,8 +45,8 @@ Keep implementation details out of the map. Name only player paths, stable handl
 - [Main menu](./menu.md) covers keyboard movement, NEW GAME, BENDS, CHALLENGE, and CREDITS.
 - [Settings](./settings.md) covers volume channels and graphics quality.
 - [Field manual](./help.md) covers the HELP button, the menu row, the H key, the reboot card, and every way to close the manual.
-- [Scores](./scores.md) covers the SCORES screen and its three boards on this Vite-only launch.
+- [Scores](./scores.md) covers the SCORES screen. The Vite launch and an unpackaged desktop shell with the API origin unset show `BOARD OFFLINE`. The production site and a packaged shell show the live board.
 - [Pause](./pause.md) covers the pause menu, ignored flaps, the resume countdown, and QUIT.
 - [Tutorial](./tutorial.md) covers the flight card, jump to begin, and leaving back to the menu.
 
-The desktop update bar is not one of these features. It only appears in a packaged Windows install, which this Vite launch does not start. See Other surfaces in `SKILL.md`.
+The desktop update bar is not one of these features. It only appears in a packaged Windows install. `launch --surface packaged` on Linux does not show it. See Other surfaces in `SKILL.md`.

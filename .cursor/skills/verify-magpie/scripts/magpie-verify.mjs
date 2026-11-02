@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url'
 const VIEW_W = 1280
 const VIEW_H = 800
 const LATEST = '/tmp/magpie-verify/latest'
+const PRODUCTION_ORIGIN = 'https://magpie.nradavies.com'
+const SURFACES = new Set(['vite', 'production', 'desktop', 'packaged'])
 
 const MENU_BLURBS = {
   new: 'AN OPEN RUN · EVERY GATE COUNTS',
@@ -74,6 +76,18 @@ const PROBE = `(() => {
   } catch (err) {
     storage.__error = String(err)
   }
+  const scoreInitials = [...document.querySelectorAll('#scoresList .initials')].map((el) =>
+    (el.textContent || '').replace(/\\s+/g, ' ').trim().replace(/^▸\\s*/, ''),
+  )
+  const scoresFilled = scoreInitials.filter((text) => text && text !== '---').length
+  const scoresStatusText = (document.getElementById('scoresStatus')?.textContent || '').trim()
+  const scoresStatusIsHidden = hidden(document.getElementById('scoresStatus'))
+  let scoresReach = 'pending'
+  if (scoresStatusText === 'LOADING') scoresReach = 'loading'
+  else if (scoresStatusText === 'BOARD OFFLINE') scoresReach = 'offline'
+  else if (scoresStatusText === 'SAVING') scoresReach = 'saving'
+  else if (scoresStatusText === 'NO ENTRIES YET') scoresReach = 'online'
+  else if (!scoresStatusText && scoresStatusIsHidden && scoresFilled > 0) scoresReach = 'online'
   const help = document.getElementById('help')
   const paused = document.getElementById('paused')
   const center = document.getElementById('center')
@@ -120,9 +134,17 @@ const PROBE = `(() => {
     quitHidden: hidden(document.getElementById('btnQuit')),
     pauseBtnHidden: hidden(document.getElementById('pause')),
     scoresHidden: hidden(document.getElementById('scores')),
-    scoresStatus: (document.getElementById('scoresStatus')?.textContent || '').trim(),
-    scoresStatusHidden: hidden(document.getElementById('scoresStatus')),
+    scoresStatus: scoresStatusText,
+    scoresStatusHidden: scoresStatusIsHidden,
+    scoresReach,
+    scoresFilled,
+    scoresDay: (document.getElementById('scoresDay')?.textContent || '').trim(),
     scoresTab: document.querySelector('#scoresTabs button[aria-selected="true"]')?.dataset.board || '',
+    desktop: globalThis.magpieDesktop?.desktop === true,
+    apiOrigin:
+      globalThis.magpieDesktop && typeof globalThis.magpieDesktop.apiOrigin === 'string'
+        ? globalThis.magpieDesktop.apiOrigin
+        : '',
     creditsHidden: hidden(credits),
     creditsTitle: document.getElementById('creditsTitle')?.textContent ?? '',
     creditsText: (credits?.innerText || '').replace(/\\s+/g, ' ').trim(),
@@ -582,7 +604,12 @@ function formatProbe(probe, state) {
     `pauseBtnHidden: ${probe.pauseBtnHidden}`,
     `scoresHidden: ${probe.scoresHidden}`,
     `scoresStatus: ${probe.scoresStatus}`,
+    `scoresReach: ${probe.scoresReach}`,
+    `scoresFilled: ${probe.scoresFilled}`,
+    `scoresDay: ${probe.scoresDay}`,
     `scoresTab: ${probe.scoresTab}`,
+    `desktop: ${probe.desktop}`,
+    `apiOrigin: ${probe.apiOrigin}`,
     `creditsHidden: ${probe.creditsHidden}`,
     `creditsTitle: ${probe.creditsTitle}`,
     `settingsHidden: ${probe.settingsHidden}`,
@@ -715,6 +742,23 @@ function problemsFor(name, probe, args) {
     need(probe.helpHidden === true, 'help open')
     need(probe.creditsHidden === true, 'credits showing')
     need(probe.settingsHidden === true, 'settings showing')
+  } else if (name === 'scores-online') {
+    const board = args.board || 'run'
+    need(probe.scoresHidden === false, 'scores hidden')
+    need(probe.scoresReach === 'online', `reach ${probe.scoresReach} status ${probe.scoresStatus}`)
+    need(probe.scoresStatus !== 'BOARD OFFLINE', 'board offline')
+    need(probe.scoresTab === board, `tab ${probe.scoresTab}`)
+    need(probe.helpHidden === true, 'help open')
+    need(probe.creditsHidden === true, 'credits showing')
+    need(probe.settingsHidden === true, 'settings showing')
+  } else if (name === 'desktop-offline') {
+    need(probe.desktop === true, 'not the desktop shell')
+    need(probe.apiOrigin === '', `apiOrigin ${JSON.stringify(probe.apiOrigin)}`)
+    need(String(probe.href || '').startsWith('magpie://app'), `href ${probe.href}`)
+  } else if (name === 'desktop-online') {
+    need(probe.desktop === true, 'not the desktop shell')
+    need(probe.apiOrigin === PRODUCTION_ORIGIN, `apiOrigin ${JSON.stringify(probe.apiOrigin)}`)
+    need(String(probe.href || '').startsWith('magpie://app'), `href ${probe.href}`)
   } else if (name === 'credits') {
     need(probe.creditsHidden === false, 'credits hidden')
     need(probe.creditsTitle === 'CREDITS', `title ${probe.creditsTitle}`)
@@ -748,12 +792,136 @@ function problemsFor(name, probe, args) {
   return problems
 }
 
-async function launch() {
+function shellSurface(surface) {
+  return surface === 'desktop' || surface === 'packaged'
+}
+
+function surfaceOf(args) {
+  const surface = args.surface || 'vite'
+  if (!SURFACES.has(surface)) {
+    throw new Error(`unknown --surface ${surface}. Known: vite, production, desktop, packaged`)
+  }
+  return surface
+}
+
+function surfaceUrl(surface, port) {
+  if (surface === 'production') return `${PRODUCTION_ORIGIN}/`
+  if (shellSurface(surface)) return 'magpie://app/'
+  return `http://127.0.0.1:${port}/`
+}
+
+function menuReady(probe, url) {
+  return (
+    probe?.title === 'MAGPIE-9' &&
+    String(probe.href || '').startsWith(url) &&
+    probe.canvas &&
+    probe.webgl &&
+    probe.input === 'keys' &&
+    probe.visibility === 'visible' &&
+    probe.heading === 'MAGPIE-9' &&
+    currentItem(probe) === 'new' &&
+    probe.blurb === MENU_BLURBS.new &&
+    probe.score === '0' &&
+    probe.best === 'BEST 0' &&
+    probe.helpHidden &&
+    probe.pausedHidden &&
+    probe.rotateHidden &&
+    probe.settingsHidden &&
+    Object.keys(probe.storage || {}).length === 0
+  )
+}
+
+function chromeLaunchArgs(cdpPort, profile) {
+  return [
+    '--headless=new',
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    `--remote-debugging-port=${cdpPort}`,
+    '--remote-allow-origins=*',
+    `--user-data-dir=${profile}`,
+    `--window-size=${VIEW_W},${VIEW_H}`,
+    '--force-device-scale-factor=1',
+    '--no-first-run',
+    '--no-default-browser-check',
+    '--disable-sync',
+    '--disable-extensions',
+    '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding',
+    '--use-angle=swiftshader',
+    '--enable-unsafe-swiftshader',
+    '--ignore-gpu-blocklist',
+    'about:blank',
+  ]
+}
+
+function electronBin(root) {
+  const bin = path.join(root, 'desktop', 'node_modules', '.bin', 'electron')
+  if (!fs.existsSync(bin)) {
+    throw new Error('electron is not installed. From desktop/, run: npm install')
+  }
+  return bin
+}
+
+function syncRenderer(root) {
+  const script = path.join(root, 'desktop', 'scripts', 'sync-renderer.js')
+  const result = spawnSync(process.execPath, [script], { cwd: root, encoding: 'utf8' })
+  if (result.status !== 0) {
+    throw new Error((result.stderr || result.stdout || 'sync renderer failed').trim())
+  }
+}
+
+function packagedBin(root) {
+  const bin = process.env.MAGPIE_VERIFY_PACKAGED
+    ? path.resolve(process.env.MAGPIE_VERIFY_PACKAGED)
+    : path.join(root, 'desktop', 'release', 'linux-unpacked', 'magpie-9')
+  if (!fs.existsSync(bin)) {
+    throw new Error(
+      `packaged binary not found at ${bin}. On Linux, \`npm run build && npm run dist --prefix desktop\` writes desktop/release/linux-unpacked/magpie-9. The deb target may fail after that directory exists. \`electron .\` is unpackaged and stays offline. Set MAGPIE_VERIFY_PACKAGED to another packaged binary.`,
+    )
+  }
+  return bin
+}
+
+function shellLaunchArgs(cdpPort, profile) {
+  return [
+    `--remote-debugging-port=${cdpPort}`,
+    '--remote-allow-origins=*',
+    `--user-data-dir=${profile}`,
+    '--no-sandbox',
+    '--disable-dev-shm-usage',
+    '--use-angle=swiftshader',
+    '--enable-unsafe-swiftshader',
+    '--ignore-gpu-blocklist',
+  ]
+}
+
+// A value inherited from this process would proxy. Both shell recipes leave it unset:
+// unpackaged then stays offline, and packaged falls through to the public board.
+function shellEnv() {
+  const env = { ...process.env }
+  delete env.MAGPIE_API_ORIGIN
+  delete env.MAGPIE_DEV_SERVER
+  delete env.MAGPIE_DEBUG
+  return env
+}
+
+async function launch(args) {
+  const surface = surfaceOf(args)
   const root = repoRoot()
   const pkg = readJson(path.join(root, 'package.json'))
   if (pkg.name !== 'magpie-9') throw new Error(`expected magpie-9 at ${root}, found ${pkg.name}`)
   const viteBin = path.join(root, 'node_modules', 'vite', 'bin', 'vite.js')
-  if (!fs.existsSync(viteBin)) throw new Error('vite is not installed. From the repo root, run npm install.')
+  if (surface === 'vite' && !fs.existsSync(viteBin)) {
+    throw new Error('vite is not installed. From the repo root, run npm install.')
+  }
+  if (surface === 'desktop') {
+    electronBin(root)
+    if (!fs.existsSync(path.join(root, 'dist', 'index.html'))) {
+      throw new Error('Missing dist/index.html. From the repo root, run: npm run build')
+    }
+  }
+  if (surface === 'packaged') packagedBin(root)
   const chrome = process.env.MAGPIE_VERIFY_CHROME || 'google-chrome'
   const runId = process.env.MAGPIE_VERIFY_RUN_ID || Date.now().toString(36)
   const home = process.env.MAGPIE_VERIFY_HOME
@@ -769,7 +937,7 @@ async function launch() {
     const previousHome = fs.readFileSync(LATEST, 'utf8').trim()
     if (fs.existsSync(statePath(previousHome))) {
       const previous = readJson(statePath(previousHome))
-      if (alive(previous.vitePid) || alive(previous.chromePid)) {
+      if (alive(previous.vitePid) || alive(previous.chromePid) || alive(previous.shellPid)) {
         throw new Error(
           `instance already running at ${previousHome}. Cleanup it, or set MAGPIE_VERIFY_HOME for a second one.`,
         )
@@ -792,9 +960,9 @@ async function launch() {
     throw new Error('evidence dir must sit outside the run home so cleanup can keep the proof')
   }
 
-  const port = Number(process.env.MAGPIE_VERIFY_PORT) || (await freePort())
+  const port = surface === 'vite' ? Number(process.env.MAGPIE_VERIFY_PORT) || (await freePort()) : null
   const cdpPort = Number(process.env.MAGPIE_VERIFY_CDP_PORT) || (await freePort())
-  const profile = path.join(home, 'chrome-profile')
+  const profile = path.join(home, shellSurface(surface) ? 'electron-data' : 'chrome-profile')
   fs.mkdirSync(profile, { recursive: true })
   fs.mkdirSync(evidence, { recursive: true })
   const revision = revisionOf(root)
@@ -802,14 +970,16 @@ async function launch() {
     app: 'magpie-9',
     version: pkg.version,
     revision,
+    surface,
     root,
     home,
     evidence,
-    url: `http://127.0.0.1:${port}/`,
+    url: surfaceUrl(surface, port),
     port,
     cdpPort,
     vitePid: null,
     chromePid: null,
+    shellPid: null,
     chromeBin: chrome,
     profile,
     startedAt: new Date().toISOString(),
@@ -820,64 +990,63 @@ async function launch() {
   const fail = async (error) => {
     await killTree(state.vitePid)
     await killTree(state.chromePid)
+    await killTree(state.shellPid)
     throw error
   }
 
   try {
-    state.vitePid = spawnDetached(
-      process.execPath,
-      [viteBin, '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
-      {
+    if (surface === 'vite') {
+      state.vitePid = spawnDetached(
+        process.execPath,
+        [viteBin, '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
+        {
+          cwd: root,
+          env: { ...process.env, BROWSER: 'none' },
+          logPath: path.join(home, 'vite.log'),
+        },
+      )
+    }
+    if (shellSurface(surface)) {
+      const bin = surface === 'packaged' ? packagedBin(root) : electronBin(root)
+      if (surface === 'desktop') syncRenderer(root)
+      state.shellPid = spawnDetached(
+        bin,
+        [...(surface === 'packaged' ? [] : ['.']), ...shellLaunchArgs(cdpPort, profile)],
+        {
+          cwd: surface === 'packaged' ? path.dirname(bin) : path.join(root, 'desktop'),
+          env: shellEnv(),
+          logPath: path.join(home, 'shell.log'),
+        },
+      )
+    } else {
+      state.chromePid = spawnDetached(chrome, chromeLaunchArgs(cdpPort, profile), {
         cwd: root,
-        env: { ...process.env, BROWSER: 'none' },
-        logPath: path.join(home, 'vite.log'),
-      },
-    )
-    state.chromePid = spawnDetached(
-      chrome,
-      [
-        '--headless=new',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-        `--remote-debugging-port=${cdpPort}`,
-        '--remote-allow-origins=*',
-        `--user-data-dir=${profile}`,
-        `--window-size=${VIEW_W},${VIEW_H}`,
-        '--force-device-scale-factor=1',
-        '--no-first-run',
-        '--no-default-browser-check',
-        '--disable-sync',
-        '--disable-extensions',
-        '--disable-background-timer-throttling',
-        '--disable-backgrounding-occluded-windows',
-        '--disable-renderer-backgrounding',
-        '--use-angle=swiftshader',
-        '--enable-unsafe-swiftshader',
-        '--ignore-gpu-blocklist',
-        'about:blank',
-      ],
-      { cwd: root, env: process.env, logPath: path.join(home, 'chrome.log') },
-    )
+        env: process.env,
+        logPath: path.join(home, 'chrome.log'),
+      })
+    }
     writeJson(statePath(home), state)
 
     const deadline = Date.now() + 60000
-    let httpOk = false
-    while (Date.now() < deadline) {
-      if (!alive(state.vitePid))
-        throw new Error(`vite exited early\n${fs.readFileSync(path.join(home, 'vite.log'), 'utf8')}`)
-      try {
-        const response = await fetch(state.url)
-        const body = await response.text()
-        if (response.ok && body.includes('MAGPIE-9')) {
-          httpOk = true
-          break
+    if (surface === 'vite') {
+      let httpOk = false
+      while (Date.now() < deadline) {
+        if (!alive(state.vitePid))
+          throw new Error(`vite exited early\n${fs.readFileSync(path.join(home, 'vite.log'), 'utf8')}`)
+        try {
+          const response = await fetch(state.url)
+          const body = await response.text()
+          if (response.ok && body.includes('MAGPIE-9')) {
+            httpOk = true
+            break
+          }
+        } catch {
+          /* not listening yet */
         }
-      } catch {
-        /* not listening yet */
+        await sleep(200)
       }
-      await sleep(200)
+      if (!httpOk) throw new Error(`vite did not serve MAGPIE-9 at ${state.url}`)
     }
-    if (!httpOk) throw new Error(`vite did not serve MAGPIE-9 at ${state.url}`)
 
     const client = await connectCdp((await pageTarget(cdpPort, deadline)).webSocketDebuggerUrl)
     try {
@@ -889,39 +1058,36 @@ async function launch() {
         deviceScaleFactor: 1,
         mobile: false,
       })
-      await client.call('Page.navigate', { url: state.url })
+      // The shell loads magpie://app itself. CDP rejects a second navigation to
+      // that scheme on a packaged binary ("invalid URL") even though the page is open.
+      if (!shellSurface(surface)) await client.call('Page.navigate', { url: state.url })
       let probe = null
       let ready = false
+      let probeError = null
+      const browserLog = path.join(home, shellSurface(surface) ? 'shell.log' : 'chrome.log')
+      const browserPid = shellSurface(surface) ? state.shellPid : state.chromePid
       while (Date.now() < deadline) {
-        if (!alive(state.chromePid)) {
-          throw new Error(`chrome exited early\n${fs.readFileSync(path.join(home, 'chrome.log'), 'utf8')}`)
+        if (!alive(browserPid)) {
+          const log = fs.existsSync(browserLog) ? fs.readFileSync(browserLog, 'utf8') : ''
+          throw new Error(`${surface} browser exited early\n${log}`)
         }
-        probe = await readProbe(client)
-        const booted =
-          probe?.title === 'MAGPIE-9' &&
-          probe.href?.startsWith(state.url) &&
-          probe.canvas &&
-          probe.webgl &&
-          probe.input === 'keys' &&
-          probe.visibility === 'visible' &&
-          probe.heading === 'MAGPIE-9' &&
-          currentItem(probe) === 'new' &&
-          probe.blurb === MENU_BLURBS.new &&
-          probe.score === '0' &&
-          probe.best === 'BEST 0' &&
-          probe.helpHidden &&
-          probe.pausedHidden &&
-          probe.rotateHidden &&
-          probe.settingsHidden &&
-          Object.keys(probe.storage || {}).length === 0
-        if (booted && client.exceptions.length === 0) {
+        // A navigation commits with no documentElement for a moment. That throw
+        // is the page not being ready, not a failed launch.
+        try {
+          probe = await readProbe(client)
+          probeError = null
+        } catch (error) {
+          probe = null
+          probeError = error
+        }
+        if (probe && menuReady(probe, state.url) && client.exceptions.length === 0) {
           ready = true
           break
         }
         await sleep(250)
       }
       if (!ready) {
-        const detail = formatProbe(probe || {}, state)
+        const detail = probe ? formatProbe(probe, state) : String(probeError || 'no probe')
         const errors = client.exceptions.length ? `\nexceptions:\n${client.exceptions.join('\n')}` : ''
         throw new Error(`game was not usable at ${state.url}\n${detail}${errors}`)
       }
@@ -929,12 +1095,16 @@ async function launch() {
       client.close()
     }
 
-    const portOwner = ownsPort(state.vitePid, state.port)
-    if (!portOwner.ok) throw new Error(portOwner.reason)
+    if (surface === 'vite') {
+      const portOwner = ownsPort(state.vitePid, state.port)
+      if (!portOwner.ok) throw new Error(portOwner.reason)
+    }
     writeJson(statePath(home), state)
     writeJson(path.join(evidence, 'instance.json'), state)
-    logAction(state, `launch ${state.url} revision ${revision}`)
-    console.log(`ready url=${state.url} home=${home} evidence=${evidence} revision=${revision}`)
+    logAction(state, `launch surface=${surface} ${state.url} revision ${revision}`)
+    console.log(
+      `ready surface=${surface} url=${state.url} home=${home} evidence=${evidence} revision=${revision}`,
+    )
   } catch (error) {
     await fail(error)
   }
@@ -942,24 +1112,41 @@ async function launch() {
 
 async function doctor() {
   const state = loadState()
+  const surface = state.surface || 'vite'
   const problems = []
-  if (!alive(state.vitePid)) problems.push(`vite pid ${state.vitePid} is not running`)
-  if (!alive(state.chromePid)) problems.push(`chrome pid ${state.chromePid} is not running`)
-  if (alive(state.vitePid)) {
-    const owner = ownsPort(state.vitePid, state.port)
-    if (!owner.ok) problems.push(owner.reason)
-    if (!cmdline(state.vitePid).includes('vite'))
-      problems.push(`vite pid cmdline is not vite: ${cmdline(state.vitePid)}`)
+  if (surface === 'vite') {
+    if (!alive(state.vitePid)) problems.push(`vite pid ${state.vitePid} is not running`)
+    if (alive(state.vitePid)) {
+      const owner = ownsPort(state.vitePid, state.port)
+      if (!owner.ok) problems.push(owner.reason)
+      if (!cmdline(state.vitePid).includes('vite'))
+        problems.push(`vite pid cmdline is not vite: ${cmdline(state.vitePid)}`)
+    }
   }
-  if (alive(state.chromePid) && !cmdline(state.chromePid).includes(state.profile)) {
+  if (shellSurface(surface)) {
+    if (!alive(state.shellPid)) problems.push(`electron pid ${state.shellPid} is not running`)
+    if (alive(state.shellPid) && !cmdline(state.shellPid).includes(state.profile)) {
+      problems.push('electron pid is not using this run data dir')
+    }
+  } else if (!alive(state.chromePid)) {
+    problems.push(`chrome pid ${state.chromePid} is not running`)
+  } else if (!cmdline(state.chromePid).includes(state.profile)) {
     problems.push('chrome pid is not using this run profile')
   }
   let probe = null
   let exceptions = []
-  if (alive(state.chromePid)) {
+  const browserPid = shellSurface(surface) ? state.shellPid : state.chromePid
+  if (alive(browserPid)) {
     try {
       await withPage(state, async (client) => {
+        // Closing the launch DevTools socket can drop the WebGL context for a
+        // frame. A missing canvas on a page that is already MAGPIE-9 is that gap.
+        const deadline = Date.now() + 3000
         probe = await readProbe(client)
+        while (probe && probe.title === 'MAGPIE-9' && !probe.canvas && Date.now() < deadline) {
+          await sleep(200)
+          probe = await readProbe(client)
+        }
         exceptions = client.exceptions.slice()
       })
     } catch (error) {
@@ -979,9 +1166,11 @@ async function doctor() {
     ok: problems.length === 0,
     revision: state.revision,
     version: state.version,
+    surface,
     url: state.url,
     vitePid: state.vitePid,
     chromePid: state.chromePid,
+    shellPid: state.shellPid || null,
     webgl: probe?.webgl || null,
     visibility: probe?.visibility || null,
     problems,
@@ -1200,6 +1389,7 @@ async function cleanup() {
     return
   }
   await killTree(state.chromePid)
+  await killTree(state.shellPid)
   await killTree(state.vitePid)
   const evidence = path.resolve(state.evidence)
   if (fs.existsSync(state.home)) fs.rmSync(state.home, { recursive: true, force: true })
@@ -1214,7 +1404,7 @@ async function cleanup() {
 
 function usage() {
   return `magpie-verify commands:
-  launch
+  launch [--surface vite|production|desktop|packaged]
   doctor
   click --selector <css> [--region backdrop] [--wait-field <field> --wait-equals <value> [--timeout ms] [--snapshot <path>] [--screenshot <path>]]
   wait --field <probeField> --equals <value> [--timeout ms] [--snapshot <path>] [--screenshot <path>] | wait --ms <n>
@@ -1223,7 +1413,7 @@ function usage() {
   screenshot --path <evidence-relative>
   snapshot --path <evidence-relative>
   storage
-  expect <menu|menu-item|help-open|storage-empty|jump-to-begin|live|pause-menu|flight-card|dead|scores-offline|credits|settings|toast> [--item|--mode|--board|--text]
+  expect <menu|menu-item|help-open|storage-empty|jump-to-begin|live|pause-menu|flight-card|dead|scores-offline|scores-online|desktop-offline|desktop-online|credits|settings|toast> [--item|--mode|--board|--text]
   cleanup`
 }
 
@@ -1231,7 +1421,7 @@ const command = process.argv[2]
 const args = parseArgs(process.argv.slice(3))
 
 try {
-  if (command === 'launch') await launch()
+  if (command === 'launch') await launch(args)
   else if (command === 'doctor') await doctor()
   else if (command === 'click') await click(args)
   else if (command === 'press') await press(args)

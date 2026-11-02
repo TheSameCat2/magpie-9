@@ -108,7 +108,7 @@ ${BEND_GLSL}
 varying vec3 vWorld;
 varying float vDepth;
 void main() {
-  vec4 w = modelMatrix * vec4(position, 1.0);
+  vec4 w = BEND_MODEL * vec4(position, 1.0);
   vWorld = w.xyz;
   vec4 mv = viewMatrix * vec4(bendWorld(w.xyz), 1.0);
   vDepth = -mv.z;
@@ -176,9 +176,9 @@ varying float vDepth;
 varying float vScaleY;
 void main() {
   vLocal = position;
-  vScaleY = length(modelMatrix[1].xyz);
-  vec4 w = modelMatrix * vec4(position, 1.0);
-  vAxes = vec2(dot(w.xy, normalize(modelMatrix[0].xy)), dot(w.xy, normalize(modelMatrix[1].xy)));
+  vScaleY = length(BEND_MODEL[1].xyz);
+  vec4 w = BEND_MODEL * vec4(position, 1.0);
+  vAxes = vec2(dot(w.xy, normalize(BEND_MODEL[0].xy)), dot(w.xy, normalize(BEND_MODEL[1].xy)));
   vec4 mv = viewMatrix * vec4(bendWorld(w.xyz), 1.0);
   vDepth = -mv.z;
   gl_Position = projectionMatrix * mv;
@@ -246,9 +246,9 @@ varying vec3 vScale;
 void main() {
   vLocal = position;
   vScale = vec3(
-    length(modelMatrix[0].xyz),
-    length(modelMatrix[1].xyz),
-    length(modelMatrix[2].xyz)
+    length(BEND_MODEL[0].xyz),
+    length(BEND_MODEL[1].xyz),
+    length(BEND_MODEL[2].xyz)
   );
   vec4 mv = bendModelView(position);
   vDepth = -mv.z;
@@ -580,7 +580,9 @@ uniform float uOverdrive;
 varying float vT;
 
 void main() {
-  float fade = pow(1.0 - vT, 2.4) * smoothstep(0.0, 0.08, vT);
+  // Clamped: under MSAA an edge pixel can extrapolate vT past 1, and pow() of a
+  // negative is NaN, which bloom then smears over the whole frame.
+  float fade = pow(max(1.0 - vT, 0.0), 2.4) * smoothstep(0.0, 0.08, vT);
   float ripple = 0.8 + 0.2 * sin(vT * 30.0 - uTime * 24.0);
   vec3 tint = mix(uColor, vec3(1.0), 0.2 * (1.0 - vT));
   if (uOverdrive > 0.001) {
@@ -636,7 +638,7 @@ void main() {
   if (uOverdrive <= 0.001) discard;
 
   vec3 V = normalize(-vViewPos);
-  float fresnel = pow(1.0 - abs(dot(vViewNormal, V)), 2.6);
+  float fresnel = pow(max(1.0 - abs(dot(vViewNormal, V)), 0.0), 2.6);
 
   float normZ = vPosition.z / 0.525;
   float axial = smoothstep(-1.0, -0.6, normZ) * smoothstep(1.0, 0.45, normZ);
@@ -664,13 +666,13 @@ varying vec3 vViewPos;
 varying float vDepth;
 void main() {
   vUv = uv;
-  vec4 w = modelMatrix * vec4(position, 1.0);
+  vec4 w = BEND_MODEL * vec4(position, 1.0);
   vWorld = w.xyz;
   vec3 c = bendFrame(-w.z);
   float cs = cos(c.z);
   float sn = sin(c.z);
   vec4 mv = viewMatrix * vec4(c.x + w.x * cs, w.y, c.y + w.x * sn, 1.0);
-  vec3 wn = normalize(mat3(modelMatrix) * normal);
+  vec3 wn = normalize(mat3(BEND_MODEL) * normal);
   vViewNormal = normalize(mat3(viewMatrix) * vec3(wn.x * cs - wn.z * sn, wn.y, wn.x * sn + wn.z * cs));
   vViewPos = mv.xyz;
   vDepth = -mv.z;
@@ -692,7 +694,9 @@ varying vec3 vViewPos;
 void main() {
   // vUv.y: 1 at ceiling emitter, 0 at bottom
   float along = vUv.y;
-  float verticalFade = pow(along, 1.3) * smoothstep(1.0, 0.9, along) * smoothstep(0.0, 0.22, along);
+  // Clamped: under MSAA an edge pixel can extrapolate vUv below 0, and pow() of a
+  // negative is NaN, which bloom then smears over the whole frame.
+  float verticalFade = pow(max(along, 0.0), 1.3) * smoothstep(1.0, 0.9, along) * smoothstep(0.0, 0.22, along);
 
   // Soft edge from view angle (fades at grazing silhouette angles so no sharp geometry edge is seen)
   vec3 viewDir = normalize(-vViewPos);

@@ -38,6 +38,11 @@ function playElement(el) {
   if (pending && typeof pending.then === 'function') pending.then(null, () => {})
 }
 
+/**
+ * @param {object} graph
+ * @param {{ tracks?: string[], rand?: () => number, AudioCtor?: typeof Audio, level?: number }} [opts]
+ *   `AudioCtor` lets tests swap in a fake element constructor.
+ */
 export function createMusic(graph, { tracks = MUSIC_TRACKS, rand = Math.random, AudioCtor, level = 1 } = {}) {
   const order = shuffleTracks(tracks, rand)
   let index = 0

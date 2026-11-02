@@ -1,19 +1,34 @@
 // Tiny DOM helpers shared by every HUD panel. Nothing here knows about the game.
 
+/**
+ * @param {string} id
+ * @returns {HTMLElement}
+ */
 export function byId(id) {
   const el = document.getElementById(id)
   if (!el) throw new Error(`HUD: missing #${id} in index.html`)
   return el
 }
 
+/**
+ * @param {string} selector
+ * @param {ParentNode} [root]
+ * @returns {HTMLElement}
+ */
 export function query(selector, root = document) {
+  /** @type {HTMLElement | null} */
   const el = root.querySelector(selector)
   if (!el) throw new Error(`HUD: missing ${selector} in index.html`)
   return el
 }
 
+/**
+ * @param {string} selector
+ * @param {ParentNode} [root]
+ * @returns {HTMLElement[]}
+ */
 export function queryAll(selector, root = document) {
-  return Array.from(root.querySelectorAll(selector))
+  return Array.from(/** @type {NodeListOf<HTMLElement>} */ (root.querySelectorAll(selector)))
 }
 
 export function show(el) {

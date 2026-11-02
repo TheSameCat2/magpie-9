@@ -169,7 +169,8 @@ export function createScreens(state, { refresh, help }) {
     hide(center)
     show(settingsEl)
     paintSettings()
-    settingsEl.querySelector('.back')?.focus({ preventScroll: true })
+    const back = /** @type {HTMLElement | null} */ (settingsEl.querySelector('.back'))
+    back?.focus({ preventScroll: true })
     refresh()
   }
 
@@ -212,7 +213,8 @@ export function createScreens(state, { refresh, help }) {
     hideEntry()
     hide(center)
     show(creditsEl)
-    creditsEl.querySelector('.back')?.focus({ preventScroll: true })
+    const back = /** @type {HTMLElement | null} */ (creditsEl.querySelector('.back'))
+    back?.focus({ preventScroll: true })
     refresh()
   }
 
@@ -310,7 +312,7 @@ export function createScreens(state, { refresh, help }) {
       onPress(
         btn,
         () => {
-          const row = btn.closest('.settings-row')
+          const row = /** @type {HTMLElement | null} */ (btn.closest('.settings-row'))
           focusSettingsRow(row)
           applyVolume(row?.dataset.setting, Number(btn.dataset.settingsNudge))
         },

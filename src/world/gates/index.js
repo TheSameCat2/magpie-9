@@ -3,7 +3,8 @@ import { FIRST_GATE_Z } from '../../config/rules.js'
 import { RECYCLE_Z } from '../../config/world.js'
 import { clamp01 } from '../../lib/math.js'
 import { hitObstacle } from '../collision.js'
-import { configureGate, createGateSlot, updateSledX } from './slot.js'
+import { syncBeforeRender } from '../../render/instancing.js'
+import { configureGate, createGateBatches, createGateSlot, updateSledX } from './slot.js'
 import { HOLE_H, HOLE_W, layoutGate, openingShape, pickGateType } from './layout.js'
 import { GATE_COLOR, GATE_KINDS, isHatchGate } from './kinds.js'
 
@@ -32,11 +33,13 @@ export function createGates(scene, materials) {
   scene.add(root)
 
   const pool = []
+  const batches = createGateBatches(materials)
   for (let i = 0; i < POOL_SIZE; i++) {
-    const slot = createGateSlot(materials)
+    const slot = createGateSlot(materials, batches)
     root.add(slot.group)
     pool.push(slot)
   }
+  syncBeforeRender(scene, root, Object.values(batches))
   // Culling reads straight-conduit bounds, which a bend moves the mesh away from.
   root.traverse((o) => {
     o.frustumCulled = false

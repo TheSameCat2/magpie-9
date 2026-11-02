@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { createInstanceBatch, syncBeforeRender } from '../render/instancing.js'
 import { SEGMENT_COUNT, SEGMENT_LENGTH, TUNNEL_APOTHEM, TUNNEL_VERTEX_RADIUS } from '../config/world.js'
 
 const WALL_WIDTH = 2 * TUNNEL_APOTHEM * Math.tan(Math.PI / 6)
@@ -80,27 +81,51 @@ function faceAngle(i) {
 
 const SHAFT_Z = SEGMENT_LENGTH * 0.5 - 0.3
 
-function createSegment(materials, index) {
+/**
+ * One batch per part kind. Ribs alternate colour by segment, so they take two
+ * batches; everything else is one draw for the whole pool.
+ */
+function createSegmentBatches(materials) {
   const geo = segmentGeometry()
+  return {
+    plate: createInstanceBatch(geo.plate, materials.metal, { name: 'tunnel.plate' }),
+    ribIce: createInstanceBatch(geo.rib, materials.ribIce, { name: 'tunnel.ribIce' }),
+    ribSodium: createInstanceBatch(geo.rib, materials.ribSodium, { name: 'tunnel.ribSodium' }),
+    strip: createInstanceBatch(geo.strip, materials.stripIce, { name: 'tunnel.strip' }),
+    gantry: createInstanceBatch(geo.gantry, materials.metalHi, { name: 'tunnel.gantry' }),
+    shaft: createInstanceBatch(geo.shaft, materials.volumetricShaft, { name: 'tunnel.shaft' }),
+    cable: createInstanceBatch(geo.cable, materials.metalHi, { name: 'tunnel.cable' }),
+    panel: createInstanceBatch(geo.panel, materials.plate, { name: 'tunnel.panel' }),
+  }
+}
+
+/** A stand-in from `batch`, shown (stand-ins start hidden). */
+function part(batch) {
+  const standIn = batch.add()
+  standIn.visible = true
+  return standIn
+}
+
+function createSegment(batches, index) {
   const group = new THREE.Group()
   const even = index % 2 === 0
 
-  const plate = new THREE.Mesh(geo.plate, materials.metal)
-  const rib = new THREE.Mesh(geo.rib, even ? materials.ribIce : materials.ribSodium)
-  const strip = new THREE.Mesh(geo.strip, materials.stripIce)
+  const plate = part(batches.plate)
+  const rib = part(even ? batches.ribIce : batches.ribSodium)
+  const strip = part(batches.strip)
   group.add(plate, rib, strip)
 
   // Detail props are toggled at random on each recycle so the loop never reads as a loop.
-  const gantry = new THREE.Mesh(geo.gantry, materials.metalHi)
+  const gantry = part(batches.gantry)
   gantry.visible = even
   group.add(gantry)
 
-  const shaft = new THREE.Mesh(geo.shaft, materials.volumetricShaft)
+  const shaft = part(batches.shaft)
   shaft.position.set(0, 1.3, SHAFT_Z)
   shaft.visible = even && index % 4 === 0
   group.add(shaft)
 
-  const cable = new THREE.Mesh(geo.cable, materials.metalHi)
+  const cable = part(batches.cable)
   const cableTheta = faceAngle(index)
   cable.position.set(
     Math.cos(cableTheta) * (TUNNEL_APOTHEM - 0.12),
@@ -110,7 +135,7 @@ function createSegment(materials, index) {
   cable.visible = index % 3 !== 0
   group.add(cable)
 
-  const panel = new THREE.Mesh(geo.panel, materials.plate)
+  const panel = part(batches.panel)
   const panelTheta = faceAngle(index + 2)
   panel.position.set(
     Math.cos(panelTheta) * (TUNNEL_APOTHEM - 0.08),
@@ -163,12 +188,14 @@ export function createTunnel(scene, materials) {
   root.matrixAutoUpdate = false
   root.matrixWorldAutoUpdate = false
   const segments = []
+  const batches = createSegmentBatches(materials)
 
   for (let i = 0; i < SEGMENT_COUNT; i++) {
-    const segment = createSegment(materials, i)
+    const segment = createSegment(batches, i)
     root.add(segment.group)
     segments.push(segment)
   }
+  syncBeforeRender(scene, root, Object.values(batches))
   scene.add(root)
 
   function reset() {

@@ -80,7 +80,11 @@ export function stepMenu(index, dir, n = MENU_ITEMS.length) {
   return (((index + dir) % n) + n) % n
 }
 
-/** Title + prompt for the end-of-run card. */
+/**
+ * Title + prompt for the end-of-run card.
+ * @param {{ gameMode: string, score: number, newBest: boolean, challenge?: boolean,
+ *   extracted?: boolean, time?: number, target?: number }} run
+ */
 export function endCopy({ gameMode, score, newBest, challenge, extracted, time, target }) {
   if (gameMode === 'tutorial') return { title: 'TUTORIAL', prompt: 'SESSION ENDED' }
   if (challenge) {
@@ -91,7 +95,10 @@ export function endCopy({ gameMode, score, newBest, challenge, extracted, time, 
   return { title: 'REBOOT', prompt: newBest ? `NEW BEST ${score}` : `RUN ${score}` }
 }
 
-/** Title + prompt while the player types initials for a leaderboard slot. */
+/**
+ * Title + prompt while the player types initials for a leaderboard slot.
+ * @param {{ score: number, rank: number, challenge?: boolean, time?: number }} entry
+ */
 export function entryCopy({ score, rank, challenge, time }) {
   if (challenge) return { title: 'EXTRACT', prompt: `${formatTime(time ?? score)} · RANK #${rank}` }
   return { title: 'REBOOT', prompt: `RUN ${score} · RANK #${rank}` }

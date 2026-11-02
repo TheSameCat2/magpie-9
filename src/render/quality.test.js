@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { createQualityGovernor, stepQualityMode } from './quality.js'
+import { QUALITY, createQualityGovernor, msaaSamples, stepQualityMode } from './quality.js'
 
 test('stepQualityMode walks AUTO to HIGH and holds at both ends', () => {
   assert.equal(stepQualityMode('auto', -1), 'auto')
@@ -33,4 +33,11 @@ test('a pinned rung stays put through slow frames, and an open one steps down', 
   open.observe(40, 3)
   open.observe(40, 2)
   assert.equal(open.level, 1)
+})
+
+test('msaaSamples uses the rung count, capped at 2 on dense screens', () => {
+  assert.equal(msaaSamples(QUALITY[2], 1), QUALITY[2].msaa)
+  assert.equal(msaaSamples(QUALITY[2], 1.5), QUALITY[2].msaa)
+  assert.equal(msaaSamples(QUALITY[2], 2), 2)
+  assert.equal(msaaSamples({ msaa: 0 }, 2), 0)
 })

@@ -64,15 +64,24 @@ rebuilds from local matrices, so keep those local matrices current too.
 `uScroll`, `uKick`, `uBend`); the game loop writes them once per frame.
 `bend.js` is the vertex-side conduit bend: `BEND_GLSL` for the custom shaders
 and `bendMaterial` for built-in materials. Every world vertex shader goes
-through it; a straight table is the identity. `textures.js`
+through it; a straight table is the identity. World shaders read the model
+transform as `BEND_MODEL`, never `modelMatrix`, so they work on instanced
+batches too. `instancing.js` draws pooled props that share a geometry and a
+material as one `InstancedMesh`: the pool places plain `Object3D` stand-ins
+as it would meshes, and the batch packs the visible ones every time the scene
+renders. `textures.js`
 draws procedural canvases; `materials.js` turns them into Three materials;
-`shaders.js` is GLSL; `postfx.js` is bloom + the screen grade; `quality.js`
-is the DPR/bloom ladder and the governor that steps down on slow frames.
+`shaders.js` is GLSL; `postfx.js` is the multisampled scene pass, bloom and
+the screen grade; `quality.js` is the DPR/bloom/MSAA ladder and the governor
+that steps down on slow frames.
 
 ### `src/world/`
 
 Each file is a factory that adds pooled meshes to the scene and returns a
-small API (`reset`, `scroll`, …). `collision.js` is pure and tested. `bends.js` is the BENDS arcs as pure
+small API (`reset`, `scroll`, …). Tunnel parts and the gate parts that share
+a unit geometry (rims, clamps, pistons, slabs) are instanced stand-ins; give
+a new pooled prop a batch too unless it needs its own geometry, its own
+uniforms, or a mirroring negative scale. `collision.js` is pure and tested. `bends.js` is the BENDS arcs as pure
 data (no meshes): scroll, `curvatureAt`, and `sample` into `UNIFORMS.uBend`.
 Gameplay stays in straight path space; only the renderer bends. `gates/`
 is split into `kinds.js` (one descriptor per hazard: layout, collision, spark
@@ -175,12 +184,30 @@ in `src/config/`.
 - Hot path: no per-frame allocation. Pools reuse `out` arrays (`passedGates`,
   `collectedOrbs`) and scratch objects (`burst`).
 - Comments explain intent or a trap, never what the next line does.
+- `npm run bench` drives the real game, world, and post chain headless for a
+  few thousand frames and prints CPU time for `game.update()` and three's
+  render work, plus draw calls and WebGL calls per frame. The WebGL context
+  is a no-op stub, so it measures the CPU side only; compare before and after
+  on one machine. GPU cost (fill rate, bloom, shader work) still needs the
+  browser profiler.
 - Tests: `node:test`, placed beside the source as `name.test.js`. Pure
   modules get direct tests; `game.test.js` drives `createGame` with stubs.
   `architecture.test.js` enforces the layer rules above and
   `hud/markup.test.js` keeps the HUD's ids honest. Run `npm test`,
-  `npm run lint`, `npm run build`, and `npm run format:check` before you call a change done.
-  CI runs all four. `npm install` installs a pre-push hook that runs format check, lint, and tests.
+  `npm run lint`, `npm run typecheck`, `npm run build`, `npm run size`, and `npm run format:check`
+  before you call a change done. CI runs all six. `npm run size` holds each built chunk to a gzip budget in
+  `scripts/check-bundle-size.js`; raise one only in the change that needs it.
+- `three` builds into its own `three-<hash>.js` chunk (`vite.config.js`) so a
+  game deploy does not invalidate a returning player's cached copy of three. `npm install` installs a pre-push hook that runs format check, lint, and tests.
+- Types: `npm run typecheck` runs `tsc` over `src/` (tests excluded) in
+  plain-JS mode against `@types/three` (pinned to the `three` version) and
+  the DOM library. Nothing is emitted. Where inference falls short, add a
+  JSDoc `@param`/`@returns`/`@type`, not a rewrite. Browser APIs the game
+  feature-detects but the DOM library lacks (WebKit fullscreen,
+  `navigator.standalone`) are declared in `types/browser.d.ts`. Upgrade
+  `three` and `@types/three` together. A JSDoc cast at the start of a
+  statement needs a `const`: with no semicolons, a line that opens with `(`
+  continues the previous one.
 - Formatting is Prettier (`npm run format`); config in `.prettierrc`. Oxlint (`.oxlintrc.json`) is the linter.
 - Renaming a `localStorage` key, an API field, or a scene name is a
   cross-layer change: grep for it, and update `README.md` if a player sees it.

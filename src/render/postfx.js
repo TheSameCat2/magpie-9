@@ -4,13 +4,95 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { FullScreenQuad, Pass } from 'three/addons/postprocessing/Pass.js'
+import { CopyShader } from 'three/addons/shaders/CopyShader.js'
+
+// Copies the resolved scene into the composer's read buffer and zeroes any
+// NaN or infinite pixel on the way. Bloom blurs from here, so one bad pixel
+// (a shader edge case, a pow() of a negative) would otherwise spread across
+// the whole frame and black it out.
+const SCENE_COPY_FRAG = /* glsl */ `
+uniform sampler2D tDiffuse;
+varying vec2 vUv;
+void main() {
+  vec4 texel = texture2D(tDiffuse, vUv);
+  if (any(isnan(texel)) || any(isinf(texel))) texel = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_FragColor = texel;
+}
+`
 import { SCREEN_VERT, SCREEN_FRAG } from './shaders.js'
-import { QUALITY } from './quality.js'
+import { QUALITY, msaaSamples } from './quality.js'
+
+/**
+ * The scene, multisampled. It renders into its own target (MSAA colour and
+ * depth) and the resolved image is copied into the composer's read buffer,
+ * where bloom and the grade pick it up as before. Giving the composer's own
+ * targets samples instead would multisample both ping-pong buffers and every
+ * post pass that writes to them; this costs one target and one copy.
+ */
+class SceneMsaaPass extends Pass {
+  /**
+   * @param {THREE.Scene} scene
+   * @param {THREE.Camera} camera
+   */
+  constructor(scene, camera) {
+    super()
+    this.needsSwap = false
+    this.scenePass = new RenderPass(scene, camera)
+    this.target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 })
+    this.target.texture.name = 'SceneMsaaPass.rt'
+    this.copy = new FullScreenQuad(
+      new THREE.ShaderMaterial({
+        name: 'SceneMsaaPass.copy',
+        uniforms: { tDiffuse: { value: null } },
+        vertexShader: CopyShader.vertexShader,
+        fragmentShader: SCENE_COPY_FRAG,
+        depthTest: false,
+        depthWrite: false,
+      }),
+    )
+  }
+
+  /** MSAA sample count; a change reallocates the target on the next frame. */
+  setSamples(samples) {
+    if (this.target.samples === samples) return
+    this.target.samples = samples
+    this.target.dispose()
+  }
+
+  setSize(width, height) {
+    this.target.setSize(width, height)
+  }
+
+  render(renderer, writeBuffer, readBuffer, deltaTime, maskActive) {
+    this.scenePass.render(renderer, null, this.target, deltaTime, maskActive)
+    const material = /** @type {THREE.ShaderMaterial} */ (this.copy.material)
+    material.uniforms.tDiffuse.value = this.target.texture
+    renderer.setRenderTarget(this.renderToScreen ? null : readBuffer)
+    this.copy.render(renderer)
+  }
+
+  dispose() {
+    this.target.dispose()
+    this.copy.material.dispose()
+    this.copy.dispose()
+  }
+}
 
 // Bloom + full-screen grade (aberration, zoom, flash, glitch, vignette, grain).
 export function createPostFx(renderer, scene, camera, { reduceMotion }) {
-  const composer = new EffectComposer(renderer)
-  const renderPass = new RenderPass(scene, camera)
+  // The scene renders into SceneMsaaPass's own target, so the ping-pong
+  // buffers only ever hold full-screen passes and need no depth.
+  const size = renderer.getSize(new THREE.Vector2())
+  const pixelRatio = renderer.getPixelRatio()
+  const composer = new EffectComposer(
+    renderer,
+    new THREE.WebGLRenderTarget(size.x * pixelRatio, size.y * pixelRatio, {
+      type: THREE.HalfFloatType,
+      depthBuffer: false,
+    }),
+  )
+  const renderPass = new SceneMsaaPass(scene, camera)
   const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.4, 0.45, 0.84)
   bloom.renderTargetBright.depthBuffer = false
   for (let i = 0; i < bloom.renderTargetsHorizontal.length; i++) {
@@ -50,6 +132,7 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
   let glitch = 0
   let warp = 0
   let bloomScale = 0.5
+  let rung = QUALITY[QUALITY.length - 1]
   const initial = renderer.getSize(new THREE.Vector2())
   let width = initial.x
   let height = initial.y
@@ -63,6 +146,8 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     width = w
     height = h
     const pr = renderer.getPixelRatio()
+    // Follows the pixel ratio in use, which also moves when the window changes screens.
+    renderPass.setSamples(msaaSamples(rung, pr))
     if (w !== lastComposerW || h !== lastComposerH || pr !== lastComposerPr) {
       lastComposerW = w
       lastComposerH = h
@@ -87,6 +172,7 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     screen.uniforms.uFlare.value = q.flare && !reduceMotion ? 1.0 : 0.0
     const dpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1
     renderer.setPixelRatio(Math.min(dpr, q.dpr))
+    rung = q
     renderer.setSize(width, height, false)
     setSize(width, height)
   }
@@ -145,6 +231,10 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     },
     get screen() {
       return screen
+    },
+    /** MSAA samples the scene renders with (0 = none). */
+    get samples() {
+      return renderPass.target.samples
     },
   }
 }

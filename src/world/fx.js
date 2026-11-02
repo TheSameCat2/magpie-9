@@ -88,6 +88,8 @@ function createParticles(scene) {
   let filled = 0
   let maxExpireTime = -1e9
   let dirty = false
+  /** Set when the writes since the last upload no longer fit two ranges; upload the whole buffer. */
+  let fullUpload = false
   const range0 = { start: 0, count: 0 }
   const range1 = { start: 0, count: 0 }
 
@@ -112,7 +114,7 @@ function createParticles(scene) {
       return
     }
     // More than one wraparound before upload: fall back to full-buffer upload.
-    ranges.dataFull = true
+    fullUpload = true
   }
 
   function emit(x, y, z, vx, vy, vz, color, lifeS, sizeU, g) {
@@ -150,9 +152,10 @@ function createParticles(scene) {
   function flush() {
     if (!dirty) return
     dirty = false
-    if (interleaved.updateRanges.dataFull) {
+    if (fullUpload) {
+      // No ranges means three uploads the whole buffer.
       interleaved.updateRanges.length = 0
-      interleaved.updateRanges.dataFull = false
+      fullUpload = false
     }
     geo.setDrawRange(0, filled)
     interleaved.needsUpdate = true

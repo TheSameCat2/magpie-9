@@ -3,12 +3,23 @@ import { clamp } from '../lib/math.js'
 /**
  * Quality ladder, lowest first. The governor walks down it if frames run
  * long. `particles` scales the continuous spark streams (fx.setDensity).
+ * `msaa` is the scene's multisample count (see msaaSamples).
  */
 export const QUALITY = [
-  { dpr: 1, bloom: false, bloomScale: 0.5, flare: false, particles: 0.45 },
-  { dpr: 1.25, bloom: true, bloomScale: 0.35, flare: true, particles: 0.75 },
-  { dpr: 2, bloom: true, bloomScale: 0.5, flare: true, particles: 1 },
+  { dpr: 1, bloom: false, bloomScale: 0.5, flare: false, particles: 0.45, msaa: 2 },
+  { dpr: 1.25, bloom: true, bloomScale: 0.35, flare: true, particles: 0.75, msaa: 4 },
+  { dpr: 2, bloom: true, bloomScale: 0.5, flare: true, particles: 1, msaa: 4 },
 ]
+
+/**
+ * MSAA samples for a rung at the pixel ratio actually in use. At 2x and up
+ * an edge step is already half a CSS pixel, so 2 samples look as clean as 4
+ * there and halve the multisampled target, which is the largest buffer in
+ * the frame at that density.
+ */
+export function msaaSamples(rung, pixelRatio) {
+  return pixelRatio >= 2 ? Math.min(2, rung.msaa) : rung.msaa
+}
 
 const TOP = QUALITY.length - 1
 

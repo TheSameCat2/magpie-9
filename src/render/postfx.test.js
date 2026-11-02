@@ -38,12 +38,35 @@ test('createPostFx initializes with uFlare, uCurvature, and uScanlines uniforms'
   assert.equal(uniforms.uCurvature.value, 0.025)
   assert.equal(uniforms.uScanlines.value, 0.03)
   assert.equal(postfx.flareEnabled, true)
-  assert.equal(postfx.composer.renderTarget1.depthBuffer, true, 'renderTarget1 retains depth buffer')
-  assert.equal(
-    postfx.composer.renderTarget2.depthBuffer,
-    true,
-    'renderTarget2 retains depth buffer for RenderPass',
-  )
+  // The scene renders into its own multisampled target; the ping-pong buffers hold only post passes.
+  assert.equal(postfx.composer.renderTarget1.depthBuffer, false, 'renderTarget1 needs no depth')
+  assert.equal(postfx.composer.renderTarget2.depthBuffer, false, 'renderTarget2 needs no depth')
+})
+
+test('applyQuality sets the scene MSAA from the rung and the pixel ratio', () => {
+  let pixelRatio = 1
+  const renderer = {
+    ...dummyRenderer(),
+    getPixelRatio: () => pixelRatio,
+    setPixelRatio: (r) => (pixelRatio = r),
+  }
+  const postfx = createPostFx(renderer, new THREE.Scene(), new THREE.PerspectiveCamera(), {
+    reduceMotion: false,
+  })
+  const dpr = globalThis.window
+  globalThis.window = /** @type {any} */ ({ devicePixelRatio: 1 })
+  try {
+    postfx.applyQuality(0)
+    assert.equal(postfx.samples, QUALITY[0].msaa)
+    postfx.applyQuality(2)
+    assert.equal(postfx.samples, QUALITY[2].msaa)
+    globalThis.window = /** @type {any} */ ({ devicePixelRatio: 3 })
+    postfx.applyQuality(2)
+    assert.equal(pixelRatio, 2)
+    assert.equal(postfx.samples, 2, 'dense screens drop to 2 samples')
+  } finally {
+    globalThis.window = dpr
+  }
 })
 
 test('applyQuality updates flareEnabled according to quality rung', () => {

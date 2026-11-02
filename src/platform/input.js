@@ -76,8 +76,9 @@ export function keyActivatesButton(target, key) {
 const CHAR_RE = /^[A-Z0-9]$/
 
 /**
- * @param onGesture   fired on any key or pointer press; the audio unlock hook
- * @param onModeChange fired when the player switches between 'keys' and 'touch'
+ * @param {{ onGesture?: () => void, onModeChange?: (mode: 'keys' | 'touch') => void }} [hooks]
+ *   `onGesture` fires on any key or pointer press (the audio unlock hook);
+ *   `onModeChange` fires when the player switches between 'keys' and 'touch'.
  */
 export function createInput({ onGesture, onModeChange } = {}) {
   const held = { left: false, right: false }
@@ -86,6 +87,7 @@ export function createInput({ onGesture, onModeChange } = {}) {
   let dirtyEdges = false
   let stickId = null
   let axis = 0
+  /** @type {'keys' | 'touch'} */
   let mode = preferTouch() ? 'touch' : 'keys'
 
   function setMode(next) {

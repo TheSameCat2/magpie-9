@@ -2,6 +2,13 @@
 // Every sound effect is a few of these layered.
 
 export function createOneShots(graph) {
+  /**
+   * @param {number} freq
+   * @param {number} dur
+   * @param {OscillatorType} type
+   * @param {number} peak
+   * @param {{ endFreq?: number, attack?: number, toWet?: number, when?: number }} [opts]
+   */
   function tone(freq, dur, type, peak, { endFreq, attack = 0.004, toWet = 0, when = 0 } = {}) {
     if (graph.muted) return
     const ctx = graph.ensure()

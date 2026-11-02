@@ -138,7 +138,7 @@ export function createGame({
    */
   function blurHudFocus() {
     const blur = () => {
-      const active = globalThis.document?.activeElement
+      const active = /** @type {HTMLElement | null | undefined} */ (globalThis.document?.activeElement)
       if (active?.closest?.('#hud button')) active.blur()
     }
     blur()

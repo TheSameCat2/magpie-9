@@ -2,6 +2,11 @@ import * as THREE from 'three'
 
 // Procedural CanvasTextures. Nothing here is loaded from disk (PLAN.md rail 4).
 
+/**
+ * @param {number} width
+ * @param {number} height
+ * @returns {[HTMLCanvasElement, CanvasRenderingContext2D]}
+ */
 function createCanvas(width, height) {
   const canvas = document.createElement('canvas')
   canvas.width = width
@@ -9,6 +14,10 @@ function createCanvas(width, height) {
   return [canvas, canvas.getContext('2d')]
 }
 
+/**
+ * @param {HTMLCanvasElement} canvas
+ * @param {{ srgb?: boolean, wrap?: THREE.Wrapping }} [opts]
+ */
 function toTexture(canvas, { srgb = false, wrap = THREE.RepeatWrapping } = {}) {
   const texture = new THREE.CanvasTexture(canvas)
   if (srgb) texture.colorSpace = THREE.SRGBColorSpace

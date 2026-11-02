@@ -791,9 +791,9 @@ export function createBird(scene, materials) {
 
     group.position.copy(pos)
     group.rotation.set(
-      THREE.MathUtils.damp(group.rotation._x, -vy * 0.035, 10, dt),
+      THREE.MathUtils.damp(group.rotation.x, -vy * 0.035, 10, dt),
       0,
-      THREE.MathUtils.damp(group.rotation._z, -(vx + slip) * 0.09, 12, dt),
+      THREE.MathUtils.damp(group.rotation.z, -(vx + slip) * 0.09, 12, dt),
     )
     animateWings(dt)
 
@@ -818,9 +818,9 @@ export function createBird(scene, materials) {
   function updateDead(dt) {
     proxLight.intensity = 0
     group.rotation.set(
-      group.rotation._x + deadSpin.x * dt,
-      group.rotation._y + deadSpin.y * dt,
-      group.rotation._z + deadSpin.z * dt,
+      group.rotation.x + deadSpin.x * dt,
+      group.rotation.y + deadSpin.y * dt,
+      group.rotation.z + deadSpin.z * dt,
     )
     pos.y += vy * dt
     vy += DEAD_GRAVITY * dt

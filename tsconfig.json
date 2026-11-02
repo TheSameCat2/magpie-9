@@ -1,0 +1,19 @@
+{
+  // Type-checks the plain-JS game against three's and the DOM's types. Nothing
+  // is emitted; Vite still builds the JS as written. JSDoc supplies types where
+  // inference cannot (see AGENTS.md, "Types").
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "types": ["vite/client"],
+    "skipLibCheck": true,
+    "strict": false
+  },
+  "include": ["src/**/*.js", "types/**/*.d.ts"],
+  "exclude": ["src/**/*.test.js"]
+}

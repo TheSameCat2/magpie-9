@@ -43,7 +43,7 @@ export function createHelp() {
 
   function focusables() {
     return queryAll('button, [href], [tabindex]:not([tabindex="-1"])', card).filter(
-      (el) => !el.disabled && !el.classList.contains('hidden'),
+      (el) => !(/** @type {HTMLButtonElement} */ (el).disabled) && !el.classList.contains('hidden'),
     )
   }
 

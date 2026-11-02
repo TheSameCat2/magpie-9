@@ -231,7 +231,9 @@ export function createMaterials() {
   }
   // Shader materials bend in their own vertex shaders; built-ins get the hook. The bird's
   // share the hook too: it sits at the bird, where the bend is the identity.
-  for (const material of Object.values(materials)) {
+  /** @type {Array<THREE.Material & { isShaderMaterial?: true }>} */
+  const all = Object.values(materials)
+  for (const material of all) {
     if (!material.isShaderMaterial) bendMaterial(material)
   }
   return materials

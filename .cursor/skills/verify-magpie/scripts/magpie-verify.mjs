@@ -1256,15 +1256,27 @@ async function click(args) {
       buttons: 0,
       clickCount: 1,
     })
-    await waitFrames(client)
     if (client.exceptions.length) throw new Error(client.exceptions.join(' | '))
     if (field) {
-      const matched = await pollProbe(client, {
-        field,
-        equals: String(equals),
-        timeout: Number(args.timeout || 2000),
-      })
-      await captureMatch(client, state, matched, args)
+      // A value painted in the press handler (the resume digit) is already
+      // on screen. Yielding a frame first lets a slow frame skip it: the
+      // countdown reads the wall clock, so a late tick jumps from 3 to 1.
+      const immediate = await readProbe(client)
+      if (String(immediate?.[field]) === String(equals)) {
+        await captureMatch(client, state, immediate, args)
+      } else {
+        await waitFrames(client)
+        if (client.exceptions.length) throw new Error(client.exceptions.join(' | '))
+        const matched = await pollProbe(client, {
+          field,
+          equals: String(equals),
+          timeout: Number(args.timeout || 2000),
+        })
+        await captureMatch(client, state, matched, args)
+      }
+    } else {
+      await waitFrames(client)
+      if (client.exceptions.length) throw new Error(client.exceptions.join(' | '))
     }
   })
   const waited = args['wait-field'] ? ` wait ${args['wait-field']}=${args['wait-equals']}` : ''

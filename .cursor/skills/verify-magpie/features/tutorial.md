@@ -7,7 +7,7 @@ Tutorial is a slow practice run. It opens on a flight card, then waits at JUMP T
 - `tutorial-flight` shows the FLIGHT card as soon as tutorial starts.
 - `tutorial-begin` dismisses the card into JUMP TO BEGIN, then a flap starts the run.
 - `tutorial-exit` leaves from the MENU button.
-- `tutorial-escape` leaves from Escape once the run is live.
+- `tutorial-escape` leaves from Escape on the flight card, on JUMP TO BEGIN, and once the run is live.
 - `tutorial-lessons` shows DAMPER, SPARE LIFE, and SHUNT the first time each orb is collected.
 
 ## How to get to it (user POV)

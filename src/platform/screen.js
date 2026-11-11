@@ -4,18 +4,31 @@
 import { loadFullscreenPreference, saveFullscreenPreference } from '../lib/storage.js'
 import { displayHidden, watchShellFocus } from './shell.js'
 
-function fullscreenElement(doc = document) {
-  return doc.fullscreenElement || doc.webkitFullscreenElement || null
+function fullscreenElement(doc = globalThis.document) {
+  return doc?.fullscreenElement || doc?.webkitFullscreenElement || null
 }
 
-function canRequestFullscreen() {
-  const el = document.documentElement
+/**
+ * True when the document exposes Fullscreen API methods and fullscreen is not
+ * blocked by policy (`fullscreenEnabled === false` in iframes / WebViews).
+ */
+export function canRequestFullscreen(doc = globalThis.document) {
+  if (!doc) return false
+  if (doc.fullscreenEnabled === false || (!doc.fullscreenEnabled && doc.webkitFullscreenEnabled === false)) {
+    return false
+  }
+  const el = doc.documentElement
+  if (!el) return false
   return !!(el.requestFullscreen || el.webkitRequestFullscreen)
 }
 
 /** Installed PWA / Home Screen — already chrome-less, no extra FS button. */
-export function isStandaloneDisplay(win = window, nav = navigator, doc = document) {
-  if (nav.standalone === true) return true
+export function isStandaloneDisplay(
+  win = globalThis.window,
+  nav = globalThis.navigator,
+  doc = globalThis.document,
+) {
+  if (nav?.standalone === true) return true
   if (win.matchMedia('(display-mode: standalone)').matches) return true
   // Manifest display:fullscreen is chrome-less. Element fullscreen also
   // matches this query, so ignore it while the Fullscreen API is active.
@@ -29,26 +42,47 @@ export function rotateFsAction({ supportsFullscreen, standalone }) {
   return 'hint'
 }
 
-async function lockLandscape() {
+async function lockLandscape(scr = globalThis.screen) {
   try {
-    await screen.orientation?.lock?.('landscape')
+    await scr?.orientation?.lock?.('landscape')
   } catch {
     /* Android-only while fullscreen; iOS and desktop no-op. */
   }
 }
 
-function unlockOrientation() {
+function unlockOrientation(scr = globalThis.screen) {
   try {
-    screen.orientation?.unlock?.()
+    scr?.orientation?.unlock?.()
   } catch {
     /* ignore */
   }
 }
 
-export function createScreen() {
-  const coarse = window.matchMedia('(pointer: coarse)')
-  const portrait = window.matchMedia('(orientation: portrait)')
-  const forceRotate = new URLSearchParams(location.search).has('rotate')
+/**
+ * @param {{
+ *   signal?: AbortSignal,
+ *   win?: Window & typeof globalThis,
+ *   nav?: Navigator,
+ *   doc?: Document,
+ *   loc?: Location | { search?: string },
+ *   scr?: Screen,
+ *   bridge?: Window['magpieDesktop'],
+ * }} [opts]
+ */
+export function createScreen({
+  signal,
+  win = globalThis.window,
+  nav = globalThis.navigator,
+  doc = globalThis.document,
+  loc = globalThis.location,
+  scr = globalThis.screen,
+  bridge = globalThis.magpieDesktop,
+} = {}) {
+  const coarse = win.matchMedia('(pointer: coarse)')
+  const portrait = win.matchMedia('(orientation: portrait)')
+  const standaloneMq = win.matchMedia('(display-mode: standalone)')
+  const fullscreenMq = win.matchMedia('(display-mode: fullscreen)')
+  const forceRotate = new URLSearchParams(loc?.search ?? '').has('rotate')
   let onChange = () => {}
 
   function notify() {
@@ -56,16 +90,22 @@ export function createScreen() {
   }
 
   function isFullscreen() {
-    return !!fullscreenElement()
+    return !!fullscreenElement(doc)
+  }
+
+  function isStandalone() {
+    if (nav?.standalone === true) return true
+    if (standaloneMq.matches) return true
+    return fullscreenMq.matches && !fullscreenElement(doc)
   }
 
   async function enterFullscreen() {
-    const el = document.documentElement
+    const el = doc.documentElement
     try {
       if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' })
       else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen()
       saveFullscreenPreference(true)
-      await lockLandscape()
+      await lockLandscape(scr)
     } catch {
       /* user gesture expired or the browser denied fullscreen */
     }
@@ -73,10 +113,10 @@ export function createScreen() {
   }
 
   async function exitFullscreen() {
-    unlockOrientation()
+    unlockOrientation(scr)
     try {
-      if (document.exitFullscreen) await document.exitFullscreen()
-      else if (document.webkitExitFullscreen) document.webkitExitFullscreen()
+      if (doc.exitFullscreen) await doc.exitFullscreen()
+      else if (doc.webkitExitFullscreen) doc.webkitExitFullscreen()
     } catch {
       /* already exited */
     }
@@ -90,7 +130,7 @@ export function createScreen() {
 
   /** On a fresh gesture, go back to fullscreen if the player had it on last time. */
   function maybeReenterFullscreen() {
-    if (!canRequestFullscreen() || isFullscreen()) return
+    if (!canRequestFullscreen(doc) || isFullscreen()) return
     if (!loadFullscreenPreference()) return
     enterFullscreen()
   }
@@ -98,34 +138,56 @@ export function createScreen() {
   function onFullscreenChange() {
     if (!isFullscreen()) {
       saveFullscreenPreference(false)
-      unlockOrientation()
+      unlockOrientation(scr)
     }
     notify()
   }
 
-  coarse.addEventListener('change', notify)
-  portrait.addEventListener('change', notify)
-  document.addEventListener('visibilitychange', notify)
-  document.addEventListener('fullscreenchange', onFullscreenChange)
-  document.addEventListener('webkitfullscreenchange', onFullscreenChange)
+  const ctl = new AbortController()
+  const mqOpts = { signal: ctl.signal }
+  const passiveOpts = { passive: true, signal: ctl.signal }
+  const mqs = [coarse, portrait, standaloneMq, fullscreenMq]
+  for (const mq of mqs) mq.addEventListener('change', notify, mqOpts)
+  /** @type {Array<[string, () => void]>} */
+  const docEvents = [
+    ['visibilitychange', notify],
+    ['fullscreenchange', onFullscreenChange],
+    ['webkitfullscreenchange', onFullscreenChange],
+  ]
+  for (const [type, fn] of docEvents) doc.addEventListener(type, fn, passiveOpts)
 
   // Cmd-Tab leaves the Electron window visible, so visibilityState stays
   // 'visible'. Treat shell blur as the same hold the hidden tab already uses.
   let shellFocused = true
-  watchShellFocus((focused) => {
+  const stopShellFocus = watchShellFocus((focused) => {
     shellFocused = focused
     notify()
-  })
+  }, bridge)
+
+  let disposed = false
+  function dispose() {
+    if (disposed) return
+    disposed = true
+    ctl.abort()
+    for (const mq of mqs) mq.removeEventListener?.('change', notify)
+    for (const [type, fn] of docEvents) doc.removeEventListener?.(type, fn)
+    stopShellFocus()
+  }
+
+  if (signal) {
+    if (signal.aborted) dispose()
+    else signal.addEventListener('abort', dispose, { once: true })
+  }
 
   return {
     set onChange(fn) {
       onChange = typeof fn === 'function' ? fn : () => {}
     },
     get supportsFullscreen() {
-      return canRequestFullscreen()
+      return canRequestFullscreen(doc)
     },
     get isStandalone() {
-      return isStandaloneDisplay()
+      return isStandalone()
     },
     get isFullscreen() {
       return isFullscreen()
@@ -134,11 +196,12 @@ export function createScreen() {
       return forceRotate || (coarse.matches && portrait.matches)
     },
     get hidden() {
-      return displayHidden({ visibility: document.visibilityState, shellFocused })
+      return displayHidden({ visibility: doc.visibilityState, shellFocused })
     },
     enterFullscreen,
     exitFullscreen,
     toggleFullscreen,
     maybeReenterFullscreen,
+    dispose,
   }
 }

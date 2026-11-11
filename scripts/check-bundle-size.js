@@ -11,11 +11,12 @@ import { fileURLToPath } from 'node:url'
 /**
  * Gzip budgets in bytes, keyed by the chunk name before Vite's content hash.
  * Measured sizes when set (Nov 2026): three 126.8 kB, index 48.5 kB, CSS 6.6 kB,
- * index.html 6.3 kB. Headroom is roughly 5% so routine work does not trip them.
+ * index.html 6.3 kB. index was re-measured at 52.6 kB after the a11y and
+ * lifecycle hardening. Headroom is roughly 5% so routine work does not trip them.
  */
 export const BUDGETS = {
   'three.js': 134_000,
-  'index.js': 52_000,
+  'index.js': 55_000,
   'index.css': 7_500,
   'index.html': 7_000,
 }

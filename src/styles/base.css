@@ -1,5 +1,8 @@
 :root {
+  color-scheme: dark;
   --void: #07080c;
+  --metal: #161a22;
+  --metal-hi: #2a3140;
   --ice: #3de0ff;
   --mag: #ff2a6d;
   --ink: #dce8f0;
@@ -8,16 +11,20 @@
   --sodium: #e8a030;
   --gold: #ffd166;
   --green: #3dff8a;
+  --ctl-border: rgba(61, 224, 255, 0.45);
+  --ctl-border-hover: rgba(61, 224, 255, 0.75);
+  --scrollbar-thumb: rgba(61, 224, 255, 0.5);
+  --scrollbar-track: transparent;
   --sat: env(safe-area-inset-top, 0px);
   --sar: env(safe-area-inset-right, 0px);
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
   /* Floors keep phone landscape readable; caps keep 4K from ballooning. */
-  --fs-xs: clamp(11px, 8px + 0.4vmin, 14px);
-  --fs-sm: clamp(12px, 8.5px + 0.5vmin, 16px);
-  --fs-md: clamp(13px, 9px + 0.6vmin, 18px);
-  --fs-lg: clamp(15px, 10px + 0.8vmin, 22px);
-  --fs-num: clamp(32px, 20px + 2.4vmin, 56px);
+  --fs-xs: clamp(0.6875rem, 0.5rem + 0.4vmin, 0.875rem);
+  --fs-sm: clamp(0.75rem, 0.53125rem + 0.5vmin, 1rem);
+  --fs-md: clamp(0.8125rem, 0.5625rem + 0.6vmin, 1.125rem);
+  --fs-lg: clamp(0.9375rem, 0.625rem + 0.8vmin, 1.375rem);
+  --fs-num: clamp(2rem, 1.25rem + 2.4vmin, 3.5rem);
   --hit: 44px;
   --shadow-ink: 0 1px 2px rgba(7, 8, 12, 0.95);
 }
@@ -28,13 +35,13 @@ body {
   height: 100dvh;
   background: var(--void);
   overflow: hidden;
+  overflow: clip;
   font-family: 'Share Tech Mono', ui-monospace, monospace;
   font-size: var(--fs-sm);
   color: var(--ink);
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  touch-action: none;
   overscroll-behavior: none;
   cursor: crosshair;
 }
@@ -44,6 +51,7 @@ canvas {
   inset: 0;
   width: 100%;
   height: 100%;
+  touch-action: none;
 }
 #hud {
   position: fixed;
@@ -82,7 +90,8 @@ canvas {
 
 h1,
 h2,
-h3 {
+h3,
+h4 {
   margin: 0;
   font-size: inherit;
   font-weight: inherit;
@@ -123,14 +132,46 @@ h3 {
 /* Every HUD button is clickable, inherits the mono face, and shares one focus ring. */
 #hud button {
   pointer-events: auto;
+  touch-action: manipulation;
   font-family: inherit;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  scale: 1;
 }
-#hud button:focus-visible {
+@media (hover: hover) {
+  #hud :where(button:not(.on)):hover {
+    color: var(--ice);
+    border-color: var(--ctl-border-hover);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  #hud button:active {
+    scale: 0.97;
+  }
+}
+#hud :where(button, [tabindex]:not([tabindex='-1'])):focus-visible {
   outline: 2px solid var(--ice);
   outline-offset: 3px;
   box-shadow: 0 0 0 4px rgba(61, 224, 255, 0.28);
+}
+
+@supports not (scrollbar-color: auto) {
+  .help-card::-webkit-scrollbar,
+  #settings .overlay-card::-webkit-scrollbar,
+  #lesson .overlay-card::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  .help-card::-webkit-scrollbar-thumb,
+  #settings .overlay-card::-webkit-scrollbar-thumb,
+  #lesson .overlay-card::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+  }
+  .help-card::-webkit-scrollbar-track,
+  #settings .overlay-card::-webkit-scrollbar-track,
+  #lesson .overlay-card::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
 }
 
 .sr-only {
@@ -140,7 +181,7 @@ h3 {
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }

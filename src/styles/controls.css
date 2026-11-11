@@ -10,10 +10,10 @@
 #exit {
   position: absolute;
   z-index: 3;
-  min-width: 48px;
-  min-height: var(--hit);
+  min-inline-size: 48px;
+  min-block-size: var(--hit);
   padding: 6px 14px;
-  border: 1px solid rgba(61, 224, 255, 0.35);
+  border: 1px solid var(--ctl-border);
   background: rgba(7, 8, 12, 0.72);
   color: var(--ice);
   font-size: var(--fs-xs);
@@ -57,15 +57,15 @@ body[data-mode='challenge'] #score {
   display: none;
 }
 #sys button {
-  min-width: 48px;
-  min-height: 48px;
+  min-inline-size: 48px;
+  min-block-size: 48px;
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  border: 1px solid rgba(61, 224, 255, 0.35);
+  border: 1px solid var(--ctl-border);
   background: rgba(7, 8, 12, 0.72);
   color: var(--ice);
   font-size: var(--fs-xs);
@@ -76,6 +76,8 @@ body[data-mode='challenge'] #score {
   color: var(--sodium);
 }
 #sys button svg {
+  flex: none;
+  pointer-events: none;
   width: 16px;
   height: 16px;
   fill: none;

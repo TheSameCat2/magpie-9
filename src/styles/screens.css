@@ -1,6 +1,10 @@
+.screen {
+  pointer-events: auto;
+  cursor: default;
+}
 .screen .overlay-card {
-  max-width: min(34em, calc(100vw - 56px));
-  text-align: left;
+  max-inline-size: min(34em, calc(100dvw - 56px - var(--sal) - var(--sar)));
+  text-align: start;
 }
 .screen .overlay-title {
   text-align: center;
@@ -28,14 +32,13 @@
 .screen .overlay-sub {
   text-align: center;
   margin-top: 24px;
-  animation: blink 1.6s ease-in-out infinite;
 }
 .screen .back {
   display: block;
   margin: 18px auto 0;
-  min-width: 160px;
-  min-height: var(--hit);
-  border: 1px solid rgba(61, 224, 255, 0.45);
+  min-inline-size: 160px;
+  min-block-size: var(--hit);
+  border: 1px solid var(--ctl-border);
   background: rgba(7, 8, 12, 0.72);
   color: var(--ice);
   font-size: var(--fs-sm);
@@ -48,6 +51,8 @@
   grid-template-columns: 1fr;
   row-gap: 4px;
   text-align: center;
+  user-select: text;
+  -webkit-user-select: text;
 }
 #credits dt {
   margin-top: 14px;
@@ -55,7 +60,7 @@
 }
 #credits dd {
   font-family: Orbitron, sans-serif;
-  font-size: clamp(14px, 2.4vw, 20px);
+  font-size: clamp(0.875rem, 0.625rem + 1.2dvw, 1.25rem);
   letter-spacing: 0.14em;
 }
 
@@ -74,9 +79,9 @@
   gap: 2px;
 }
 .slot button {
-  width: var(--hit);
-  height: var(--hit);
-  padding: 0;
+  min-inline-size: var(--hit);
+  min-block-size: var(--hit);
+  padding: 4px;
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -86,10 +91,10 @@
 .slot b {
   font-family: Orbitron, sans-serif;
   font-weight: 700;
-  font-size: clamp(28px, 6vw, 42px);
+  font-size: clamp(1.75rem, 1rem + 3.5dvw, 2.625rem);
   letter-spacing: 0.08em;
   color: var(--ink);
-  min-width: 1.1em;
+  min-inline-size: 1.1em;
   text-align: center;
   border-bottom: 2px solid transparent;
 }
@@ -108,10 +113,10 @@
 }
 #btnEnter,
 #btnSkip {
-  min-width: 120px;
-  min-height: var(--hit);
+  min-inline-size: 120px;
+  min-block-size: var(--hit);
   padding: 8px 16px;
-  border: 1px solid rgba(61, 224, 255, 0.45);
+  border: 1px solid var(--ctl-border);
   background: rgba(7, 8, 12, 0.72);
   color: var(--ice);
   font-size: var(--fs-sm);
@@ -123,7 +128,7 @@
 }
 
 #scores .overlay-card {
-  min-width: min(22em, calc(100vw - 56px));
+  min-inline-size: min(22em, calc(100dvw - 56px - var(--sal) - var(--sar)));
 }
 #scoresList {
   list-style: none;
@@ -132,7 +137,7 @@
   display: grid;
   gap: 6px;
   font-family: Orbitron, sans-serif;
-  font-size: clamp(12px, 2.2vw, 16px);
+  font-size: clamp(0.75rem, 0.5rem + 1.1dvw, 1rem);
   letter-spacing: 0.16em;
 }
 #scoresList li {
@@ -143,11 +148,13 @@
 }
 #scoresList .rank {
   color: var(--ice);
-  text-align: right;
+  text-align: end;
+  font-variant-numeric: tabular-nums;
 }
 #scoresList .pts {
-  text-align: right;
+  text-align: end;
   color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 #scoresList li.you {
   color: var(--mag);
@@ -159,11 +166,11 @@
   color: var(--mag);
 }
 #scoresList .you-mark {
-  margin-right: 0.35em;
+  margin-inline-end: 0.35em;
 }
 #scoresStatus {
   margin-top: 12px;
-  animation: blink 1.6s ease-in-out infinite;
+  animation: blink 1.6s ease-in-out 2;
 }
 #scoresTabs {
   display: flex;
@@ -172,9 +179,9 @@
   margin-top: 14px;
 }
 #scoresTabs button {
-  min-height: var(--hit);
+  min-block-size: var(--hit);
   padding: 6px 14px;
-  border: 1px solid rgba(61, 224, 255, 0.28);
+  border: 1px solid var(--ctl-border);
   background: rgba(7, 8, 12, 0.72);
   color: var(--ink);
   font-size: var(--fs-xs);
@@ -189,15 +196,16 @@
   margin-top: 8px;
   letter-spacing: 0.28em;
 }
-#scoresList .pts {
-  font-variant-numeric: tabular-nums;
-}
 
 #settings .overlay-card {
-  width: min(40em, calc(100vw - 56px));
-  max-width: min(40em, calc(100vw - 56px));
-  max-height: calc(100dvh - 28px - var(--sat) - var(--sab));
+  inline-size: min(40em, calc(100dvw - 56px - var(--sal) - var(--sar)));
+  max-inline-size: min(40em, calc(100dvw - 56px - var(--sal) - var(--sar)));
+  max-block-size: calc(100dvh - 28px - var(--sat) - var(--sab));
   overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y pinch-zoom;
+  scrollbar-width: auto;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 .settings-h {
   margin: 18px 0 8px;
@@ -208,10 +216,10 @@
 }
 .settings-row {
   display: grid;
-  grid-template-columns: 7.2em var(--hit) minmax(6em, 1fr) 3.2em var(--hit);
+  grid-template-columns: 7.2em minmax(var(--hit), auto) minmax(6em, 1fr) 3.2em minmax(var(--hit), auto);
   align-items: center;
   column-gap: 10px;
-  min-height: var(--hit);
+  min-block-size: var(--hit);
 }
 .settings-row[data-setting='quality'] {
   grid-template-columns: 7.2em minmax(0, 1fr);
@@ -227,10 +235,10 @@
   text-shadow: 0 0 10px rgba(61, 224, 255, 0.45);
 }
 .settings-nudge {
-  width: var(--hit);
-  height: var(--hit);
-  padding: 0;
-  border: 1px solid rgba(61, 224, 255, 0.45);
+  min-inline-size: var(--hit);
+  min-block-size: var(--hit);
+  padding: 4px;
+  border: 1px solid var(--ctl-border);
   background: rgba(7, 8, 12, 0.72);
   color: var(--ice);
   font-size: var(--fs-sm);
@@ -244,17 +252,19 @@
 .settings-meter i {
   display: block;
   height: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--ctl-border);
   background: rgba(61, 224, 255, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(61, 224, 255, 0.35);
 }
 .settings-meter i.on {
+  border-color: var(--ice);
   background: var(--ice);
   box-shadow: 0 0 8px rgba(61, 224, 255, 0.55);
 }
 .settings-readout {
   font-family: Orbitron, sans-serif;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  text-align: end;
   letter-spacing: 0.06em;
   color: var(--ink);
   font-size: var(--fs-sm);
@@ -265,9 +275,9 @@
   gap: 8px;
 }
 .settings-choices button {
-  min-height: var(--hit);
+  min-block-size: var(--hit);
   padding: 6px 14px;
-  border: 1px solid rgba(61, 224, 255, 0.28);
+  border: 1px solid var(--ctl-border);
   background: rgba(7, 8, 12, 0.72);
   color: var(--ink);
   font-size: var(--fs-xs);

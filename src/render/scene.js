@@ -7,7 +7,15 @@ import { UNIFORMS } from './uniforms.js'
 /** Depth of the fixed ice shaft light ahead of the bird. */
 const SHAFT_Z = -14
 
-export function createRenderer() {
+/**
+ * @param {{
+ *   onContextLost?: () => void,
+ *   onContextRestored?: () => void,
+ *   canvas?: HTMLCanvasElement | OffscreenCanvas,
+ *   context?: WebGLRenderingContext | WebGL2RenderingContext,
+ * }} [options]
+ */
+export function createRenderer({ onContextLost, onContextRestored, canvas, context } = {}) {
   // Every frame goes through the EffectComposer: the scene renders into its
   // own multisampled half-float target (postfx.js SceneMsaaPass) and the
   // canvas only ever receives the final full-screen grade pass. A
@@ -17,14 +25,26 @@ export function createRenderer() {
     antialias: false,
     depth: false,
     powerPreference: 'high-performance',
+    ...(canvas ? { canvas } : null),
+    ...(context ? { context } : null),
   })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  renderer.setSize(window.innerWidth, window.innerHeight, false)
+  const dpr = (typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1
+  const width = (typeof window !== 'undefined' ? window.innerWidth : 0) || 1
+  const height = (typeof window !== 'undefined' ? window.innerHeight : 0) || 1
+  renderer.setPixelRatio(Math.min(dpr, 2))
+  renderer.setSize(width, height, false)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
   renderer.toneMappingExposure = 1.05
   renderer.setClearColor(THEME.void, 1)
-  renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault())
+  renderer.domElement?.addEventListener?.('contextmenu', (e) => e.preventDefault())
+  renderer.domElement?.addEventListener?.('webglcontextlost', (e) => {
+    e.preventDefault()
+    onContextLost?.()
+  })
+  renderer.domElement?.addEventListener?.('webglcontextrestored', () => {
+    onContextRestored?.()
+  })
   return renderer
 }
 

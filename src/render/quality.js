@@ -55,7 +55,14 @@ export function createQualityGovernor({ level, pinned = false, onChange }) {
   let slowFor = 0
   let warmup = 3
 
-  function observe(frameMs, dt) {
+  function observe(frameMs, dt = 0) {
+    // Ignore tab-resume or shader-compile stalls (> 250 ms) so backgrounding
+    // never permanently walks AUTO quality down.
+    if (!(frameMs >= 0) || frameMs > 250) {
+      slowFor = 0
+      warmup = Math.max(warmup, 1)
+      return
+    }
     frameAvg += (Math.min(frameMs, 100) - frameAvg) * 0.08
     if (warmup > 0) {
       warmup -= dt
@@ -83,9 +90,18 @@ export function createQualityGovernor({ level, pinned = false, onChange }) {
     onChange?.(level)
   }
 
+  /** Restore warm-up grace after WebGL context restore or long suspend. */
+  function resetWarmup(seconds = 3) {
+    const grace = typeof seconds === 'number' && Number.isFinite(seconds) ? Math.max(0, seconds) : 3
+    frameAvg = 16
+    slowFor = 0
+    warmup = grace
+  }
+
   return {
     observe,
     apply,
+    resetWarmup,
     get level() {
       return level
     },

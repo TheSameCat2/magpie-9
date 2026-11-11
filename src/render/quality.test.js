@@ -41,3 +41,42 @@ test('msaaSamples uses the rung count, capped at 2 on dense screens', () => {
   assert.equal(msaaSamples(QUALITY[2], 2), 2)
   assert.equal(msaaSamples({ msaa: 0 }, 2), 0)
 })
+
+test('observe ignores > 250 ms resume spikes without stepping AUTO quality down', () => {
+  const seen = []
+  const gov = createQualityGovernor({ level: 2, pinned: false, onChange: (n) => seen.push(n) })
+  // Burn initial 3 s warm-up at 60 fps.
+  gov.observe(16, 3.1)
+  assert.equal(gov.level, 2)
+
+  // Simulate repeated tab-resume / shader-compile spikes (> 250 ms).
+  gov.observe(800, 0.05)
+  gov.observe(2_500, 0.05)
+  gov.observe(400)
+  // Even a brief slow frame inside the post-spike 1 s grace window must not drop quality.
+  gov.observe(35, 0.5)
+  assert.equal(gov.level, 2)
+  assert.deepEqual(seen, [])
+})
+
+test('resetWarmup restores warm-up grace and clears accumulated slow state', () => {
+  const seen = []
+  const gov = createQualityGovernor({ level: 2, pinned: false, onChange: (n) => seen.push(n) })
+  gov.observe(40, 3.1)
+  // Accumulate 1.2 s of slow frames (just below the 1.5 s downgrade threshold).
+  gov.observe(40, 1.2)
+  assert.equal(gov.level, 2)
+
+  gov.resetWarmup()
+  // Slow shader-recompile frames during the fresh 3 s warm-up grace do not step down.
+  gov.observe(45, 1.5)
+  gov.observe(45, 1.4)
+  assert.equal(gov.level, 2)
+  assert.deepEqual(seen, [])
+
+  // Once warm-up expires and > 1.5 s of slow frames accumulate, governor steps down as usual.
+  gov.observe(45, 0.2)
+  gov.observe(45, 1.6)
+  assert.equal(gov.level, 1)
+  assert.deepEqual(seen, [1])
+})

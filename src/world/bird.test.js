@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { createBird, nearestWallClearance } from './bird.js'
 import { BIRD_VISUAL_SCALE } from '../config/world.js'
+import { UNIFORMS } from '../render/uniforms.js'
 
 function dummyMaterials() {
   const m = new THREE.MeshBasicMaterial()
@@ -181,4 +182,57 @@ test('shockCone is attached to drone, toggled on reset/kill, and references uOve
 
   bird.reset()
   assert.equal(bird.shockCone.visible, true, 'shockCone restored on reset')
+})
+
+test('proxLight hazard pulse stays smooth below 3 Hz and holds steady under reduced motion', () => {
+  const scene = new THREE.Scene()
+  const bird = createBird(scene, dummyMaterials())
+  const proxLight = /** @type {THREE.PointLight | undefined} */ (
+    bird.group.children.find((c) => c instanceof THREE.PointLight && c.position.z === 0)
+  )
+  assert.ok(proxLight)
+
+  const dt = 1 / 120
+  const samples = []
+  try {
+    UNIFORMS.uReduceMotion.value = 0
+    // Sample 1 full second at 120 fps while pinning position in the wall-scrape zone (< 0.45 clearance).
+    for (let i = 0; i < 120; i++) {
+      bird.pos.set(0, 3.8, 0)
+      bird.flap()
+      bird.pos.set(0, 3.8, 0)
+      bird.updatePlay(dt, { strafe: 0 }, 0.1)
+      samples.push(proxLight.intensity)
+    }
+
+    // Count upward crossings of the midpoint and verify smooth step-to-step continuity (no square jump).
+    const minI = Math.min(...samples)
+    const maxI = Math.max(...samples)
+    assert.ok(maxI > minI + 0.5, 'hazard light should modulate smoothly when reduced motion is off')
+    const mid = (minI + maxI) * 0.5
+    let upwardCrossings = 0
+    let maxStep = 0
+    for (let i = 1; i < samples.length; i++) {
+      if (samples[i - 1] <= mid && samples[i] > mid) upwardCrossings += 1
+      maxStep = Math.max(maxStep, Math.abs(samples[i] - samples[i - 1]))
+    }
+    assert.ok(upwardCrossings <= 3, `expected <= 3 cycles/s (WCAG 2.3.1), got ${upwardCrossings}`)
+    assert.ok(maxStep < 0.35, `expected smooth continuous wave without hard square step, maxStep=${maxStep}`)
+
+    // With uReduceMotion > 0.5, intensity stays completely steady across time at fixed clearance.
+    UNIFORMS.uReduceMotion.value = 1
+    const steadySamples = []
+    for (let i = 0; i < 30; i++) {
+      bird.flap()
+      bird.pos.set(0, 3.8, 0)
+      bird.updatePlay(dt, { strafe: 0 }, 0.1)
+      steadySamples.push(proxLight.intensity)
+    }
+    const steadyMin = Math.min(...steadySamples)
+    const steadyMax = Math.max(...steadySamples)
+    assert.ok(steadyMin > 2, 'reduced-motion hazard light stays brightly lit')
+    assert.ok(steadyMax - steadyMin < 1e-6, 'reduced-motion hazard light does not pulse over time')
+  } finally {
+    UNIFORMS.uReduceMotion.value = 0
+  }
 })

@@ -22,6 +22,7 @@ void main() {
 `
 import { SCREEN_VERT, SCREEN_FRAG } from './shaders.js'
 import { QUALITY, msaaSamples } from './quality.js'
+import { UNIFORMS } from './uniforms.js'
 
 /**
  * The scene, multisampled. It renders into its own target (MSAA colour and
@@ -80,7 +81,7 @@ class SceneMsaaPass extends Pass {
 }
 
 // Bloom + full-screen grade (aberration, zoom, flash, glitch, vignette, grain).
-export function createPostFx(renderer, scene, camera, { reduceMotion }) {
+export function createPostFx(renderer, scene, camera, { reduceMotion = false } = {}) {
   // The scene renders into SceneMsaaPass's own target, so the ping-pong
   // buffers only ever hold full-screen passes and need no depth.
   const size = renderer.getSize(new THREE.Vector2())
@@ -127,6 +128,8 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
   composer.addPass(output)
   composer.addPass(screen)
 
+  let reduced = Boolean(reduceMotion)
+  let motion = reduced ? 0 : 1
   let kick = 0
   let flash = 0
   let glitch = 0
@@ -146,6 +149,7 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     width = w
     height = h
     const pr = renderer.getPixelRatio()
+    UNIFORMS.uPixelRatio.value = pr
     // Follows the pixel ratio in use, which also moves when the window changes screens.
     renderPass.setSamples(msaaSamples(rung, pr))
     if (w !== lastComposerW || h !== lastComposerH || pr !== lastComposerPr) {
@@ -167,19 +171,35 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
 
   function applyQuality(level) {
     const q = QUALITY[THREE.MathUtils.clamp(level, 0, QUALITY.length - 1)]
-    bloom.enabled = q.bloom && !reduceMotion
-    bloomScale = q.bloomScale
-    screen.uniforms.uFlare.value = q.flare && !reduceMotion ? 1.0 : 0.0
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1
-    renderer.setPixelRatio(Math.min(dpr, q.dpr))
     rung = q
+    bloom.enabled = q.bloom && !reduced
+    bloomScale = q.bloomScale
+    screen.uniforms.uFlare.value = q.flare && !reduced ? 1.0 : 0.0
+    const dpr = (typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1
+    renderer.setPixelRatio(Math.min(dpr, q.dpr))
+    UNIFORMS.uPixelRatio.value = renderer.getPixelRatio()
     renderer.setSize(width, height, false)
     setSize(width, height)
   }
 
-  const motion = reduceMotion ? 0 : 1
-  screen.uniforms.uCurvature.value = 0.025 * motion
-  screen.uniforms.uScanlines.value = 0.03 * motion
+  function setReduceMotion(next) {
+    reduced = Boolean(next)
+    motion = reduced ? 0 : 1
+    UNIFORMS.uReduceMotion.value = reduced ? 1 : 0
+    bloom.enabled = rung.bloom && !reduced
+    const u = screen.uniforms
+    u.uFlare.value = rung.flare && !reduced ? 1.0 : 0.0
+    u.uCurvature.value = 0.025 * motion
+    u.uScanlines.value = 0.03 * motion
+    if (reduced) warp = 0
+    u.uAberration.value = kick * motion
+    u.uZoom.value = kick * kick * motion
+    u.uFlash.value = flash * (reduced ? 0.35 : 1)
+    u.uGlitch.value = glitch * glitch * motion
+    u.uWarp.value = warp * motion
+  }
+
+  setReduceMotion(reduced)
 
   function update(dt) {
     const u = screen.uniforms
@@ -191,7 +211,7 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
       warp = Math.max(0, warp - dt * 2.8)
       u.uAberration.value = kick * motion
       u.uZoom.value = kick * kick * motion
-      u.uFlash.value = flash * (reduceMotion ? 0.35 : 1)
+      u.uFlash.value = flash * (reduced ? 0.35 : 1)
       u.uGlitch.value = glitch * glitch * motion
       u.uWarp.value = warp * motion
     }
@@ -205,6 +225,7 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
     update,
     setSize,
     applyQuality,
+    setReduceMotion,
     kick(strength) {
       kick = Math.min(1.2, Math.max(kick, strength))
     },
@@ -216,7 +237,7 @@ export function createPostFx(renderer, scene, camera, { reduceMotion }) {
       glitch = Math.max(glitch, amount)
     },
     warp(cx = 0.5, cy = 0.5, strength = 1.0) {
-      if (reduceMotion) return
+      if (reduced) return
       screen.uniforms.uWarpCenter.value.set(cx, cy)
       warp = Math.min(1.2, Math.max(warp, strength))
     },

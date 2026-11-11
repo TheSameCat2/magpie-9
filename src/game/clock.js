@@ -3,7 +3,7 @@
  * dt = 0 while paused, but frame time is clamped and rAF stops in hidden
  * tabs, so summing frame dt would drift; instead subtract the holds.
  */
-export function createRunClock(now = Date.now) {
+export function createRunClock(now = () => performance.now()) {
   let t0 = 0
   let pausedMs = 0
   let holdAt = null

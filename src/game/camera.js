@@ -18,24 +18,36 @@ export function createCameraRig({ camera, bird, reduceMotion = false }) {
   const base = new THREE.Vector3(CAMERA.rest.x, CAMERA.rest.y, CAMERA.rest.z)
   const look = new THREE.Vector3()
   const ahead = { x: 0, y: 0, z: 0 }
-  const turnLead = reduceMotion ? 0 : CAMERA_TURN_LEAD
+  let reduced = Boolean(reduceMotion)
   let shake = 0
   let fovPunch = 0
   let roll = 0
 
   /** Camera shake for `seconds`; skipped entirely under reduced motion. */
   function jolt(seconds) {
-    shake = reduceMotion ? 0 : seconds
+    shake = reduced ? 0 : seconds
   }
 
   /** Widen the FOV by up to `degrees` and let it decay back. */
   function punch(degrees) {
-    fovPunch = Math.max(fovPunch, degrees)
+    if (!reduced) fovPunch = Math.max(fovPunch, degrees)
   }
 
   function reset() {
     shake = 0
     fovPunch = 0
+  }
+
+  function setReduceMotion(next) {
+    reduced = Boolean(next)
+    if (reduced) {
+      reset()
+      roll = 0
+      if (camera.fov !== CAMERA.fov) {
+        camera.fov = CAMERA.fov
+        camera.updateProjectionMatrix()
+      }
+    }
   }
 
   /**
@@ -57,19 +69,19 @@ export function createCameraRig({ camera, bird, reduceMotion = false }) {
     }
     // Lean the view toward where the conduit goes; a straight conduit leaves this at 0.
     bendPoint(UNIFORMS.uBend.value, 0, 0, -CAMERA_TURN_LOOK, ahead)
-    look.set(bird.x * LOOK_LEAD + ahead.x * turnLead, bird.y * LOOK_LEAD + 0.15, 0)
+    look.set(bird.x * LOOK_LEAD + (reduced ? 0 : ahead.x * CAMERA_TURN_LEAD), bird.y * LOOK_LEAD + 0.15, 0)
     camera.lookAt(look)
 
-    const targetRoll = banking && !reduceMotion ? bird.bank * BANK_ROLL : 0
+    const targetRoll = banking && !reduced ? bird.bank * BANK_ROLL : 0
     roll = THREE.MathUtils.damp(roll, targetRoll, ROLL_DAMPING, dt)
     camera.rotateZ(roll)
 
     if (fovPunch > 0 || camera.fov !== CAMERA.fov) {
       fovPunch = Math.max(0, fovPunch - dt * FOV_DECAY)
-      camera.fov = CAMERA.fov + (reduceMotion ? 0 : fovPunch)
+      camera.fov = CAMERA.fov + (reduced ? 0 : fovPunch)
       camera.updateProjectionMatrix()
     }
   }
 
-  return { update, jolt, punch, reset }
+  return { update, jolt, punch, reset, setReduceMotion }
 }

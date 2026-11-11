@@ -18,6 +18,7 @@ import {
 } from '../config/rules.js'
 import { UNIFORMS } from '../render/uniforms.js'
 import { createBends } from '../world/bends.js'
+import { createCameraRig } from './camera.js'
 
 test('difficulty at score 0 is the base speed', () => {
   assert.equal(difficulty(0).speed, 12)
@@ -876,4 +877,243 @@ test('BENDS keeps its own best, and the menu straightens the conduit', () => {
   assert.equal(h.game.slip, 0)
   const table = UNIFORMS.uBend.value
   for (let i = 2; i < table.length; i += 3) assert.equal(table[i], 0)
+})
+
+test('CHALLENGE extract time ignores server data.now skew and rounds fractional monotonic ms', async () => {
+  for (const serverSkewMs of [-30_000, 30_000, 1_700_000_000_000]) {
+    const submitted = []
+    const h = harness(
+      'challenge',
+      true,
+      mockApi({
+        startRun: async () => ({
+          token: 'skew-token',
+          seed: 42,
+          day: '2026-09-14',
+          target: 3,
+          now: 1_000 + serverSkewMs,
+        }),
+        fetchBoard: async (mode = 'run') =>
+          mode === 'challenge' ? { board: [], day: '2026-09-14' } : { board: [] },
+        submitScore: async (payload) => {
+          submitted.push(payload)
+          return { board: [], rank: 1, day: '2026-09-14' }
+        },
+      }),
+    )
+    h.select()
+    await Promise.resolve()
+    h.advance(2_500.2)
+    h.tap()
+    h.advance(4_321.6)
+    gatePerFrame(h.gates)
+    for (let i = 0; i < 3; i++) h.game.update(1 / 60)
+    assert.equal(h.game.extracted, true)
+    assert.equal(h.game.extractTime, 4_322)
+    assert.equal(Number.isSafeInteger(h.game.extractTime), true)
+    for (let i = 0; i < 3; i++) h.select()
+    assert.equal(submitted.length, 1)
+    assert.equal(submitted[0].score, 4_322)
+    assert.equal(submitted[0].pausedMs, 2_500)
+  }
+})
+
+test('stale startRun token from an aborted run session never overwrites an active bends session', async () => {
+  /** @type {Record<string, (v: { token: string }) => void>} */
+  const pending = {}
+  const submitted = []
+  const api = mockApi({
+    startRun: (mode) =>
+      new Promise((resolve) => {
+        pending[mode] = resolve
+      }),
+    fetchBoard: async () => ({ board: [] }),
+    submitScore: async (payload) => {
+      submitted.push(payload)
+      return { board: [], rank: 1 }
+    },
+  })
+  const h = harness('new', false, api)
+  await Promise.resolve()
+
+  // Start plain run, then immediately quit back to menu and start BENDS.
+  h.select()
+  h.tap()
+  h.pressPause()
+  h.pressQuit()
+  assert.equal(h.game.state, 'menu')
+
+  h.hud.menuItem = 'bends'
+  h.select()
+  assert.equal(h.game.mode, 'bends')
+
+  // Resolve BENDS first, then resolve the stale RUN token after.
+  pending.bends({ token: 'bends-valid-token' })
+  await Promise.resolve()
+  pending.run({ token: 'stale-run-token' })
+  await Promise.resolve()
+
+  h.tap()
+  gatePerFrame(h.gates)
+  h.game.update(1 / 60)
+  h.gates.collectPassed = () => false
+  h.gates.hits = () => ({ z: 0, gap: 20 })
+  h.game.update(1 / 60)
+  assert.equal(h.game.state, 'entry')
+  for (let i = 0; i < 3; i++) h.select()
+  assert.equal(submitted.length, 1)
+  assert.equal(submitted[0].token, 'bends-valid-token')
+})
+
+test('scoreboard uses low priority in background, aborts superseded refreshes, and preserves SAVING', async () => {
+  const fetches = []
+  let resolveSubmit
+  const paints = []
+  const api = mockApi({
+    fetchBoard: (mode, opts = {}) =>
+      new Promise((resolve, reject) => {
+        fetches.push({ mode, opts, resolve, reject })
+        opts.signal?.addEventListener('abort', () => {
+          const err = new Error('aborted')
+          err.name = 'AbortError'
+          reject(err)
+        })
+      }),
+    submitScore: () =>
+      new Promise((resolve) => {
+        resolveSubmit = resolve
+      }),
+  })
+  const h = harness('new', false, api)
+  h.hud.showScores = (_board, rank, status, extra) => paints.push({ rank, status, kind: extra?.kind })
+
+  // Boot background prefetch uses priority: 'low'
+  assert.equal(fetches.length, 3)
+  for (const f of fetches) {
+    assert.equal(f.opts.priority, 'low')
+    assert.equal(f.opts.signal.aborted, false)
+  }
+
+  // Opening SCORES aborts background prefetches without painting BOARD OFFLINE and uses 'auto'
+  const bootBatch = fetches.splice(0)
+  h.hud.menuItem = 'scores'
+  h.select()
+  for (const f of bootBatch) assert.equal(f.opts.signal.aborted, true)
+  await Promise.resolve()
+  await Promise.resolve()
+  assert.notEqual(paints.at(-1)?.status, 'BOARD OFFLINE')
+  assert.equal(fetches.length, 3)
+  for (const f of fetches) assert.equal(f.opts.priority, 'auto')
+  for (const f of fetches.splice(0)) f.resolve({ board: [] })
+  await Promise.resolve()
+  assert.equal(paints.at(-1)?.status, 'NO ENTRIES YET')
+
+  // Return to menu, run a game, die with a qualifying score, and submit initials
+  h.escKey()
+  assert.equal(h.game.state, 'menu')
+  for (const f of fetches.splice(0)) f.resolve({ board: [] })
+  await Promise.resolve()
+
+  h.hud.menuItem = 'new'
+  h.select()
+  await Promise.resolve()
+  h.tap()
+  gatePerFrame(h.gates)
+  h.game.update(1 / 60)
+  h.gates.collectPassed = () => false
+  h.gates.hits = () => ({ z: 0, gap: 20 })
+  h.game.update(1 / 60)
+  assert.equal(h.game.state, 'entry')
+  for (let i = 0; i < 3; i++) h.select()
+  assert.equal(h.game.state, 'scores')
+  assert.equal(paints.at(-1)?.status, 'SAVING')
+
+  // Switching away and back (triggering refresh) while submitScore is in flight must not clobber SAVING
+  h.input.strafeEdge = 1
+  h.game.update(1 / 60)
+  h.input.strafeEdge = 0
+  for (const f of fetches.splice(0)) f.resolve({ board: [] })
+  await Promise.resolve()
+
+  h.input.strafeEdge = -1
+  h.game.update(1 / 60)
+  h.input.strafeEdge = 0
+  for (const f of fetches.splice(0)) f.resolve({ board: [] })
+  await Promise.resolve()
+  assert.equal(paints.at(-1)?.kind, 'run')
+  assert.equal(paints.at(-1)?.status, 'SAVING')
+
+  resolveSubmit({ board: [{ initials: 'AAA', score: 1 }], rank: 1 })
+  await Promise.resolve()
+  assert.equal(paints.at(-1)?.rank, 1)
+  assert.equal(paints.at(-1)?.status, '')
+})
+
+test('createCameraRig and game.setReduceMotion toggle shake, bank, turn lead, and FOV punch live', () => {
+  const looks = []
+  const rolls = []
+  const camera = {
+    position: {
+      x: 0,
+      y: 0,
+      z: 0,
+      copy(v) {
+        this.x = v.x
+        this.y = v.y
+        this.z = v.z
+        return this
+      },
+    },
+    lookAt(v) {
+      looks.push({ x: v.x, y: v.y, z: v.z })
+    },
+    rotateZ(r) {
+      rolls.push(r)
+    },
+    fov: 68,
+    projUpdates: 0,
+    updateProjectionMatrix() {
+      this.projUpdates += 1
+    },
+  }
+  const bird = { x: 0, y: 0, bank: 0.8 }
+  const bends = createBends()
+  bends.spawn(5, 30, 0.5)
+  bends.sample(UNIFORMS.uBend.value)
+
+  try {
+    const rig = createCameraRig({ camera, bird, reduceMotion: false })
+    rig.jolt(0.4)
+    rig.punch(5)
+    rig.update(1 / 60, true, true)
+    assert.ok(camera.fov > 68, 'FOV punch widens FOV when motion is enabled')
+    assert.ok(Math.abs(rolls.at(-1)) > 0, 'camera banks when motion is enabled')
+    assert.ok(Math.abs(looks.at(-1).x) > 0, 'camera leads into conduit bend when motion is enabled')
+
+    rig.setReduceMotion(true)
+    assert.equal(camera.fov, 68, 'enabling reduced motion immediately restores base FOV')
+    rig.jolt(0.5)
+    rig.punch(6)
+    rig.update(1 / 60, true, true)
+    assert.equal(camera.fov, 68)
+    assert.equal(rolls.at(-1), 0, 'banking roll is zeroed under reduced motion')
+    assert.equal(looks.at(-1).x, 0, 'turn lead is zeroed under reduced motion')
+    assert.equal(camera.position.x, 0, 'shake is suppressed under reduced motion')
+
+    rig.setReduceMotion(false)
+    rig.punch(4)
+    rig.update(1 / 60, true, true)
+    assert.ok(camera.fov > 68, 'disabling reduced motion re-enables FOV punch')
+    assert.ok(Math.abs(rolls.at(-1)) > 0, 'disabling reduced motion re-enables banking')
+    assert.ok(Math.abs(looks.at(-1).x) > 0, 'disabling reduced motion re-enables turn lead')
+  } finally {
+    bends.reset()
+    bends.sample(UNIFORMS.uBend.value)
+  }
+
+  // Also verify createGame forwards setReduceMotion to its internal rig
+  const h = harness('new')
+  assert.equal(typeof h.game.setReduceMotion, 'function')
+  h.game.setReduceMotion(false)
+  h.game.setReduceMotion(true)
 })

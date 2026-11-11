@@ -20,6 +20,10 @@ export function createScoreboard({ api, hud, isShowing }) {
   /** Which tab the SCORES screen is on. */
   let tab = 'run'
   let entry = null
+  /** @type {AbortController | null} */
+  let refreshCtl = null
+  /** Active in-flight score submission, so background refreshes never clobber SAVING. */
+  let saving = null
 
   function labelFor(kind, status) {
     if (status) return status
@@ -31,7 +35,8 @@ export function createScoreboard({ api, hud, isShowing }) {
 
   function paint(rank = -1, status = '') {
     const day = tab === 'challenge' ? challengeDay : null
-    hud.showScores(boards[tab], rank, labelFor(tab, status), { kind: tab, day })
+    const effective = status || (saving?.kind === tab ? 'SAVING' : '')
+    hud.showScores(boards[tab], rank, labelFor(tab, effective), { kind: tab, day })
   }
 
   function absorb(kind, data) {
@@ -42,14 +47,20 @@ export function createScoreboard({ api, hud, isShowing }) {
 
   /** Re-fetch every board; repaint if the matching tab is on screen. */
   function refresh() {
+    refreshCtl?.abort()
+    const ctl = new AbortController()
+    refreshCtl = ctl
+    const priority = isShowing() ? 'auto' : 'low'
     for (const kind of Object.keys(boards)) {
       api
-        .fetchBoard(kind)
+        .fetchBoard(kind, { priority, signal: ctl.signal })
         .then((data) => {
+          if (ctl.signal.aborted || saving?.kind === kind) return
           absorb(kind, data)
           if (isShowing() && tab === kind) paint()
         })
-        .catch(() => {
+        .catch((err) => {
+          if (ctl.signal.aborted || err?.name === 'AbortError' || saving?.kind === kind) return
           if (boards[kind] == null) failed[kind] = true
           if (isShowing() && tab === kind) paint()
         })
@@ -96,18 +107,25 @@ export function createScoreboard({ api, hud, isShowing }) {
    */
   function submit({ kind, score, token, pausedMs }) {
     const initials = initialsOf(entry)
+    const cur = { kind }
     entry = null
     tab = kind
+    saving = cur
+    refreshCtl?.abort()
     hud.hideEntry()
     paint(-1, 'SAVING')
     api
       .submitScore({ initials, score, token, pausedMs })
       .then((res) => {
         absorb(kind, res)
-        if (isShowing()) paint(res.rank)
+        if (saving !== cur) return
+        saving = null
+        if (isShowing() && tab === kind) paint(res.rank)
       })
       .catch(() => {
-        if (isShowing()) paint(-1, 'BOARD OFFLINE')
+        if (saving !== cur) return
+        saving = null
+        if (isShowing() && tab === kind) paint(-1, 'BOARD OFFLINE')
       })
   }
 

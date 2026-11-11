@@ -43,6 +43,17 @@ export function setVisible(el, visible) {
   el.classList.toggle('hidden', !visible)
 }
 
+/**
+ * @param {HTMLElement | null} el
+ * @returns {boolean}
+ */
+export function isInert(el) {
+  for (let cur = el; cur; cur = cur.parentElement) {
+    if (cur.inert) return true
+  }
+  return false
+}
+
 /** Remove and re-add a class so its CSS animation plays again from the start. */
 export function retrigger(el, cls) {
   el.classList.remove(cls)
@@ -60,6 +71,7 @@ export function retrigger(el, cls) {
  */
 export function onPress(btn, fn, { stopPropagation = false } = {}) {
   btn.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && (e.button ?? 0) !== 0) return
     if (stopPropagation) e.stopPropagation()
     e.preventDefault()
     fn?.()
@@ -72,7 +84,7 @@ export function onPress(btn, fn, { stopPropagation = false } = {}) {
 /** Update an aria-pressed toggle button's state, label, and visible text in one go. */
 export function setToggleButton(btn, { pressed, ariaLabel, text }) {
   btn.setAttribute('aria-pressed', pressed ? 'true' : 'false')
-  btn.setAttribute('aria-label', ariaLabel)
+  if (ariaLabel != null) btn.setAttribute('aria-label', ariaLabel)
   btn.classList.toggle('on', !!pressed)
   const label = btn.querySelector('.label')
   if (label && text != null) label.textContent = text
@@ -80,4 +92,10 @@ export function setToggleButton(btn, { pressed, ariaLabel, text }) {
 
 export function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/** @param {(reduced: boolean) => void} fn */
+export function onReducedMotionChange(fn) {
+  const mql = window.matchMedia('(prefers-reduced-motion: reduce)')
+  mql.addEventListener?.('change', (e) => fn(e.matches))
 }

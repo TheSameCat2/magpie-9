@@ -806,9 +806,9 @@ export function createBird(scene, materials) {
       proxLight.color.copy(COLOR_ICE)
       proxLight.intensity = factor * 2.4
     } else {
-      const strobe = Math.sin(t * 38) > 0 ? 1 : 0.2
+      const pulse = UNIFORMS.uReduceMotion.value > 0.5 ? 1 : 0.65 + 0.35 * Math.sin(t * 14)
       proxLight.color.copy(COLOR_SODIUM)
-      proxLight.intensity = (2.2 + (0.45 - clear) * 3.5) * strobe
+      proxLight.intensity = (2.2 + (0.45 - clear) * 3.5) * pulse
     }
 
     syncTrails(dz, 0.35 + wingPulse * 1.4 + Math.abs(vx) * 0.06)

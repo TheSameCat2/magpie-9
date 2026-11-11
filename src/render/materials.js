@@ -109,6 +109,7 @@ export function createRibMaterial(color, base, pulseScale) {
       uKick: UNIFORMS.uKick,
       uHazard: UNIFORMS.uHazard,
       uOverdrive: UNIFORMS.uOverdrive,
+      uReduceMotion: UNIFORMS.uReduceMotion,
       uFogDensity: UNIFORMS.uFogDensity,
       uBend: UNIFORMS.uBend,
       uColor: colorUniform(color),

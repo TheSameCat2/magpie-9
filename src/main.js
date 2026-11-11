@@ -22,124 +22,200 @@ import { createGame } from './game/index.js'
 const MAX_FRAME_DT = 0.05
 
 const params = new URLSearchParams(location.search)
-const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-const coarse = window.matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints || 0) > 0
+const reducedMotionMq = window.matchMedia('(prefers-reduced-motion: reduce)')
+const reduceMotion = reducedMotionMq.matches
+UNIFORMS.uReduceMotion.value = reduceMotion ? 1 : 0
+const coarse = window.matchMedia('(pointer: coarse)').matches
 
-const renderer = createRenderer()
-document.body.appendChild(renderer.domElement)
-const camera = createCamera()
-const scene = createScene(camera)
-const materials = createMaterials()
+let contextLost = false
+let onRestored = () => {}
+let renderer = null
+try {
+  renderer = createRenderer({
+    onContextLost() {
+      contextLost = true
+    },
+    onContextRestored() {
+      contextLost = false
+      onRestored()
+    },
+  })
+} catch {
+  for (const id of ['menu', 'sys', 'sub']) document.getElementById(id)?.classList.add('hidden')
+  const blurb = document.getElementById('blurb')
+  if (blurb) {
+    blurb.setAttribute('role', 'alert')
+    blurb.textContent = 'WEBGL2 REQUIRED'
+  }
+}
 
-const audio = createAudio()
-const screen = createScreen()
-let game
-const input = createInput({
-  onGesture() {
-    audio.start()
-    screen.maybeReenterFullscreen()
-  },
-  onModeChange(mode) {
-    game?.setInputMode(mode)
-  },
-})
+if (renderer) {
+  const glRenderer = renderer
+  document.body.appendChild(glRenderer.domElement)
+  const camera = createCamera()
+  const scene = createScene(camera)
+  const materials = createMaterials()
 
-const bird = createBird(scene, materials)
-const tunnel = createTunnel(scene, materials)
-const gates = createGates(scene, materials)
-const powerups = createPowerups(scene)
-const bends = createBends()
-const fx = createFx(scene)
-const postfx = createPostFx(renderer, scene, camera, { reduceMotion })
+  const audio = createAudio()
+  const screen = createScreen()
+  let game
+  const input = createInput({
+    onGesture() {
+      audio.start()
+      screen.maybeReenterFullscreen()
+    },
+    onModeChange(mode) {
+      game?.setInputMode(mode)
+    },
+  })
 
-const savedQuality = loadQualityChoice()
-const queryPin = params.has('q')
-const bootFromDevice = queryPin || savedQuality === 'auto'
-const bootLevel = bootFromDevice ? initialQuality(params, coarse) : Number(savedQuality)
-const bootPinned = queryPin || savedQuality !== 'auto'
-const bootChoice = queryPin ? String(bootLevel) : savedQuality
+  const bird = createBird(scene, materials)
+  const tunnel = createTunnel(scene, materials)
+  const gates = createGates(scene, materials)
+  const powerups = createPowerups(scene)
+  const bends = createBends()
+  const fx = createFx(scene)
+  const postfx = createPostFx(glRenderer, scene, camera, { reduceMotion })
 
-const quality = createQualityGovernor({
-  level: bootLevel,
-  pinned: bootPinned,
-  onChange(level) {
-    postfx.applyQuality(level)
-    fx.setDensity(QUALITY[level].particles)
-    applySize()
-  },
-})
-postfx.applyQuality(quality.level)
-fx.setDensity(QUALITY[quality.level].particles)
-UNIFORMS.uPixelRatio.value = renderer.getPixelRatio()
+  const savedQuality = loadQualityChoice()
+  const queryPin = params.has('q')
+  const bootFromDevice = queryPin || savedQuality === 'auto'
+  const bootLevel = bootFromDevice ? initialQuality(params, coarse) : Number(savedQuality)
+  const bootPinned = queryPin || savedQuality !== 'auto'
+  const bootChoice = queryPin ? String(bootLevel) : savedQuality
 
-let last = performance.now()
+  let lastW = 0
+  let lastH = 0
+  let lastDpr = 0
+  let last = performance.now()
 
-game = createGame({
-  bird,
-  tunnel,
-  gates,
-  powerups,
-  bends,
-  input,
-  camera,
-  audio,
-  fx,
-  postfx,
-  screen,
-  reduceMotion,
-  // Skip the frozen interval so the first live frame is not one giant step.
-  onResume() {
+  const quality = createQualityGovernor({
+    level: bootLevel,
+    pinned: bootPinned,
+    onChange(level) {
+      postfx.applyQuality(level)
+      fx.setDensity(QUALITY[level].particles)
+      applySize()
+    },
+  })
+
+  const applySize = () => {
+    const canvas = glRenderer.domElement
+    const w = canvas.clientWidth || window.innerWidth
+    const h = canvas.clientHeight || window.innerHeight
+    if (w < 1 || h < 1) return
+    const dpr = Math.min(window.devicePixelRatio || 1, QUALITY[quality.level].dpr)
+    if (w === lastW && h === lastH && dpr === lastDpr) return
+    lastW = w
+    lastH = h
+    lastDpr = dpr
+    camera.aspect = w / h
+    camera.updateProjectionMatrix()
+    glRenderer.setPixelRatio(dpr)
+    glRenderer.setSize(w, h, false)
+    postfx.setSize(w, h)
+    UNIFORMS.uPixelRatio.value = glRenderer.getPixelRatio()
+  }
+
+  onRestored = () => {
     last = performance.now()
-  },
-  god: params.get('god') === '1',
-  startLives: Math.max(1, Number(params.get('lives')) || 1),
-  qualityChoice: bootChoice,
-  onQuality(choice) {
-    saveQualityChoice(choice)
-    if (choice === 'auto') quality.apply(quality.level, false)
-    else quality.apply(Number(choice), true)
-  },
-})
-screen.onChange = () => game.syncScreen()
-game.syncScreen()
+    lastW = 0
+    quality.resetWarmup()
+    applySize()
+  }
 
-if (params.has('god') || params.has('debug'))
-  window.__magpie = { game, bird, input, screen, gates, powerups, bends }
+  postfx.applyQuality(quality.level)
+  fx.setDensity(QUALITY[quality.level].particles)
+  UNIFORMS.uPixelRatio.value = glRenderer.getPixelRatio()
 
-let lastW = 0
-let lastH = 0
-let lastDpr = 0
+  game = createGame({
+    bird,
+    tunnel,
+    gates,
+    powerups,
+    bends,
+    input,
+    camera,
+    audio,
+    fx,
+    postfx,
+    screen,
+    reduceMotion,
+    // Skip the frozen interval so the first live frame is not one giant step.
+    onResume() {
+      last = performance.now()
+    },
+    god: params.get('god') === '1',
+    startLives: Math.max(1, Number(params.get('lives')) || 1),
+    qualityChoice: bootChoice,
+    onQuality(choice) {
+      saveQualityChoice(choice)
+      if (choice === 'auto') quality.apply(quality.level, false)
+      else quality.apply(Number(choice), true)
+    },
+  })
 
-function applySize() {
-  const canvas = renderer.domElement
-  const w = canvas.clientWidth || window.innerWidth
-  const h = canvas.clientHeight || window.innerHeight
-  if (w < 1 || h < 1) return
-  const dpr = Math.min(window.devicePixelRatio, QUALITY[quality.level].dpr)
-  if (w === lastW && h === lastH && dpr === lastDpr) return
-  lastW = w
-  lastH = h
-  lastDpr = dpr
-  camera.aspect = w / h
-  camera.updateProjectionMatrix()
-  renderer.setPixelRatio(dpr)
-  renderer.setSize(w, h, false)
-  postfx.setSize(w, h)
-  UNIFORMS.uPixelRatio.value = renderer.getPixelRatio()
+  reducedMotionMq.addEventListener('change', (m) => {
+    UNIFORMS.uReduceMotion.value = m.matches ? 1 : 0
+    postfx.setReduceMotion(m.matches)
+    game.setReduceMotion(m.matches)
+  })
+
+  if (params.has('god') || params.has('debug'))
+    window.__magpie = { game, bird, input, screen, gates, powerups, bends }
+
+  new ResizeObserver(applySize).observe(glRenderer.domElement)
+  applySize()
+
+  const watchDpr = () => {
+    window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`).addEventListener(
+      'change',
+      () => {
+        applySize()
+        watchDpr()
+      },
+      { once: true },
+    )
+  }
+  watchDpr()
+
+  let rafId = 0
+  let wasHidden = screen.hidden
+
+  const frame = (now) => {
+    if (document.visibilityState === 'hidden') {
+      rafId = 0
+      return
+    }
+    const frameMs = Math.max(0, now - last)
+    const dt = Math.min(frameMs / 1000, MAX_FRAME_DT)
+    last = now
+    game.update(contextLost ? 0 : dt)
+    if (!contextLost) {
+      placeLights(scene)
+      postfx.render()
+    }
+    input.endFrame()
+    if (!screen.hidden && !contextLost) quality.observe(frameMs, dt)
+    rafId = requestAnimationFrame(frame)
+  }
+
+  screen.onChange = () => {
+    game.syncScreen()
+    const hidden = screen.hidden
+    if (document.visibilityState === 'hidden') {
+      if (rafId) cancelAnimationFrame(rafId)
+      rafId = 0
+    } else {
+      if ((wasHidden && !hidden) || !rafId) {
+        last = performance.now()
+        quality.resetWarmup()
+      }
+      if (!rafId) rafId = requestAnimationFrame(frame)
+    }
+    wasHidden = hidden
+  }
+  game.syncScreen()
+
+  if (document.visibilityState !== 'hidden') rafId = requestAnimationFrame(frame)
 }
-
-new ResizeObserver(applySize).observe(renderer.domElement)
-applySize()
-
-function frame(now) {
-  const frameMs = now - last
-  const dt = Math.min(frameMs / 1000, MAX_FRAME_DT)
-  last = now
-  game.update(dt)
-  placeLights(scene)
-  postfx.render()
-  input.endFrame()
-  quality.observe(frameMs, dt)
-  requestAnimationFrame(frame)
-}
-requestAnimationFrame(frame)

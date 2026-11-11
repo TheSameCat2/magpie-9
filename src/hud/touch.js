@@ -2,7 +2,7 @@
 
 import { STICK_RANGE } from '../platform/input.js'
 import { clamp } from '../lib/math.js'
-import { hide, prefersReducedMotion, query, show } from './dom.js'
+import { hide, onReducedMotionChange, prefersReducedMotion, query, show } from './dom.js'
 
 const TAP_RING_MS = 280
 
@@ -10,7 +10,10 @@ export function createTouchGizmos(state) {
   const stickEl = query('#touch .stick')
   const nubEl = query('#touch .stick-nub')
   const tapEl = query('#touch .tapring')
-  const reduceMotion = prefersReducedMotion()
+  let reduceMotion = prefersReducedMotion()
+  onReducedMotionChange((next) => {
+    reduceMotion = next
+  })
 
   let stickShown = true
   let tapShown = true

@@ -6,7 +6,21 @@ import { clampVolume } from '../config/audio.js'
 
 const MASTER_GAIN = 0.9
 
-export function createAudioGraph({ muted = false, masterLevel = 1, effectsLevel = 1 } = {}) {
+/**
+ * @param {{
+ *   muted?: boolean,
+ *   masterLevel?: number,
+ *   effectsLevel?: number,
+ *   AudioContextCtor?: typeof AudioContext,
+ * }} [opts]
+ */
+export function createAudioGraph({
+  muted = false,
+  masterLevel = 1,
+  effectsLevel = 1,
+  AudioContextCtor,
+} = {}) {
+  /** @type {AudioContext | null} */
   let ctx = null
   let master = null
   let effects = null
@@ -16,6 +30,7 @@ export function createAudioGraph({ muted = false, masterLevel = 1, effectsLevel 
   let masterLevelNow = clampVolume(masterLevel)
   let effectsLevelNow = clampVolume(effectsLevel)
   const buildHooks = []
+  const Ctor = AudioContextCtor ?? globalThis.AudioContext
 
   function audibleMaster() {
     return isMuted ? 0 : MASTER_GAIN * masterLevelNow
@@ -60,11 +75,13 @@ export function createAudioGraph({ muted = false, masterLevel = 1, effectsLevel 
 
   function ensure() {
     if (!ctx) {
-      ctx = new AudioContext()
+      ctx = new Ctor()
       buildBus()
       for (const hook of buildHooks) hook(graph)
     }
-    if (ctx.state === 'suspended' || ctx.state === 'interrupted') ctx.resume()
+    if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+      ctx.resume()?.catch?.(() => {})
+    }
     return ctx
   }
 
@@ -119,10 +136,12 @@ export function createAudioGraph({ muted = false, masterLevel = 1, effectsLevel 
       if (effects) effects.gain.setTargetAtTime(effectsLevelNow, ctx.currentTime, 0.05)
     },
     suspend() {
-      if (ctx && ctx.state === 'running') ctx.suspend()
+      if (ctx && ctx.state === 'running') ctx.suspend()?.catch?.(() => {})
     },
     resume() {
-      if (ctx && (ctx.state === 'suspended' || ctx.state === 'interrupted')) ctx.resume()
+      if (ctx && (ctx.state === 'suspended' || ctx.state === 'interrupted')) {
+        ctx.resume()?.catch?.(() => {})
+      }
     },
   }
   return graph

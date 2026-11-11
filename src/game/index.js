@@ -65,7 +65,7 @@ export function createGame({
   onQuality,
   hud = createHud(),
   api = scoreApi,
-  now = Date.now,
+  now = () => performance.now(),
 }) {
   // menu | credits | scores | settings | playing | respawn | dead | entry  (help is a modal)
   let scene = 'menu'
@@ -188,7 +188,7 @@ export function createGame({
   // ----------------------------------------------------------- session flow
 
   function beginSession(mode = 'run', session = {}) {
-    sessionGen += 1
+    const gen = ++sessionGen
     blurHudFocus()
     scene = 'playing'
     UNIFORMS.uHazard.value = 0
@@ -200,7 +200,7 @@ export function createGame({
     lessonsSeen.clear()
     hold.clear()
     rewindLeft = rewindTotal = 0
-    clock.start(session.now ?? now())
+    clock.start()
     bird.reset()
     gates.reset()
     powerups.reset()
@@ -220,6 +220,7 @@ export function createGame({
       api
         .startRun(mode)
         .then((data) => {
+          if (gen !== sessionGen || (scene !== 'playing' && scene !== 'respawn')) return
           run.token = data?.token ?? null
         })
         .catch(() => {})
@@ -239,7 +240,6 @@ export function createGame({
         token: data.token,
         day: data.day,
         target,
-        now: Number(data.now) || Date.now(),
         course: generateCourse(createRng(seed >>> 0), target),
       })
     } catch {
@@ -371,7 +371,7 @@ export function createGame({
   function extract() {
     if (scene !== 'playing') return
     endRun()
-    run.markExtracted(clock.elapsed())
+    run.markExtracted(Math.round(clock.elapsed()))
     audio.milestone()
     postfx.flash(THEME.ice, 0.35)
     UNIFORMS.uKick.value = 1.4
@@ -749,6 +749,7 @@ export function createGame({
     syncScreen,
     hud,
     setInputMode: hud.setInputMode,
+    setReduceMotion: rig.setReduceMotion,
     get state() {
       return scene
     },

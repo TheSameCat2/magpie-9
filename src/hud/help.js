@@ -1,6 +1,6 @@
 // The field manual: a modal over whatever scene is showing, not a scene itself.
 
-import { byId, hide, onPress, query, queryAll, retrigger, show } from './dom.js'
+import { byId, hide, isInert, onPress, query, retrigger, show } from './dom.js'
 
 export function createHelp() {
   const helpEl = byId('help')
@@ -10,9 +10,25 @@ export function createHelp() {
   const card = query('.help-card', helpEl)
 
   let open = false
+  /** @type {HTMLElement | null} */
+  let triggerEl = null
+  /** @type {HTMLElement | null} */
+  let pendingTrigger = null
+  /** @type {(() => void) | null} */
+  let changeListener = null
+
+  /** @param {HTMLElement | null} el */
+  function canFocus(el) {
+    return !!(el && el.isConnected && !el.closest('.hidden') && !el.closest('.playing') && !isInert(el))
+  }
 
   function showHelp() {
     if (open) return
+    const active = /** @type {HTMLElement | null} */ (document.activeElement)
+    triggerEl =
+      pendingTrigger ||
+      (active && active !== document.body && active !== document.documentElement ? active : null)
+    pendingTrigger = null
     open = true
     document.body.classList.add('help-open')
     show(helpEl)
@@ -20,6 +36,7 @@ export function createHelp() {
     helpEl.scrollTop = 0
     card.scrollTop = 0
     helpBtn.setAttribute('aria-expanded', 'true')
+    changeListener?.()
     closeBtn.focus({ preventScroll: true })
   }
 
@@ -29,7 +46,10 @@ export function createHelp() {
     document.body.classList.remove('help-open')
     hide(helpEl)
     helpBtn.setAttribute('aria-expanded', 'false')
-    if (document.activeElement === closeBtn) helpBtn.focus({ preventScroll: true })
+    changeListener?.()
+    const target = canFocus(triggerEl) ? triggerEl : canFocus(helpBtn) ? helpBtn : null
+    triggerEl = null
+    target?.focus({ preventScroll: true })
   }
 
   function toggleHelp() {
@@ -41,14 +61,20 @@ export function createHelp() {
     closeLabel.textContent = inputMode === 'touch' ? 'CLOSE' : 'CLOSE · ESC'
   }
 
-  function focusables() {
-    return queryAll('button, [href], [tabindex]:not([tabindex="-1"])', card).filter(
-      (el) => !(/** @type {HTMLButtonElement} */ (el).disabled) && !el.classList.contains('hidden'),
-    )
+  /** @param {() => void} fn */
+  function onChange(fn) {
+    changeListener = fn
   }
 
   function bind({ onToggle }) {
-    onPress(helpBtn, onToggle, { stopPropagation: true })
+    onPress(
+      helpBtn,
+      () => {
+        if (!open) pendingTrigger = helpBtn
+        onToggle?.()
+      },
+      { stopPropagation: true },
+    )
     onPress(closeBtn, onToggle, { stopPropagation: true })
     // Pointers inside the manual must never reach the game's window listeners
     // (a tap there would arm a run). A tap on the dimmed backdrop closes it;
@@ -57,23 +83,6 @@ export function createHelp() {
       e.stopPropagation()
       if (e.target === helpEl) onToggle?.()
     })
-    // Keep Tab inside the card. The manual is long, but the only control is CLOSE
-    // until more buttons land here; wrapping still stops focus escaping to the HUD.
-    card.addEventListener('keydown', (e) => {
-      if (!open || e.key !== 'Tab') return
-      const items = focusables()
-      if (!items.length) return
-      const first = items[0]
-      const last = items[items.length - 1]
-      const active = document.activeElement
-      if (e.shiftKey && (active === first || !card.contains(active))) {
-        e.preventDefault()
-        last.focus()
-      } else if (!e.shiftKey && (active === last || !card.contains(active))) {
-        e.preventDefault()
-        first.focus()
-      }
-    })
   }
 
   return {
@@ -81,6 +90,7 @@ export function createHelp() {
     hideHelp,
     toggleHelp,
     setInputMode,
+    onChange,
     bind,
     get open() {
       return open

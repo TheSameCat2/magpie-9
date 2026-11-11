@@ -42,7 +42,7 @@
   }
   /* vw would otherwise size the title off a wide short window. */
   #title {
-    font-size: clamp(22px, 8vh, 40px);
+    font-size: clamp(1.375rem, 0.75rem + 5dvh, 2.5rem);
     letter-spacing: 0.16em;
   }
   #prompt {
@@ -72,7 +72,7 @@
     grid-template-columns: repeat(4, minmax(0, 1fr));
     margin-top: 10px;
     gap: 4px;
-    min-width: min(52em, calc(100vw - 36px));
+    min-inline-size: min(52em, calc(100dvw - 48px - var(--sal) - var(--sar)));
   }
   #menu button {
     padding: 6px 10px;
@@ -102,7 +102,7 @@
     margin-top: 12px;
   }
   #lesson .overlay-card {
-    max-height: calc(100dvh - 20px - var(--sat) - var(--sab));
+    max-block-size: calc(100dvh - 28px - var(--sat) - var(--sab));
     overflow-y: auto;
   }
   #lesson .lesson {
@@ -110,7 +110,7 @@
     grid-template-columns: auto 1fr;
     gap: 4px 12px;
     align-items: center;
-    text-align: left;
+    text-align: start;
   }
   #lesson .lesson svg {
     grid-row: 1 / span 2;
@@ -171,9 +171,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   #hud *,
+  #hud *::before,
   #hud *::after {
     animation: none !important;
-    transition: none !important;
+  }
+  #velBar i {
+    transition: none;
   }
   #toast.show {
     opacity: 1;
@@ -184,6 +187,10 @@
   :root {
     --muted: #d5dee8;
     --ink: #ffffff;
+    --ctl-border: var(--ice);
+    --ctl-border-hover: var(--ice);
+    --scrollbar-thumb: var(--ink);
+    --scrollbar-track: var(--void);
   }
   #menu button,
   #sys button,
@@ -246,12 +253,23 @@
   #scoresTabs button.sel,
   .settings-choices button.sel,
   .settings-row.sel,
-  #hud button:focus-visible {
+  #sys button.on,
+  .fs-btn.on,
+  #hud :where(button, [tabindex]:not([tabindex='-1'])):focus-visible {
     outline: 2px solid Highlight;
     outline-offset: 2px;
   }
+  .slot.sel b {
+    border-bottom-color: Highlight;
+  }
+  #velBar {
+    border: 1px solid GrayText;
+  }
+  .settings-meter i.on,
+  #velBar i,
   #menu button.sel::before {
-    background: CanvasText;
+    background: Highlight;
     box-shadow: none;
+    forced-color-adjust: none;
   }
 }

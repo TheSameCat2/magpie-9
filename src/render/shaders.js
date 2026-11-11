@@ -123,36 +123,40 @@ uniform float uTime;
 uniform float uKick;
 uniform float uHazard;
 uniform float uOverdrive;
+uniform float uReduceMotion;
 uniform vec3 uColor;
 uniform float uBase;
 uniform float uPulseScale;
 varying vec3 vWorld;
 
 void main() {
+  float pulseAtten = uReduceMotion > 0.5 ? 0.15 : 1.0;
   float phase = vWorld.z * uPulseScale - uTime * 1.15;
   float w0 = 0.5 + 0.5 * sin(phase * 6.2831);
   float w02 = w0 * w0;
-  float wave = w02 * w02 * w02;
+  float wave = w02 * w02 * w02 * pulseAtten;
   float w1 = 0.5 + 0.5 * sin(phase * 6.2831 * 0.37 + 1.7);
-  float wave2 = w1 * w1 * w1 * 0.35;
+  float wave2 = w1 * w1 * w1 * 0.35 * pulseAtten;
 
-  // Approaching hazard triggers a warning strobe wave accelerating down the ribs
+  // Approaching hazard triggers a warning pulse down the ribs (capped < 3 Hz for WCAG 2.3.1)
   float strobe = 0.0;
   if (uHazard > 0.001) {
-    float strobeWave = sin(uTime * (14.0 + uHazard * 18.0) - vWorld.z * 0.4);
-    strobe = smoothstep(0.4, 0.95, strobeWave) * uHazard * 2.4;
+    float strobeWave = sin(uTime * (8.0 + uHazard * 7.5) - vWorld.z * 0.4);
+    float hazardPulse = mix(0.35, smoothstep(0.4, 0.95, strobeWave), pulseAtten);
+    strobe = hazardPulse * uHazard * 2.4;
   }
 
-  float i = uBase + wave * 1.4 + wave2 + uKick * 1.8 + strobe;
+  float kick = uKick * pulseAtten;
+  float i = uBase + wave * 1.4 + wave2 + kick * 1.8 + strobe;
   vec3 col = uColor * i;
-  col = mix(col, vec3(1.0), clamp(uKick * 0.35 * wave + strobe * 0.45, 0.0, 1.0));
+  col = mix(col, vec3(1.0), clamp(kick * 0.35 * wave + strobe * 0.45 * pulseAtten, 0.0, 1.0));
 
-  // Shunt overdrive energy surge: conduit neon ribs pulse with high-frequency ice-cyan waves
+  // Shunt overdrive energy surge: conduit neon ribs pulse with ice-cyan waves (< 3 Hz)
   if (uOverdrive > 0.001) {
-    float drivePhase = vWorld.z * (uPulseScale * 1.8) - uTime * 3.6;
+    float drivePhase = vWorld.z * (uPulseScale * 1.8) - uTime * 2.2;
     float dw0 = 0.5 + 0.5 * sin(drivePhase * 6.2831);
     float dw2 = dw0 * dw0;
-    float driveWave = dw2 * dw2;
+    float driveWave = dw2 * dw2 * pulseAtten;
     vec3 iceCyan = vec3(0.24, 0.88, 1.0);
     col = mix(col, iceCyan * (i + 1.2), uOverdrive * 0.75);
     col += vec3(0.55, 0.95, 1.0) * driveWave * uOverdrive * 2.2;

@@ -7,7 +7,13 @@ import { byId, onPress, query, setToggleButton, setVisible } from './dom.js'
 import { keysHint, lessonHint, pauseCopy, sceneHint, screenHint } from './copy.js'
 
 export function createChrome(state, { help }) {
+  const centerEl = byId('center')
   const sub = byId('sub')
+  const scoreEl = byId('score')
+  const scoreLabelEl = byId('scoreLabel')
+  const bestEl = byId('best')
+  const livesEl = byId('lives')
+  const velEl = byId('vel')
   const keysEl = byId('keys')
   const zonesEl = byId('zones')
   const sysEl = byId('sys')
@@ -15,12 +21,32 @@ export function createChrome(state, { help }) {
   const exitBtn = byId('exit')
   const tutorialTag = byId('tutorialTag')
   const lessonTap = byId('lessonTap')
+  const creditsEl = byId('credits')
+  const settingsEl = byId('settings')
+  const scoresEl = byId('scores')
+  const lessonEl = byId('lesson')
   const pausedEl = byId('paused')
   const pausedSub = query('.overlay-sub', pausedEl)
+  const respawnEl = byId('respawn')
+  const rotateEl = byId('rotate')
+  const helpEl = byId('help')
   const muteBtn = byId('btnMute')
   const fsBtn = byId('btnFs')
   const rotateFsBtn = byId('btnRotateFs')
   const rotateFsHint = byId('rotateFsHint')
+
+  const backgroundEls = [
+    centerEl,
+    sysEl,
+    pauseBtn,
+    scoreEl,
+    scoreLabelEl,
+    bestEl,
+    livesEl,
+    velEl,
+    keysEl,
+    tutorialTag,
+  ]
 
   tutorialTag.textContent = 'TUTORIAL'
 
@@ -52,13 +78,40 @@ export function createChrome(state, { help }) {
     if (!pausedEl.classList.contains('hidden') && pausedEl.dataset.reason === 'begin') {
       pausedSub.textContent = pauseCopy('begin', 0, inputMode).sub
     }
+
+    const rotateOpen = !rotateEl.classList.contains('hidden')
+    const helpOpen = help.open || !helpEl.classList.contains('hidden')
+    const creditsOpen = !creditsEl.classList.contains('hidden')
+    const settingsOpen = !settingsEl.classList.contains('hidden')
+    const scoresOpen = !scoresEl.classList.contains('hidden')
+    const pauseMenuOpen = !pausedEl.classList.contains('hidden') && pausedEl.dataset.reason === 'menu'
+    const lessonOpen = !lessonEl.classList.contains('hidden')
+
+    const hardModal = rotateOpen || helpOpen || creditsOpen || settingsOpen || scoresOpen || pauseMenuOpen
+    const anyModal = hardModal || lessonOpen
+
+    for (const el of backgroundEls) el.inert = anyModal
+    // Tutorial lessons keep #exit active so the player can leave for the menu from a lesson card.
+    exitBtn.inert = hardModal
+
+    rotateEl.inert = false
+    helpEl.inert = rotateOpen
+    const underOverlayInert = rotateOpen || helpOpen
+    creditsEl.inert = underOverlayInert
+    settingsEl.inert = underOverlayInert
+    scoresEl.inert = underOverlayInert
+    lessonEl.inert = underOverlayInert || pauseMenuOpen
+    pausedEl.inert = underOverlayInert
+    respawnEl.inert = anyModal
   }
+
+  help.onChange(refresh)
 
   function setMuted(muted) {
     setToggleButton(muteBtn, {
       pressed: muted,
-      ariaLabel: muted ? 'Unmute' : 'Mute',
-      text: muted ? 'UNMUTE' : 'MUTE',
+      ariaLabel: 'Mute',
+      text: 'MUTE',
     })
   }
 
@@ -66,8 +119,8 @@ export function createChrome(state, { help }) {
     setVisible(fsBtn, supported)
     setToggleButton(fsBtn, {
       pressed: active,
-      ariaLabel: active ? 'Exit fullscreen' : 'Enter fullscreen',
-      text: active ? 'EXIT' : 'FULL',
+      ariaLabel: 'Full screen',
+      text: 'FULL',
     })
 
     const action = rotateFsAction({ supportsFullscreen: supported, standalone })
@@ -75,9 +128,16 @@ export function createChrome(state, { help }) {
     setVisible(rotateFsHint, action === 'hint')
     setToggleButton(rotateFsBtn, {
       pressed: active,
-      ariaLabel: active ? 'Exit fullscreen' : 'Enter fullscreen',
-      text: active ? 'EXIT FULLSCREEN' : 'ENTER FULLSCREEN',
+      ariaLabel: 'Fullscreen',
+      text: 'FULLSCREEN',
     })
+    if (
+      !rotateEl.classList.contains('hidden') &&
+      action === 'button' &&
+      document.activeElement === rotateEl
+    ) {
+      rotateFsBtn.focus({ preventScroll: true })
+    }
   }
 
   // System buttons swallow the pointer so a tap never doubles as a flap.

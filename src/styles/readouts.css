@@ -1,3 +1,8 @@
+#score,
+#best,
+#vel {
+  font-variant-numeric: tabular-nums;
+}
 #score {
   position: absolute;
   top: calc(26px + var(--sat));
@@ -70,7 +75,7 @@
   animation: pop 0.34s cubic-bezier(0.2, 1.6, 0.4, 1) both;
 }
 #lives span {
-  margin-left: 0.12em;
+  margin-inline-start: 0.12em;
 }
 #vel {
   position: absolute;
@@ -119,7 +124,7 @@
   transform: translate(-50%, -50%);
   font-family: Orbitron, sans-serif;
   font-weight: 500;
-  font-size: clamp(14px, 2.2vw, 22px);
+  font-size: clamp(0.875rem, 0.625rem + 1.2dvw, 1.375rem);
   letter-spacing: 0.4em;
   color: var(--ice);
   opacity: 0;
@@ -151,16 +156,15 @@
 @keyframes toast {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(1.5);
-    letter-spacing: 0.8em;
+    transform: translate(-50%, -50%) scaleX(1.35) scaleY(1.2);
   }
   15% {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
-    letter-spacing: 0.4em;
   }
   70% {
     opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
   }
   100% {
     opacity: 0;

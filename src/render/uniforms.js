@@ -14,6 +14,8 @@ export const UNIFORMS = {
   uOverdrive: { value: 0 },
   uFogDensity: { value: FOG_DENSITY },
   uPixelRatio: { value: 1 },
+  /** 1 when prefers-reduced-motion is active; attenuates temporal pulses. */
+  uReduceMotion: { value: 0 },
   /** Bent-conduit centreline table (lib/centreline.js); straight unless a BENDS run is live. */
   uBend: { value: fillIdentity(new Float32Array(BEND_TABLE_LENGTH)) },
 }

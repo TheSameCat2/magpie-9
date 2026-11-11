@@ -12,7 +12,7 @@ import {
   readBoard,
   writeScore,
 } from './_lib/board.js'
-import { clientIp, fail, json } from './_lib/http.js'
+import { clientIp, fail, isCrossSitePost, json, readJsonBody } from './_lib/http.js'
 import { acceptableInitials, normalizeInitials } from './_lib/initials.js'
 import { getRedis, scoreRatelimit, takeNonce } from './_lib/redis.js'
 import { secret, verify } from './_lib/token.js'
@@ -28,25 +28,12 @@ const MIN_FACTOR = 0.9
 export const EXTRACT_SKEW_MS = 10_000
 /** Tokens older than this can no longer post. */
 const MAX_RUN_SECONDS = 86400
+/** Short edge cache for endless boards; daily challenge stays `no-store` because it embeds `now`. */
+export const ENDLESS_CACHE_CONTROL = 'public, max-age=0, s-maxage=5, stale-while-revalidate=15'
 
 /** The endless board a gates score from `mode` (run or bends) is ranked on. */
 export function endlessBoardKey(mode) {
   return mode === 'bends' ? BENDS_BOARD_KEY : BOARD_KEY
-}
-
-export async function GET(request) {
-  const url = new URL(request.url)
-  const mode = url.searchParams.get('mode')
-  const challenge = mode === 'challenge'
-  try {
-    if (!challenge) return json({ board: await readBoard(getRedis(), endlessBoardKey(mode)) })
-    const day = url.searchParams.get('day') || utcDay()
-    if (!DAY_RE.test(day)) return fail('BAD DAY', 400)
-    const board = await readBoard(getRedis(), challengeBoardKey(day), 'challenge')
-    return json({ board, day, now: Date.now() })
-  } catch {
-    return fail('BOARD OFFLINE', 503)
-  }
 }
 
 /**
@@ -85,48 +72,75 @@ export function validateSubmission(body, nowMs = Date.now()) {
   return { initials, parsed, score }
 }
 
-export async function POST(request) {
-  if (!secret()) return fail('BOARD OFFLINE', 503)
-
-  try {
-    const { success } = await scoreRatelimit().limit(clientIp(request))
-    if (!success) return fail('SLOW DOWN', 429)
-  } catch {
-    return fail('BOARD OFFLINE', 503)
+export function createScoresHandlers({
+  getSecret = secret,
+  ratelimit = scoreRatelimit,
+  redis = getRedis,
+  claimNonce = takeNonce,
+  now = Date.now,
+} = {}) {
+  async function GET(request) {
+    const url = new URL(request.url)
+    const mode = url.searchParams.get('mode')
+    const challenge = mode === 'challenge'
+    try {
+      if (!challenge) {
+        const board = await readBoard(redis(), endlessBoardKey(mode))
+        return json({ board }, 200, { 'cache-control': ENDLESS_CACHE_CONTROL })
+      }
+      const day = url.searchParams.get('day') || utcDay()
+      if (!DAY_RE.test(day)) return fail('BAD DAY', 400)
+      const board = await readBoard(redis(), challengeBoardKey(day), 'challenge')
+      return json({ board, day, now: now() })
+    } catch {
+      return fail('BOARD OFFLINE', 503)
+    }
   }
 
-  let body
-  try {
-    body = await request.json()
-  } catch {
-    return fail('BAD REQUEST', 400)
+  async function POST(request) {
+    if (isCrossSitePost(request)) return fail('FORBIDDEN', 403)
+    if (!getSecret()) return fail('BOARD OFFLINE', 503)
+
+    const parsedBody = await readJsonBody(request)
+    if (!parsedBody.ok) return fail(parsedBody.error, parsedBody.status)
+
+    try {
+      const { success } = await ratelimit().limit(clientIp(request))
+      if (!success) return fail('SLOW DOWN', 429)
+    } catch {
+      return fail('BOARD OFFLINE', 503)
+    }
+
+    const submission = validateSubmission(parsedBody.body, now())
+    if (submission.error) return fail(submission.error, submission.status)
+    const { initials, parsed, score, timeMs } = submission
+
+    let client
+    try {
+      client = redis()
+    } catch {
+      return fail('BOARD OFFLINE', 503)
+    }
+
+    if (!(await claimNonce(parsed.nonce, client))) return fail('REPLAY', 409)
+
+    const member = memberOf(initials, parsed.nonce)
+    if (parsed.mode === 'challenge') {
+      const result = await writeScore(client, {
+        key: challengeBoardKey(parsed.day),
+        member,
+        rank: rankTime(timeMs, parsed.t0),
+        kind: 'challenge',
+        ttl: CHALLENGE_TTL,
+      })
+      return json({ ...result, day: parsed.day, time: timeMs })
+    }
+
+    const key = endlessBoardKey(parsed.mode)
+    return json(await writeScore(client, { key, member, rank: rankScore(score, parsed.t0) }))
   }
 
-  const submission = validateSubmission(body)
-  if (submission.error) return fail(submission.error, submission.status)
-  const { initials, parsed, score, timeMs } = submission
-
-  let redis
-  try {
-    redis = getRedis()
-  } catch {
-    return fail('BOARD OFFLINE', 503)
-  }
-
-  if (!(await takeNonce(parsed.nonce, redis))) return fail('REPLAY', 409)
-
-  const member = memberOf(initials, parsed.nonce)
-  if (parsed.mode === 'challenge') {
-    const result = await writeScore(redis, {
-      key: challengeBoardKey(parsed.day),
-      member,
-      rank: rankTime(timeMs, parsed.t0),
-      kind: 'challenge',
-      ttl: CHALLENGE_TTL,
-    })
-    return json({ ...result, day: parsed.day, time: timeMs })
-  }
-
-  const key = endlessBoardKey(parsed.mode)
-  return json(await writeScore(redis, { key, member, rank: rankScore(score, parsed.t0) }))
+  return { GET, POST }
 }
+
+export const { GET, POST } = createScoresHandlers()

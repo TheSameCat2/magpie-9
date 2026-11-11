@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
     <meta name="theme-color" content="#07080c" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -10,17 +11,17 @@
     <title>MAGPIE-9</title>
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-    <link rel="preload" href="/audio/magpie-melody.mp3" as="audio" type="audio/mpeg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap"
       rel="stylesheet"
+      referrerpolicy="no-referrer"
     />
     <link rel="stylesheet" href="/src/styles/main.css" />
   </head>
   <body>
-    <div id="hud">
+    <main id="hud">
       <div class="corner tl"></div>
       <div class="corner tr"></div>
       <div class="corner bl"></div>
@@ -28,7 +29,7 @@
       <div id="score">0</div>
       <div id="scoreLabel">GATES</div>
       <div id="best">BEST 0</div>
-      <div id="lives" class="hidden" aria-label="No spare lives"></div>
+      <div id="lives" class="hidden" role="img" aria-label="No spare lives"></div>
       <div id="vel">VEL <b>12.0</b></div>
       <div id="velBar" aria-hidden="true"><i></i></div>
       <div id="keys">H HELP · M MUTE</div>
@@ -66,29 +67,78 @@
         <div id="blurb">AN OPEN RUN · EVERY GATE COUNTS</div>
         <div id="prompt" class="hidden">FLAP TO ARM</div>
         <div id="entry" class="hidden">
-          <div class="entry-slots" aria-live="polite">
+          <div class="entry-slots">
             <div class="slot" data-slot="0">
-              <button type="button" data-entry data-slot="0" data-dir="1" aria-label="Letter 1 up">▲</button>
-              <b>A</b>
-              <button type="button" data-entry data-slot="0" data-dir="-1" aria-label="Letter 1 down">
+              <button
+                type="button"
+                data-entry
+                data-slot="0"
+                data-dir="1"
+                aria-label="Letter 1 up"
+                aria-describedby="entrySlot0"
+              >
+                ▲
+              </button>
+              <b id="entrySlot0">A</b>
+              <button
+                type="button"
+                data-entry
+                data-slot="0"
+                data-dir="-1"
+                aria-label="Letter 1 down"
+                aria-describedby="entrySlot0"
+              >
                 ▼
               </button>
             </div>
             <div class="slot" data-slot="1">
-              <button type="button" data-entry data-slot="1" data-dir="1" aria-label="Letter 2 up">▲</button>
-              <b>A</b>
-              <button type="button" data-entry data-slot="1" data-dir="-1" aria-label="Letter 2 down">
+              <button
+                type="button"
+                data-entry
+                data-slot="1"
+                data-dir="1"
+                aria-label="Letter 2 up"
+                aria-describedby="entrySlot1"
+              >
+                ▲
+              </button>
+              <b id="entrySlot1">A</b>
+              <button
+                type="button"
+                data-entry
+                data-slot="1"
+                data-dir="-1"
+                aria-label="Letter 2 down"
+                aria-describedby="entrySlot1"
+              >
                 ▼
               </button>
             </div>
             <div class="slot" data-slot="2">
-              <button type="button" data-entry data-slot="2" data-dir="1" aria-label="Letter 3 up">▲</button>
-              <b>A</b>
-              <button type="button" data-entry data-slot="2" data-dir="-1" aria-label="Letter 3 down">
+              <button
+                type="button"
+                data-entry
+                data-slot="2"
+                data-dir="1"
+                aria-label="Letter 3 up"
+                aria-describedby="entrySlot2"
+              >
+                ▲
+              </button>
+              <b id="entrySlot2">A</b>
+              <button
+                type="button"
+                data-entry
+                data-slot="2"
+                data-dir="-1"
+                aria-label="Letter 3 down"
+                aria-describedby="entrySlot2"
+              >
                 ▼
               </button>
             </div>
           </div>
+          <output id="entryLive" class="sr-only" aria-live="polite"></output>
           <div class="entry-actions">
             <button type="button" id="btnEnter" data-entry="select">ENTER</button>
             <button type="button" id="btnSkip" data-entry="skip" aria-label="Skip saving initials">
@@ -107,7 +157,7 @@
           </svg>
           <span class="label">MUTE</span>
         </button>
-        <button type="button" id="btnFs" aria-label="Enter fullscreen" aria-pressed="false">
+        <button type="button" id="btnFs" aria-label="Full screen" aria-pressed="false">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M8 4H4v4" />
             <path d="M16 4h4v4" />
@@ -134,7 +184,7 @@
         aria-labelledby="creditsTitle"
       >
         <div class="overlay-card">
-          <div id="creditsTitle" class="overlay-title">CREDITS</div>
+          <h2 id="creditsTitle" class="overlay-title">CREDITS</h2>
           <dl>
             <dt>DESIGN</dt>
             <dd>TheSameCat</dd>
@@ -156,10 +206,15 @@
         aria-labelledby="settingsTitle"
       >
         <div class="overlay-card">
-          <div id="settingsTitle" class="overlay-title">SETTINGS</div>
-          <div class="settings-h">AUDIO</div>
-          <div class="settings-row sel" data-setting="master" aria-current="true">
-            <span class="settings-name">MASTER</span>
+          <h2 id="settingsTitle" class="overlay-title">SETTINGS</h2>
+          <h3 class="settings-h">AUDIO</h3>
+          <div
+            class="settings-row sel"
+            data-setting="master"
+            role="group"
+            aria-labelledby="settingNameMaster"
+          >
+            <span id="settingNameMaster" class="settings-name">MASTER</span>
             <button
               type="button"
               class="settings-nudge"
@@ -182,8 +237,8 @@
               +
             </button>
           </div>
-          <div class="settings-row" data-setting="music">
-            <span class="settings-name">MUSIC</span>
+          <div class="settings-row" data-setting="music" role="group" aria-labelledby="settingNameMusic">
+            <span id="settingNameMusic" class="settings-name">MUSIC</span>
             <button
               type="button"
               class="settings-nudge"
@@ -206,8 +261,8 @@
               +
             </button>
           </div>
-          <div class="settings-row" data-setting="effects">
-            <span class="settings-name">EFFECTS</span>
+          <div class="settings-row" data-setting="effects" role="group" aria-labelledby="settingNameEffects">
+            <span id="settingNameEffects" class="settings-name">EFFECTS</span>
             <button
               type="button"
               class="settings-nudge"
@@ -230,19 +285,55 @@
               +
             </button>
           </div>
-          <div class="settings-h">GRAPHICS</div>
-          <div class="settings-row" data-setting="quality">
-            <span class="settings-name">QUALITY</span>
+          <h3 class="settings-h">GRAPHICS</h3>
+          <div class="settings-row" data-setting="quality" role="group" aria-labelledby="settingNameQuality">
+            <span id="settingNameQuality" class="settings-name">QUALITY</span>
             <div class="settings-choices" role="radiogroup" aria-label="Graphics quality">
-              <button type="button" role="radio" data-quality="auto" class="sel" aria-checked="true">
+              <button
+                type="button"
+                role="radio"
+                data-quality="auto"
+                class="sel"
+                aria-checked="true"
+                aria-describedby="settingsQualityCaption"
+                tabindex="0"
+              >
                 AUTO
               </button>
-              <button type="button" role="radio" data-quality="0" aria-checked="false">LOW</button>
-              <button type="button" role="radio" data-quality="1" aria-checked="false">MID</button>
-              <button type="button" role="radio" data-quality="2" aria-checked="false">HIGH</button>
+              <button
+                type="button"
+                role="radio"
+                data-quality="0"
+                aria-checked="false"
+                aria-describedby="settingsQualityCaption"
+                tabindex="-1"
+              >
+                LOW
+              </button>
+              <button
+                type="button"
+                role="radio"
+                data-quality="1"
+                aria-checked="false"
+                aria-describedby="settingsQualityCaption"
+                tabindex="-1"
+              >
+                MID
+              </button>
+              <button
+                type="button"
+                role="radio"
+                data-quality="2"
+                aria-checked="false"
+                aria-describedby="settingsQualityCaption"
+                tabindex="-1"
+              >
+                HIGH
+              </button>
             </div>
           </div>
           <p id="settingsQualityCaption" class="settings-caption">DROPS A RUNG IF FRAMES RUN LONG</p>
+          <output id="settingsLive" class="sr-only" aria-live="polite"></output>
           <div class="overlay-sub back-hint">↑ ↓ ROW · ← → ADJUST · ESC RETURN</div>
           <button type="button" class="back" data-back>BACK</button>
         </div>
@@ -255,17 +346,48 @@
         aria-labelledby="scoresTitle"
       >
         <div class="overlay-card">
-          <div id="scoresTitle" class="overlay-title">TOP 10</div>
+          <h2 id="scoresTitle" class="overlay-title">TOP 10</h2>
           <div id="scoresTabs" role="tablist" aria-label="Leaderboards">
-            <button type="button" role="tab" data-board="run" class="sel" aria-selected="true">
+            <button
+              type="button"
+              id="scoreTabRun"
+              role="tab"
+              data-board="run"
+              class="sel"
+              aria-selected="true"
+              aria-controls="scoresPanel"
+              tabindex="0"
+            >
               ALL-TIME
             </button>
-            <button type="button" role="tab" data-board="bends" aria-selected="false">BENDS</button>
-            <button type="button" role="tab" data-board="challenge" aria-selected="false">TODAY</button>
+            <button
+              type="button"
+              id="scoreTabBends"
+              role="tab"
+              data-board="bends"
+              aria-selected="false"
+              aria-controls="scoresPanel"
+              tabindex="-1"
+            >
+              BENDS
+            </button>
+            <button
+              type="button"
+              id="scoreTabChallenge"
+              role="tab"
+              data-board="challenge"
+              aria-selected="false"
+              aria-controls="scoresPanel"
+              tabindex="-1"
+            >
+              TODAY
+            </button>
           </div>
-          <div id="scoresDay" class="overlay-sub hidden"></div>
-          <div id="scoresStatus" class="overlay-sub hidden" role="status"></div>
-          <ol id="scoresList"></ol>
+          <div id="scoresPanel" role="tabpanel" aria-labelledby="scoreTabRun" tabindex="0">
+            <div id="scoresDay" class="overlay-sub hidden"></div>
+            <div id="scoresStatus" class="overlay-sub hidden" role="status"></div>
+            <ol id="scoresList" role="list"></ol>
+          </div>
           <div class="overlay-sub back-hint">← → BOARD · ESC RETURN</div>
           <button type="button" class="back" data-back>BACK</button>
         </div>
@@ -286,7 +408,7 @@
               <circle class="fig-bird" cx="136" cy="57" r="4" />
               <text class="fig-text gold" x="136" y="30">+1</text>
             </svg>
-            <div id="lessonFlight" class="overlay-title">FLIGHT</div>
+            <h2 id="lessonFlight" class="overlay-title">FLIGHT</h2>
             <p>
               <b>Gravity pulls.</b> Idle and the drone drops. <b>Flap climbs</b> — each flap is a pulse, not a
               hover. Strafe sideways to thread the hatch. Walls, plates, and beams end the run.
@@ -322,7 +444,7 @@
                 stroke-linejoin="round"
               />
             </svg>
-            <div id="lessonDamper" class="overlay-title">DAMPER</div>
+            <h2 id="lessonDamper" class="overlay-title">DAMPER</h2>
             <p>
               The <b>gold orb</b> trims your scroll speed and the trim sticks for the rest of the run. Every
               gate you clear pushes the conduit faster, so a damper buys you back some reaction time. Steer
@@ -358,7 +480,7 @@
                 stroke-linecap="round"
               />
             </svg>
-            <div id="lessonLife" class="overlay-title">SPARE LIFE</div>
+            <h2 id="lessonLife" class="overlay-title">SPARE LIFE</h2>
             <p>
               The <b>green orb</b> adds a spare, shown as a <b>+</b> at the top right. Crash with a spare and
               the run rewinds to just inside the last gate you cleared, then waits for your tap. In a real run
@@ -388,7 +510,7 @@
               <circle cx="60" cy="60" r="38" fill="url(#gShunt)" />
               <path d="M71 19 L41 66 H58 L49 101 L79 53 H62 Z" fill="#e8fbff" />
             </svg>
-            <div id="lessonShunt" class="overlay-title">SHUNT</div>
+            <h2 id="lessonShunt" class="overlay-title">SHUNT</h2>
             <p>
               The <b>blue orb</b> engages the shunt overdrive: the next <b>5 gates</b> count double while the
               conduit runs faster. A hit burns the whole charge, so spend it cleanly.
@@ -397,9 +519,9 @@
           <div id="lessonTap" class="tap">SPACE TO CONTINUE</div>
         </div>
       </div>
-      <div id="paused" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pausedTitle">
+      <div id="paused" class="overlay hidden" role="status" aria-labelledby="pausedTitle">
         <div class="overlay-card">
-          <div id="pausedTitle" class="overlay-title" aria-live="polite">PAUSED</div>
+          <h2 id="pausedTitle" class="overlay-title" aria-live="polite">PAUSED</h2>
           <div class="overlay-sub">JUMP TO RESUME</div>
           <button type="button" id="btnContinue" class="fs-btn hidden" aria-label="Continue run">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -412,22 +534,29 @@
           </button>
         </div>
       </div>
-      <div id="respawn" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="respawnTitle">
+      <div id="respawn" class="overlay hidden" role="status" aria-labelledby="respawnTitle">
         <div class="overlay-card">
-          <div id="respawnTitle" class="overlay-title">SPARE ENGAGED</div>
+          <h2 id="respawnTitle" class="overlay-title">SPARE ENGAGED</h2>
           <div class="overlay-sub">JUMP TO RESUME</div>
         </div>
       </div>
-      <div id="rotate" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="rotateTitle">
+      <div
+        id="rotate"
+        class="overlay hidden"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rotateTitle"
+        tabindex="-1"
+      >
         <div class="overlay-card">
           <div class="overlay-glyph" aria-hidden="true"></div>
-          <div id="rotateTitle" class="overlay-title">ROTATE TO LANDSCAPE</div>
+          <h2 id="rotateTitle" class="overlay-title">ROTATE TO LANDSCAPE</h2>
           <div class="overlay-sub">MAGPIE-9 PLAYS SIDEWAYS</div>
           <button
             type="button"
             id="btnRotateFs"
             class="fs-btn hidden"
-            aria-label="Enter fullscreen"
+            aria-label="Fullscreen"
             aria-pressed="false"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -436,7 +565,7 @@
               <path d="M8 20H4v-4" />
               <path d="M16 20h4v-4" />
             </svg>
-            <span class="label">ENTER FULLSCREEN</span>
+            <span class="label">FULLSCREEN</span>
           </button>
           <div id="rotateFsHint" class="overlay-sub hidden">ADD TO HOME SCREEN<br />FOR A FULL DISPLAY</div>
         </div>
@@ -465,7 +594,7 @@
                 <circle class="fig-bird" cx="136" cy="57" r="4" />
                 <text class="fig-text gold" x="136" y="30">+1</text>
               </svg>
-              <ul class="help-list">
+              <ul class="help-list" role="list">
                 <li><b>GRAVITY PULLS.</b> Idle and the drone drops.</li>
                 <li><b>FLAP CLIMBS.</b> Each flap is a pulse, not a hover.</li>
                 <li><b>THREAD THE HATCH.</b> +1 gate per bulkhead. Walls, plates and beams kill.</li>
@@ -522,14 +651,14 @@
                   <circle class="fig-tap-dot" cx="232" cy="80" r="5" />
                   <text class="fig-text mag" x="232" y="140">TAP · FLAP</text>
                 </svg>
-                <ul class="help-list">
+                <ul class="help-list" role="list">
                   <li><b>LEFT HALF.</b> Touch and drag sideways. A floating stick strafes the drone.</li>
                   <li><b>RIGHT HALF.</b> Tap to flap. Jump to begin a run or resume after a pause.</li>
                   <li><b>LANDSCAPE ONLY.</b> Portrait pauses. FULL goes fullscreen.</li>
                 </ul>
               </div>
             </div>
-            <ul class="help-list">
+            <ul class="help-list" role="list">
               <li>
                 <b>PAUSE.</b> P, Esc, or the top-left button. CONTINUE counts down from 3 and the run goes
                 live without a jump. QUIT returns to the menu. A stray flap will not resume it.
@@ -570,7 +699,7 @@
                   </g>
                 </svg>
                 <div class="help-orb-text">
-                  <div class="help-orb-name">DAMPERS</div>
+                  <h4 class="help-orb-name">DAMPERS</h4>
                   <p>Slows the conduit for the rest of the run. Every pickup stacks.</p>
                   <div class="help-orb-sub">COMMON · MIDWAY TO THE NEXT GATE</div>
                 </div>
@@ -604,7 +733,7 @@
                   </g>
                 </svg>
                 <div class="help-orb-text">
-                  <div class="help-orb-name">SPARE</div>
+                  <h4 class="help-orb-name">SPARE</h4>
                   <p>
                     +1 life, shown as <b>+</b> top right. A hit rewinds you to the last gate. Jump to resume.
                   </p>
@@ -640,7 +769,7 @@
                   </g>
                 </svg>
                 <div class="help-orb-text">
-                  <div class="help-orb-name">SHUNT</div>
+                  <h4 class="help-orb-name">SHUNT</h4>
                   <p>
                     Double gates for the next <b>5 gates</b>. The conduit runs faster while it lasts. A hit
                     burns the charge.
@@ -653,7 +782,7 @@
 
           <section class="help-sec">
             <h3 class="help-h">CHALLENGE</h3>
-            <ul class="help-list">
+            <ul class="help-list" role="list">
               <li><b>TODAY'S CONDUIT.</b> Forty gates, same layout for everyone until UTC midnight.</li>
               <li><b>EXTRACT.</b> Clear all forty and the run ends. Ranked by time, not gates.</li>
               <li><b>SHUNT TO RACE.</b> Overdrive is the gamble. A spare rewind still costs the clock.</li>
@@ -670,7 +799,7 @@
           </button>
         </div>
       </div>
-    </div>
+    </main>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -44,6 +44,7 @@ export function createReadouts() {
     livesEl.replaceChildren()
     for (let i = 0; i < spares; i++) {
       const glyph = document.createElement('span')
+      glyph.setAttribute('aria-hidden', 'true')
       glyph.textContent = '+'
       livesEl.appendChild(glyph)
     }
@@ -77,7 +78,10 @@ export function createReadouts() {
     toastEl.className = tone
     retrigger(toastEl, 'show')
     clearTimeout(toastTimer)
-    toastTimer = setTimeout(() => toastEl.classList.remove('show'), TOAST_MS)
+    toastTimer = setTimeout(() => {
+      toastEl.classList.remove('show')
+      toastEl.textContent = ''
+    }, TOAST_MS)
   }
 
   /** Brief white-hot score colour on a near miss. */

@@ -1,7 +1,7 @@
 // Overlays that sit on top of a running scene: the hold/pause card, the
 // respawn flash, and the rotate-your-phone blocker.
 
-import { byId, hide, onPress, query, retrigger, setVisible, show } from './dom.js'
+import { byId, hide, isInert, onPress, query, retrigger, setVisible, show } from './dom.js'
 import { pauseCopy } from './copy.js'
 
 export function createOverlays(state, { refresh }) {
@@ -13,25 +13,43 @@ export function createOverlays(state, { refresh }) {
   const pauseBtn = byId('pause')
   const respawnEl = byId('respawn')
   const rotateEl = byId('rotate')
+  const rotateFsBtn = byId('btnRotateFs')
+
+  /** @type {HTMLElement | null} */
+  let rotateTrigger = null
 
   function blurContinue() {
     if (document.activeElement === continueBtn) continueBtn.blur()
   }
 
+  function setPausedModal(modal) {
+    if (modal) {
+      pausedEl.setAttribute('role', 'dialog')
+      pausedEl.setAttribute('aria-modal', 'true')
+    } else {
+      pausedEl.setAttribute('role', 'status')
+      pausedEl.removeAttribute('aria-modal')
+    }
+  }
+
   function showPaused(reason, left = 0) {
     state.held = true
-    refresh()
     pausedEl.dataset.reason = reason
     const copy = pauseCopy(reason, left, state.inputMode)
     if (!copy) {
+      setPausedModal(false)
       hide(pausedEl)
       pausedEl.classList.remove('countdown')
       hide(continueBtn)
       hide(quitBtn)
+      blurContinue()
+      if (document.activeElement === quitBtn) quitBtn.blur()
+      refresh()
       return
     }
     const menu = reason === 'menu'
     const counting = reason === 'countdown'
+    setPausedModal(menu)
     if (counting && pausedTitle.textContent !== copy.title) retrigger(pausedTitle, 'pop')
     else if (!counting) pausedTitle.classList.remove('pop')
     pausedTitle.textContent = copy.title
@@ -41,6 +59,7 @@ export function createOverlays(state, { refresh }) {
     setVisible(continueBtn, menu)
     setVisible(quitBtn, menu)
     show(pausedEl)
+    refresh()
     if (menu) continueBtn.focus({ preventScroll: true })
     else {
       blurContinue()
@@ -50,7 +69,7 @@ export function createOverlays(state, { refresh }) {
 
   function hidePaused() {
     state.held = false
-    refresh()
+    setPausedModal(false)
     hide(pausedEl)
     pausedEl.classList.remove('countdown')
     pausedTitle.classList.remove('pop')
@@ -59,6 +78,7 @@ export function createOverlays(state, { refresh }) {
     blurContinue()
     if (document.activeElement === quitBtn) quitBtn.blur()
     delete pausedEl.dataset.reason
+    refresh()
   }
 
   function showRespawn() {
@@ -76,7 +96,29 @@ export function createOverlays(state, { refresh }) {
   }
 
   function setRotate(blocked) {
+    const wasBlocked = !rotateEl.classList.contains('hidden')
+    if (!wasBlocked && blocked) {
+      const active = /** @type {HTMLElement | null} */ (document.activeElement)
+      rotateTrigger =
+        active && active !== document.body && active !== document.documentElement ? active : null
+    }
     setVisible(rotateEl, blocked)
+    refresh()
+    if (!wasBlocked && blocked) {
+      const target = !rotateFsBtn.classList.contains('hidden') ? rotateFsBtn : rotateEl
+      target.focus({ preventScroll: true })
+    } else if (wasBlocked && !blocked) {
+      if (
+        rotateTrigger &&
+        rotateTrigger.isConnected &&
+        !rotateTrigger.closest('.hidden') &&
+        !rotateTrigger.closest('.playing') &&
+        !isInert(rotateTrigger)
+      ) {
+        rotateTrigger.focus({ preventScroll: true })
+      }
+      rotateTrigger = null
+    }
   }
 
   // No stopPropagation: the tap still unlocks audio while the input layer

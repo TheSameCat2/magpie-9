@@ -1,6 +1,8 @@
 {
+  "id": "/",
   "name": "MAGPIE-9",
   "short_name": "MAGPIE-9",
+  "description": "Cyberpunk service-conduit flight arcade game.",
   "start_url": "/",
   "display": "fullscreen",
   "orientation": "landscape",

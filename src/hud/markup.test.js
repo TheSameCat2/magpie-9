@@ -45,3 +45,70 @@ test('settings rows follow the copy order', () => {
   const rows = [...html.matchAll(/data-setting="([^"]+)"/g)].map((match) => match[1])
   assert.deepEqual(rows, [...SETTINGS_ROWS])
 })
+
+test('index.html and manifest declare dark color-scheme, persistent main landmark, referrer policy, and no audio preload', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')
+  assert.match(html, /<meta\s+name="color-scheme"\s+content="dark"\s*\/>/)
+  assert.doesNotMatch(html, /rel="preload"[^>]*magpie-melody\.mp3/)
+  assert.match(
+    html,
+    /<link[\s\S]*?href="https:\/\/fonts\.googleapis\.com\/css2\?[^"]+"[\s\S]*?referrerpolicy="no-referrer"[\s\S]*?\/>/,
+  )
+  assert.match(html, /<main id="hud">[\s\S]*<\/main>/)
+
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'public', 'manifest.webmanifest'), 'utf8'))
+  assert.equal(manifest.id, '/')
+  assert.equal(typeof manifest.description, 'string')
+  assert.ok(manifest.description.length > 0)
+})
+
+test('index.html uses semantic headings, list roles, tabpanel, grouped settings, and non-live entry slots', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')
+
+  assert.doesNotMatch(html, /<div[^>]*class="[^"]*\b(?:overlay-title|settings-h|help-orb-name)\b/)
+  assert.equal([...html.matchAll(/<h2\b[^>]*class="overlay-title"/g)].length, 11)
+  assert.equal([...html.matchAll(/<h3\b[^>]*class="settings-h"/g)].length, 2)
+  assert.equal([...html.matchAll(/<h4\b[^>]*class="help-orb-name"/g)].length, 3)
+
+  assert.match(html, /<div id="lives"[^>]*\brole="img"/)
+  assert.match(html, /<ol id="scoresList"[^>]*\brole="list"/)
+  assert.equal([...html.matchAll(/<ul class="help-list" role="list">/g)].length, 4)
+
+  assert.match(html, /<div id="scoresPanel" role="tabpanel" aria-labelledby="scoreTabRun" tabindex="0">/)
+  for (const id of ['scoreTabRun', 'scoreTabBends', 'scoreTabChallenge']) {
+    assert.match(html, new RegExp(`id="${id}"`))
+  }
+
+  assert.doesNotMatch(html, /class="settings-row[^"]*"[^>]*aria-current/)
+  assert.equal([...html.matchAll(/class="settings-row[^"]*"[^>]*role="group"/g)].length, 4)
+  assert.equal(
+    [...html.matchAll(/data-quality="[^"]+"[\s\S]*?aria-describedby="settingsQualityCaption"/g)].length,
+    4,
+  )
+  assert.match(html, /<output id="settingsLive" class="sr-only" aria-live="polite"><\/output>/)
+
+  assert.doesNotMatch(html, /class="entry-slots"[^>]*aria-live/)
+  for (const slot of [0, 1, 2]) {
+    assert.match(html, new RegExp(`<b id="entrySlot${slot}">A<\\/b>`))
+    assert.equal([...html.matchAll(new RegExp(`aria-describedby="entrySlot${slot}"`, 'g'))].length, 2)
+  }
+  for (const n of [1, 2, 3]) {
+    assert.match(html, new RegExp(`aria-label="Letter ${n} up"`))
+    assert.match(html, new RegExp(`aria-label="Letter ${n} down"`))
+  }
+  assert.match(html, /<output id="entryLive" class="sr-only" aria-live="polite"><\/output>/)
+
+  assert.match(html, /<div id="paused" class="overlay hidden" role="status"/)
+  assert.doesNotMatch(html, /<div id="paused"[^>]*aria-modal/)
+  assert.match(html, /<div id="respawn" class="overlay hidden" role="status"/)
+  assert.doesNotMatch(html, /<div id="respawn"[^>]*aria-modal/)
+  assert.match(html, /<div[\s\S]*?id="rotate"[\s\S]*?tabindex="-1"/)
+})
+
+test('HUD modules contain zero HTML string sinks', () => {
+  const htmlSink = new RegExp(`\\b(?:inner${'HTML'}|outer${'HTML'}|insertAdjacent${'HTML'})\\b`)
+  for (const file of hudFiles()) {
+    const source = fs.readFileSync(file, 'utf8')
+    assert.doesNotMatch(source, htmlSink, `${path.relative(ROOT, file)} uses an HTML sink`)
+  }
+})

@@ -23,12 +23,15 @@ export function createScreens(state, { refresh, help }) {
   const scoresEl = byId('scores')
   const settingsEl = byId('settings')
   const settingsCaption = byId('settingsQualityCaption')
+  const settingsLive = byId('settingsLive')
+  const scoresPanel = byId('scoresPanel')
   const scoresList = byId('scoresList')
   const scoresStatus = byId('scoresStatus')
   const scoresDay = document.getElementById('scoresDay')
   const scoresTabs = queryAll('#scoresTabs button')
   const entryEl = byId('entry')
   const entrySlots = queryAll('.slot', entryEl)
+  const entryLive = byId('entryLive')
   const lessonEl = byId('lesson')
   const lessonBlocks = queryAll('.lesson', lessonEl)
   const backBtns = queryAll('.screen .back')
@@ -48,10 +51,13 @@ export function createScreens(state, { refresh, help }) {
 
   function hideEntry() {
     hide(entryEl)
+    entryLive.textContent = ''
   }
 
   function hideLesson() {
+    if (lessonEl.classList.contains('hidden')) return
     hide(lessonEl)
+    refresh()
   }
 
   /** Bring the centre card up with the given title/prompt and end-state styling. */
@@ -60,7 +66,13 @@ export function createScreens(state, { refresh, help }) {
     center.classList.toggle('dead', dead)
     center.classList.toggle('extract', extract)
     retrigger(center, 'rise')
-    title.innerHTML = heading
+    if (heading === 'MAGPIE-9') {
+      const accent = document.createElement('span')
+      accent.textContent = '-9'
+      title.replaceChildren('MAGPIE', accent)
+    } else {
+      title.textContent = heading
+    }
     if (line == null) hide(prompt)
     else {
       prompt.textContent = line
@@ -83,14 +95,15 @@ export function createScreens(state, { refresh, help }) {
   }
 
   function showMenu() {
+    const fromPanel = state.scene === 'credits' || state.scene === 'scores' || state.scene === 'settings'
     state.scene = 'menu'
     hidePanels()
     hideLesson()
     hideEntry()
-    raiseCard({ title: 'MAGPIE<span>-9</span>', prompt: null, dead: false, extract: false })
+    raiseCard({ title: 'MAGPIE-9', prompt: null, dead: false, extract: false })
     show(menuEl)
-    setMenuIndex(menuIndex)
     refresh()
+    setMenuIndex(menuIndex, { focus: fromPanel })
   }
 
   function showPlaying() {
@@ -118,6 +131,8 @@ export function createScreens(state, { refresh, help }) {
       slot.classList.toggle('sel', i === entry.cursor)
       slot.querySelector('b').textContent = entry.chars[i]
     })
+    const pos = Math.max(0, Math.min(entry.chars.length - 1, entry.cursor ?? 0))
+    entryLive.textContent = `Letter ${pos + 1}: ${entry.chars[pos]}, initials ${entry.chars.join('')}`
   }
 
   function showEntry(score, rank, entry, extra = {}) {
@@ -136,10 +151,7 @@ export function createScreens(state, { refresh, help }) {
 
   function paintSettings() {
     settingsRows().forEach((row, i) => {
-      const on = i === settingsIndex
-      row.classList.toggle('sel', on)
-      if (on) row.setAttribute('aria-current', 'true')
-      else row.removeAttribute('aria-current')
+      row.classList.toggle('sel', i === settingsIndex)
     })
     for (const channel of ['master', 'music', 'effects']) {
       const row = settingsEl.querySelector(`[data-setting="${channel}"]`)
@@ -149,10 +161,14 @@ export function createScreens(state, { refresh, help }) {
       const readout = row.querySelector('.settings-readout')
       if (readout) readout.textContent = formatVolume(settingsModel[channel])
     }
-    for (const btn of queryAll('[data-quality]', settingsEl)) {
+    const qualityBtns = queryAll('[data-quality]', settingsEl)
+    const qualityFocused = qualityBtns.includes(/** @type {HTMLElement} */ (document.activeElement))
+    for (const btn of qualityBtns) {
       const on = btn.dataset.quality === String(settingsModel.quality)
       btn.classList.toggle('sel', on)
       btn.setAttribute('aria-checked', on ? 'true' : 'false')
+      btn.tabIndex = on ? 0 : -1
+      if (on && qualityFocused) btn.focus({ preventScroll: true })
     }
     settingsCaption.textContent = QUALITY_CAPTIONS[settingsModel.quality] ?? ''
   }
@@ -164,14 +180,17 @@ export function createScreens(state, { refresh, help }) {
     settingsModel.effects = model.effects ?? 1
     settingsModel.quality = model.quality ?? 'auto'
     settingsIndex = 0
+    settingsLive.textContent = ''
     hidePanels()
     hideEntry()
     hide(center)
     show(settingsEl)
     paintSettings()
-    const back = /** @type {HTMLElement | null} */ (settingsEl.querySelector('.back'))
-    back?.focus({ preventScroll: true })
     refresh()
+    const firstControl = /** @type {HTMLElement | null} */ (
+      settingsEl.querySelector('[data-setting="master"] [data-settings-nudge="-1"]')
+    )
+    firstControl?.focus({ preventScroll: true })
   }
 
   function focusSettingsRow(row) {
@@ -185,6 +204,7 @@ export function createScreens(state, { refresh, help }) {
     const changed = next !== settingsModel[channel]
     if (changed) settingsModel[channel] = next
     paintSettings()
+    settingsLive.textContent = `${channel.toUpperCase()} ${formatVolume(settingsModel[channel])}`
     if (changed) settingsListener?.({ channel, value: next })
   }
 
@@ -213,9 +233,9 @@ export function createScreens(state, { refresh, help }) {
     hideEntry()
     hide(center)
     show(creditsEl)
+    refresh()
     const back = /** @type {HTMLElement | null} */ (creditsEl.querySelector('.back'))
     back?.focus({ preventScroll: true })
-    refresh()
   }
 
   function renderScoreRows(board, rank, kind) {
@@ -253,6 +273,7 @@ export function createScreens(state, { refresh, help }) {
 
   function showScores(board, rank, status, view = {}) {
     const opening = scoresEl.classList.contains('hidden')
+    const tabFocused = scoresTabs.includes(/** @type {HTMLElement} */ (document.activeElement))
     state.scene = 'scores'
     hidePanels()
     hideEntry()
@@ -260,6 +281,13 @@ export function createScreens(state, { refresh, help }) {
     show(scoresEl)
     const kind = view.kind === 'challenge' || view.kind === 'bends' ? view.kind : 'run'
     const label = status || ''
+    if (label === 'LOADING') {
+      scoresStatus.removeAttribute('role')
+      scoresStatus.setAttribute('aria-live', 'off')
+    } else {
+      scoresStatus.setAttribute('role', 'status')
+      scoresStatus.removeAttribute('aria-live')
+    }
     scoresStatus.textContent = label
     setVisible(scoresStatus, !!label)
     if (scoresDay) {
@@ -271,10 +299,14 @@ export function createScreens(state, { refresh, help }) {
       const on = btn.dataset.board === kind
       btn.classList.toggle('sel', on)
       btn.setAttribute('aria-selected', on ? 'true' : 'false')
+      btn.tabIndex = on ? 0 : -1
+      if (on && btn.id) scoresPanel.setAttribute('aria-labelledby', btn.id)
     })
     renderScoreRows(board, rank, kind)
-    if (opening) scoresTabs.find((btn) => btn.classList.contains('sel'))?.focus({ preventScroll: true })
     refresh()
+    if (opening || tabFocused) {
+      scoresTabs.find((btn) => btn.classList.contains('sel'))?.focus({ preventScroll: true })
+    }
   }
 
   function showLesson(type) {
@@ -282,12 +314,13 @@ export function createScreens(state, { refresh, help }) {
       const on = block.dataset.lesson === type
       setVisible(block, on)
       if (on) {
-        const title = block.querySelector('.overlay-title')
-        if (title?.id) lessonEl.setAttribute('aria-labelledby', title.id)
+        const heading = block.querySelector('.overlay-title')
+        if (heading?.id) lessonEl.setAttribute('aria-labelledby', heading.id)
       }
     }
     show(lessonEl)
     lessonEl.tabIndex = -1
+    refresh()
     lessonEl.focus({ preventScroll: true })
   }
 
@@ -299,7 +332,7 @@ export function createScreens(state, { refresh, help }) {
     settingsListener = onSettings
     menuBtns.forEach((btn, i) => {
       onPress(btn, () => {
-        setMenuIndex(i)
+        setMenuIndex(i, { focus: true })
         onSelect?.(btn.dataset.item)
       })
     })

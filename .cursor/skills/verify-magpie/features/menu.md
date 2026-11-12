@@ -48,6 +48,6 @@ Preconditions:
 - There is no Back on JUMP TO BEGIN. P and Escape do nothing until the run is live. Go live, then pause, then QUIT.
 - Space or Enter while NEW GAME is focused activates that button again and does not flap. Blur first.
 - CHALLENGE on `npm run dev` toasts BOARD OFFLINE. If `/api/run` is actually up, the wait for BOARD OFFLINE fails because a course started. Report that precondition; do not change the wait to JUMP TO BEGIN for this launch.
-- The toast fades in about 1.2s, and the text stays after the `show` class drops. `expect toast` in the next command fails. Catch it with `--wait-field` on the click. The snapshot is the proof.
+- The toast shows for about 1.2s. Then the `show` class drops and the text is cleared. `expect toast` in the next command fails. Catch it with `--wait-field` on the click. The snapshot is the proof.
 - ArrowDown from CREDITS is not a menu move while the credits screen is up. Escape returns first.
 - Starting NEW GAME or BENDS does not write a best. `storage-empty` after JUMP TO BEGIN is required.

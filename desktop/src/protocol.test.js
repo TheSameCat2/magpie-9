@@ -128,16 +128,38 @@ test('proxyApi strips cookie, origin, referer, and set-cookie, and sets nosniff 
 
 test('proxyApi handles upstream timeouts and network errors with 503 BOARD OFFLINE + nosniff', async () => {
   const getReq = () => new Request('magpie://app/api/scores')
+  const upstreamTimeoutMs = 20
+  // Long enough that a stalled loop still aborts the upstream wait first.
+  const abortWaitMs = 1_000
 
+  // AbortSignal.timeout() arms an unref'd timer. A fetch that only waits on
+  // that abort leaves the test runner's event loop idle, so the runner
+  // cancels the test (and the rest of the file) before the abort fires.
+  // The ref'd timer holds the loop open until the abort, and fails the wait
+  // if the signal never aborts. proxyApi swallows the rejection, so the
+  // reason has to be checked after the call returns.
+  let abortReason
   const timedOut = await proxyApi(
     getReq(),
     'https://magpie.nradavies.com',
     (_target, init) =>
       new Promise((_resolve, reject) => {
-        init.signal.addEventListener('abort', () => reject(init.signal.reason), { once: true })
+        const keepAlive = setTimeout(() => {
+          reject(new Error(`abort did not fire within ${abortWaitMs}ms`))
+        }, abortWaitMs)
+        init.signal.addEventListener(
+          'abort',
+          () => {
+            clearTimeout(keepAlive)
+            abortReason = init.signal.reason
+            reject(init.signal.reason)
+          },
+          { once: true },
+        )
       }),
-    20,
+    upstreamTimeoutMs,
   )
+  assert.equal(abortReason?.name, 'TimeoutError')
   assert.equal(timedOut.status, 503)
   assert.equal(timedOut.headers.get('x-content-type-options'), 'nosniff')
   assert.equal(timedOut.headers.get('cache-control'), 'no-store')

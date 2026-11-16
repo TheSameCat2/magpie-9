@@ -104,7 +104,7 @@ A proof shows the action and the resulting state. Take a screenshot and a snapsh
 
 Check side effects, not only pixels. Opening the field manual must leave storage empty. A mute toggles `magpie9.mute`. A best is written only when a scored run beats it. The default Vite launch has no score API: SCORES shows `BOARD OFFLINE`, and CHALLENGE toasts `BOARD OFFLINE` and stays on the menu. That offline result is the behavior of that launch. Do not mock the board. A populated board served by Vite needs `npm run dev:full` with Upstash env, which this skill does not start; report that path as unverified. The production site and a packaged shell with the origin unset are the live board. Prove those with `scores-online`. An unpackaged shell with the origin unset stays on `scores-offline`.
 
-The toast is visible only while `#toast` has class `show` (about 1.2s). The text node keeps the message after `show` drops, so a later `expect toast` fails even though the text is still `BOARD OFFLINE`. Catch it with `--wait-field toast` on the click that raises it, and `--snapshot` on that same command. The snapshot's `toastClass` includes `show`. The PNG is taken after the snapshot and can miss the toast.
+The toast is visible only while `#toast` has class `show` (about 1.2s). When `show` drops, the text is cleared, so a later `expect toast` fails. Catch it with `--wait-field toast` on the click that raises it, and `--snapshot` on that same command. The snapshot's `toast` is the message and `toastClass` includes `show`. The PNG is taken after the snapshot and can miss the toast.
 
 `actions.log`, `doctor.json`, and `instance.json` in the evidence directory are part of the proof. Cleanup must not delete them.
 

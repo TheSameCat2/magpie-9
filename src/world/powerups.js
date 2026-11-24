@@ -173,7 +173,10 @@ function prepareHeroTemplate(gltf, type) {
   return mesh
 }
 
-export function createPowerups(scene, { heroTemplates = null, loadHeroes = typeof window !== 'undefined' } = {}) {
+export function createPowerups(
+  scene,
+  { heroTemplates = null, loadHeroes = typeof window !== 'undefined' } = {},
+) {
   const root = new THREE.Group()
   root.name = 'powerups'
   root.matrixAutoUpdate = false

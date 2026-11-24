@@ -154,13 +154,17 @@ function createHeroMesh(template) {
 
 /** Bend and relight a loaded GLTF template so it follows the conduit and catches the headlamp. */
 function prepareHeroTemplate(gltf, type) {
+  /** @type {THREE.Mesh | null} */
   let mesh = null
   gltf.scene.traverse((o) => {
-    if (!mesh && o.isMesh) mesh = o
+    if (!mesh && o.isMesh) mesh = /** @type {THREE.Mesh} */ (o)
   })
   if (!mesh) return null
-  const material = mesh.material
-  if (material && material.isMeshStandardMaterial) {
+  const rawMaterial = mesh.material
+  const material = /** @type {THREE.MeshStandardMaterial | null} */ (
+    Array.isArray(rawMaterial) ? (rawMaterial[0] ?? null) : rawMaterial
+  )
+  if (material?.isMeshStandardMaterial) {
     material.metalness = 0.35
     material.roughness = 0.5
     // Self-lit from its own texture so the hero reads in the dark conduit

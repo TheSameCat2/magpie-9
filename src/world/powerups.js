@@ -20,7 +20,23 @@ const ringOuterGeometry = new THREE.TorusGeometry(0.28, 0.013, 6, 24)
 const ringInnerGeometry = new THREE.TorusGeometry(0.22, 0.011, 6, 24)
 const iconGeometry = new THREE.PlaneGeometry(0.38, 0.38)
 
+/** Generated hero meshes (public/models) are normalised to radius ~1; scale to the orb radius. */
+const MODEL_SCALE = 0.43
+const HERO_FILES = { damper: 'damper.glb', life: 'life.glb', shunt: 'shunt.glb' }
+const HERO_COLORS = { damper: THEME.gold, life: THEME.green, shunt: THEME.ice }
+/** Hero tumble speed (rad/s on X/Y) per type: the shunt spins hottest. */
+const HERO_SPIN = {
+  damper: { x: 0.7, y: 1.1 },
+  life: { x: 0.5, y: -0.7 },
+  shunt: { x: 1.8, y: 2.6 },
+}
+
 export const ORB_TYPES = ['damper', 'life', 'shunt']
+
+function modelUrl(file) {
+  const base = import.meta.env?.BASE_URL ?? '/'
+  return `${base}models/${file}`
+}
 
 function createIconMaterial(map) {
   return bendMaterial(
@@ -110,6 +126,9 @@ function createOrbSlot(look) {
     z: 0,
     r: ORB_R,
     seed: 0,
+    heroRx: 0,
+    heroRy: 0,
+    heroes: { damper: null, life: null, shunt: null },
     group,
     children,
     shell,
@@ -121,7 +140,47 @@ function createOrbSlot(look) {
   }
 }
 
-export function createPowerups(scene) {
+/** Clone one hero template into a pooled slot; geometry and material stay shared. */
+function createHeroMesh(template) {
+  const mesh = new THREE.Mesh(template.geometry, template.material)
+  mesh.renderOrder = 9
+  mesh.frustumCulled = false
+  mesh.visible = false
+  mesh.matrixAutoUpdate = false
+  mesh.matrixWorldAutoUpdate = false
+  mesh.updateMatrix()
+  return mesh
+}
+
+/** Bend and relight a loaded GLTF template so it follows the conduit and catches the headlamp. */
+function prepareHeroTemplate(gltf, type) {
+  /** @type {THREE.Mesh | null} */
+  let mesh = null
+  gltf.scene.traverse((o) => {
+    if (!mesh && o.isMesh) mesh = /** @type {THREE.Mesh} */ (o)
+  })
+  if (!mesh) return null
+  const rawMaterial = mesh.material
+  const material = /** @type {THREE.MeshStandardMaterial | null} */ (
+    Array.isArray(rawMaterial) ? (rawMaterial[0] ?? null) : rawMaterial
+  )
+  if (material?.isMeshStandardMaterial) {
+    material.metalness = 0.35
+    material.roughness = 0.5
+    // Self-lit from its own texture so the hero reads in the dark conduit
+    // before the headlamp reaches it; the halo still carries it at range.
+    material.emissiveMap = material.map
+    material.emissive = new THREE.Color(HERO_COLORS[type] ?? THEME.gold)
+    material.emissiveIntensity = 0.6
+    bendMaterial(material)
+  }
+  return mesh
+}
+
+export function createPowerups(
+  scene,
+  { heroTemplates = null, loadHeroes = typeof window !== 'undefined' } = {},
+) {
   const root = new THREE.Group()
   root.name = 'powerups'
   root.matrixAutoUpdate = false
@@ -157,6 +216,21 @@ export function createPowerups(scene) {
     for (let i = 0; i < POOL_SIZE; i++) deactivate(pool[i])
   }
 
+  /** Show the hero mesh for the orb's type when one is installed; the procedural look is the fallback. */
+  function refreshHero(orb) {
+    const hero = orb.heroes[orb.type]
+    const hasHero = Boolean(hero)
+    for (const type of ORB_TYPES) {
+      const mesh = orb.heroes[type]
+      if (mesh) mesh.visible = hasHero && type === orb.type
+    }
+    orb.shell.visible = !hasHero
+    orb.crystal.visible = !hasHero
+    orb.ringOuter.visible = !hasHero
+    orb.ringInner.visible = !hasHero
+    orb.icon.visible = !hasHero
+  }
+
   function applyLook(orb, type) {
     const look = looks[type] || looks.damper
     orb.type = type
@@ -166,6 +240,21 @@ export function createPowerups(scene) {
     orb.crystal.material = look.crystal
     orb.ringOuter.material = look.ring
     orb.ringInner.material = look.ring
+    refreshHero(orb)
+  }
+
+  /** Install one hero template type into every pooled slot, then refresh live orbs. */
+  function installHero(type, template) {
+    if (!template?.geometry || !template?.material) return
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const slot = pool[i]
+      if (slot.heroes[type]) slot.group.remove(slot.heroes[type])
+      const mesh = createHeroMesh(template)
+      slot.heroes[type] = mesh
+      slot.group.add(mesh)
+      mesh.visible = false
+    }
+    for (let i = 0; i < POOL_SIZE; i++) if (pool[i].active) refreshHero(pool[i])
   }
 
   function writeScalePos(elements, s, px, py, pz) {
@@ -254,6 +343,15 @@ export function createPowerups(scene) {
     const icon = orb.icon
     writeRotXYScalePos(icon.matrix.elements, 0, icon.rotation._y, 1, 0, 0, 0)
     localToWorld(icon.matrix.elements, icon.matrixWorld.elements, p, px, py, pz)
+
+    // heroes: Euler(heroRx, heroRy, 0) at MODEL_SCALE, tumbling with the orb pulse
+    for (const type of ORB_TYPES) {
+      const hero = orb.heroes[type]
+      if (!hero) continue
+      hero.rotation.set(orb.heroRx, orb.heroRy, 0)
+      writeRotXYScalePos(hero.matrix.elements, orb.heroRx, orb.heroRy, MODEL_SCALE, 0, 0, 0)
+      localToWorld(hero.matrix.elements, hero.matrixWorld.elements, p, px, py, pz)
+    }
   }
 
   /**
@@ -297,6 +395,8 @@ export function createPowerups(scene) {
     orb.icon.rotation._x = 0
     orb.icon.rotation._y = 0
     orb.icon.rotation._z = 0
+    orb.heroRx = orb.seed
+    orb.heroRy = orb.seed * 0.7
     syncOrbMatrices(orb, orb.x, orb.y, orb.z, 1)
     return orb
   }
@@ -329,6 +429,10 @@ export function createPowerups(scene) {
       // Central rune glyph
       orb.icon.rotation._y += dt * 3.2
 
+      const spin = HERO_SPIN[orb.type] ?? HERO_SPIN.damper
+      orb.heroRx += dt * spin.x
+      orb.heroRy += dt * spin.y
+
       syncOrbMatrices(orb, orb.x, py, orb.z, pulse)
     }
   }
@@ -354,12 +458,36 @@ export function createPowerups(scene) {
     }
   }
 
+  if (heroTemplates) {
+    for (const type of ORB_TYPES) if (heroTemplates[type]) installHero(type, heroTemplates[type])
+  } else if (loadHeroes) {
+    // Heroes stream in behind the procedural fallback; a failed load just keeps
+    // it. The loader is a lazy chunk so the cached three chunk stays untouched.
+    import('three/addons/loaders/GLTFLoader.js')
+      .then(({ GLTFLoader }) => {
+        const loader = new GLTFLoader()
+        for (const type of ORB_TYPES) {
+          loader.load(
+            modelUrl(HERO_FILES[type]),
+            (gltf) => {
+              const template = prepareHeroTemplate(gltf, type)
+              if (template) installHero(type, template)
+            },
+            undefined,
+            () => {},
+          )
+        }
+      })
+      .catch(() => {})
+  }
+
   return {
     reset,
     spawn,
     scroll,
     collect,
     cullBehind,
+    installHero,
     pool,
     /** Spawns refused because the pool was full, for the debug overlay. */
     get dropped() {

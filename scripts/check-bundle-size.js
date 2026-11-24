@@ -13,9 +13,12 @@ import { fileURLToPath } from 'node:url'
  * Measured sizes when set (Nov 2026): three 126.8 kB, index 48.5 kB, CSS 6.6 kB,
  * index.html 6.3 kB. index was re-measured at 52.6 kB after the a11y and
  * lifecycle hardening. Headroom is roughly 5% so routine work does not trip them.
+ * three was re-measured at 150.5 kB when the GLTFLoader joined it for the orb
+ * hero meshes; it versions with three, so the cached chunk is still stable
+ * across game deploys.
  */
 export const BUDGETS = {
-  'three.js': 134_000,
+  'three.js': 158_000,
   'index.js': 55_000,
   'index.css': 7_500,
   'index.html': 7_000,

@@ -114,6 +114,68 @@ test('spawn counts orbs dropped when the pool is full', () => {
   assert.equal(powerups.dropped, 1)
 })
 
+test('hero templates replace the procedural core per type and share geometry', () => {
+  const scene = new THREE.Scene()
+  const geo = new THREE.BoxGeometry(0.5, 0.5, 0.5)
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff })
+  const template = new THREE.Mesh(geo, mat)
+  const powerups = createPowerups(scene, {
+    loadHeroes: false,
+    heroTemplates: { damper: template, life: template, shunt: template },
+  })
+
+  for (const slot of powerups.pool) {
+    for (const type of ORB_TYPES) {
+      assert.ok(slot.heroes[type], `slot should have ${type} hero`)
+      assert.equal(slot.heroes[type].geometry, geo, 'hero clones share geometry')
+      assert.equal(slot.heroes[type].visible, false)
+    }
+  }
+
+  const orb = powerups.spawn(-15, 'shunt', 0, { x: 0, y: 0 })
+  assert.ok(orb)
+  assert.equal(orb.heroes.shunt.visible, true)
+  assert.equal(orb.heroes.damper.visible, false)
+  assert.equal(orb.crystal.visible, false)
+  assert.equal(orb.shell.visible, false)
+  assert.equal(orb.icon.visible, false)
+  assert.equal(orb.halo.visible, true, 'halo stays for distance readability')
+
+  powerups.scroll(1.0, 0.05)
+  assert.ok(orb.heroRx !== orb.seed, 'hero tumbles on X while scrolling')
+  assert.ok(orb.heroRy !== orb.seed * 0.7, 'hero tumbles on Y while scrolling')
+})
+
+test('without heroes the procedural core stays visible', () => {
+  const scene = new THREE.Scene()
+  const powerups = createPowerups(scene, { loadHeroes: false })
+  const orb = powerups.spawn(-15, 'life', 0, { x: 0, y: 0 })
+  assert.ok(orb)
+  assert.equal(orb.crystal.visible, true)
+  assert.equal(orb.shell.visible, true)
+  assert.equal(orb.heroes.life, null)
+})
+
+test('hero matrices survive a forced scene update', () => {
+  const scene = new THREE.Scene()
+  const template = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.5, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0xffffff }),
+  )
+  const powerups = createPowerups(scene, { loadHeroes: false, heroTemplates: { shunt: template } })
+  const orb = powerups.spawn(-20, 'shunt', 0, { x: 0.3, y: -0.2 })
+  assert.ok(orb)
+  powerups.scroll(1.0, 0.05)
+  const hero = orb.heroes.shunt
+  assert.ok(hero)
+  const before = hero.matrixWorld.elements.slice()
+  scene.updateMatrixWorld(true)
+  const after = hero.matrixWorld.elements
+  for (let e = 0; e < 16; e++) {
+    assert.ok(Math.abs(after[e] - before[e]) < 1e-6, `hero element ${e} stays stable`)
+  }
+})
+
 test('orb child matrices survive a forced scene update', () => {
   const scene = new THREE.Scene()
   const powerups = createPowerups(scene)

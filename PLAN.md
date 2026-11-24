@@ -8,7 +8,7 @@ Do not ship the name “Flappy Bird,” pipes, or the original bird sprite.
 1. Vanilla Three.js. No React/Vue. No Cannon/Rapier/Ammo. Sphere vs box/plane only.
 2. Bird is fixed in Z relative to the camera. The world scrolls toward the camera.
 3. One play loop: Menu → Playing → (Respawn → Playing) → Dead → Menu. Credits is a static screen off the menu; Help is the field-manual modal (also H / HELP button on menu and reboot). Tutorial is the same loop with `mode = 'tutorial'` rules (see `src/config/tutorial.js`). Pause is a hold inside Playing (`paused`, `dt = 0`), never a state: PAUSE / P / Esc opens the pause menu, which only CONTINUE (or the pause key) releases, via a 3 s `countdown` hold that goes live without a flap (the pause key cancels it back to the menu); rotate, hidden, jump-to-begin, and lessons reuse the same hold (`src/game/hold.js`). The challenge clock (`src/game/clock.js`) excludes every hold, and the board is told the held time on submit.
-4. Procedural geometry only in v1. No GLTF, no texture CDNs. CanvasTexture / data-URI if needed.
+4. Procedural geometry only in v1. No GLTF, no texture CDNs. CanvasTexture / data-URI if needed. (Orb hero meshes in `public/models/` are the one shipped exception; the procedural orb remains the fallback until each GLB loads.)
 5. No story, shop, or multiplayer. Three orbs: gold damper, green spare-life (`+`, one per 10-gate sector), and ice shunt. A spare life rewinds to just inside the last passed gate and waits for a tap.
 6. Gameplay before bloom. Silhouette, fog, lights first.
 7. Original art: conduit / magpie drone.
@@ -129,7 +129,7 @@ Fairness invariants, all tested:
 
 ## Powerups
 
-Three orb types, pool of 10 (BENDS spawns deeper), recycle at `z > 14`. They sit midway to the next gate at a random X/Y in a disc of radius 2.2.
+Three orb types, pool of 10 (BENDS spawns deeper), recycle at `z > 14`. They sit midway to the next gate at a random X/Y in a disc of radius 2.2. Each type has a generated hero mesh (`public/models/damper.glb` brass gyroscope, `life.glb` med capsule, `shunt.glb` ice reactor) that tumbles in place of the procedural crystal/gimbals once loaded; the colour halo stays at every range so the type reads before the detail does.
 
 - **Damper** (gold chevron): 50% chance per spawned gate that is not the sector's life slot (`ORB_CHANCE = 0.5`). Pickup is permanent for the run: subtract half of `stageDelta(score)` from scroll speed, floored at base 12.
 - **Spare life** (green `+`): exactly one per 10-gate sector, at a random gate in that sector. Pickup adds one life. A hit with lives > 1 consumes a spare, rewinds to just inside the last passed gate, and waits for tap-to-resume.

@@ -83,6 +83,9 @@ const NORMAL = /* glsl */ `
 vec4 _bendMv;
 vec3 transformedNormal;
 bendModelViewAndNormal(position, objectNormal, _bendMv, transformedNormal);
+#ifdef USE_TANGENT
+vec3 transformedTangent = bendViewNormal(objectTangent, position);
+#endif
 `
 
 /**

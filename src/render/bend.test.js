@@ -29,6 +29,14 @@ test('basic and line bent shaders do not reference the normal-only bent model-vi
   }
 })
 
+test('lit bent shaders bend the tangent for normal-mapped materials', () => {
+  const shader = compile(new THREE.MeshStandardMaterial(), THREE.ShaderLib.physical)
+  assert.ok(
+    shader.vertexShader.includes('vec3 transformedTangent = bendViewNormal(objectTangent, position);'),
+    'USE_TANGENT materials (GLB normal maps) need a bent transformedTangent or the shader does not compile',
+  )
+})
+
 test('lit bent shaders reuse the bent model-view and normal', () => {
   const shader = compile(new THREE.MeshStandardMaterial(), THREE.ShaderLib.physical)
   assert.ok(shader.vertexShader.includes('vec4 _bendMv;'))

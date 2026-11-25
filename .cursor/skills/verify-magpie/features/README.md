@@ -47,6 +47,6 @@ Keep implementation details out of the map. Name only player paths, stable handl
 - [Field manual](./help.md) covers the HELP button, the menu row, the H key, the reboot card, and every way to close the manual.
 - [Scores](./scores.md) covers the SCORES screen. The Vite launch and an unpackaged desktop shell with the API origin unset show `BOARD OFFLINE`. The production site and a packaged shell show the live board.
 - [Pause](./pause.md) covers the pause menu, ignored flaps, the resume countdown, and QUIT.
-- [Tutorial](./tutorial.md) covers the flight card, jump to begin, and leaving back to the menu.
+- [Tutorial](./tutorial.md) covers the flight card, jump to begin, leaving back to the menu, and the session-ended card.
 
 The desktop update bar is not one of these features. It only appears in a packaged Windows install. `launch --surface packaged` on Linux does not show it. See Other surfaces in `SKILL.md`.

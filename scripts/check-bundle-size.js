@@ -15,11 +15,13 @@ import { fileURLToPath } from 'node:url'
  * lifecycle hardening. Headroom is roughly 5% so routine work does not trip them.
  * three was re-measured at 150.5 kB when the GLTFLoader joined it for the orb
  * hero meshes; it versions with three, so the cached chunk is still stable
- * across game deploys.
+ * across game deploys. index was re-measured at 55.4 kB when the cyber-magpie
+ * rig (world/magpie-rig.js) joined the bird; the GLB itself ships as a static
+ * file under public/models, not in a JS chunk.
  */
 export const BUDGETS = {
   'three.js': 158_000,
-  'index.js': 55_000,
+  'index.js': 56_500,
   'index.css': 7_500,
   'index.html': 7_000,
 }

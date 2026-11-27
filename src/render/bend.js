@@ -74,15 +74,26 @@ vec4 mvPosition = bendModelView(transformed);
 gl_Position = projectionMatrix * mvPosition;
 `
 
+// A skinned mesh only has its deformed position (transformed) after
+// skinning_vertex, which runs after defaultnormal_vertex, so it can't share
+// the fused position+normal pass; its normal is already skinned by then.
 const PROJECT_WITH_NORMAL = /* glsl */ `
+#ifdef USE_SKINNING
+vec4 mvPosition = bendModelView(transformed);
+#else
 vec4 mvPosition = _bendMv;
+#endif
 gl_Position = projectionMatrix * mvPosition;
 `
 
 const NORMAL = /* glsl */ `
+#ifdef USE_SKINNING
+vec3 transformedNormal = bendViewNormal(objectNormal, position);
+#else
 vec4 _bendMv;
 vec3 transformedNormal;
 bendModelViewAndNormal(position, objectNormal, _bendMv, transformedNormal);
+#endif
 #ifdef USE_TANGENT
 vec3 transformedTangent = bendViewNormal(objectTangent, position);
 #endif
@@ -90,8 +101,8 @@ vec3 transformedTangent = bendViewNormal(objectTangent, position);
 
 /**
  * Bend a built-in material (standard, basic, line). Returns the material.
- * Skinning is not used on bent meshes, so project_vertex can be replaced
- * outright; instancing goes through BEND_MODEL.
+ * project_vertex is replaced outright; instancing goes through BEND_MODEL,
+ * and skinned meshes (the rigged magpie) project their skinned position.
  */
 export function bendMaterial(material) {
   const previous = material.onBeforeCompile

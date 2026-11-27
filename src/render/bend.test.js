@@ -47,3 +47,13 @@ test('lit bent shaders reuse the bent model-view and normal', () => {
   )
   assert.ok(shader.vertexShader.includes('vec4 mvPosition = _bendMv;'))
 })
+
+test('skinned lit shaders project the skinned position, not the bind pose', () => {
+  const shader = compile(new THREE.MeshStandardMaterial(), THREE.ShaderLib.physical)
+  const v = shader.vertexShader
+  const skinned = v.indexOf('#ifdef USE_SKINNING\nvec4 mvPosition = bendModelView(transformed);')
+  assert.ok(skinned > v.indexOf('#include <skinning_vertex>'), 'projects after skinning_vertex')
+  assert.ok(
+    v.includes('#ifdef USE_SKINNING\nvec3 transformedNormal = bendViewNormal(objectNormal, position);'),
+  )
+})

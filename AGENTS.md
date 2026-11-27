@@ -81,7 +81,12 @@ Each file is a factory that adds pooled meshes to the scene and returns a
 small API (`reset`, `scroll`, …). Tunnel parts and the gate parts that share
 a unit geometry (rims, clamps, pistons, slabs) are instanced stand-ins; give
 a new pooled prop a batch too unless it needs its own geometry, its own
-uniforms, or a mirroring negative scale. `collision.js` is pure and tested. `bends.js` is the BENDS arcs as pure
+uniforms, or a mirroring negative scale. `magpie-rig.js` normalises and
+procedurally skins the generated cyber-magpie (`public/models/cyber-magpie.glb`);
+`bird.js` streams it in behind the procedural bird, which stays as fallback.
+`wing-flex.js` is the wing stroke as a pure, tested
+spring chain (shoulder kick, elbow/wrist lag and air-load bend, upstroke fold);
+both birds read its pose. `collision.js` is pure and tested. `bends.js` is the BENDS arcs as pure
 data (no meshes): scroll, `curvatureAt`, and `sample` into `UNIFORMS.uBend`.
 Gameplay stays in straight path space; only the renderer bends. `gates/`
 is split into `kinds.js` (one descriptor per hazard: layout, collision, spark

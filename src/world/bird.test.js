@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
 import { createBird, nearestWallClearance } from './bird.js'
+import { createMagpieRig } from './magpie-rig.js'
 import { BIRD_VISUAL_SCALE } from '../config/world.js'
 import { UNIFORMS } from '../render/uniforms.js'
 
@@ -114,6 +115,34 @@ test('wing hierarchy has articulated shoulder, elbow, and wrist joints', () => {
   assert.ok(leftWing.rotation.z !== 0, 'shoulder should flap')
   assert.ok(elbow.rotation.z !== 0, 'elbow should articulate')
   assert.ok(wrist.rotation.z !== 0, 'wrist should articulate')
+})
+
+test('installMagpie swaps the procedural bird for the rigged magpie and flaps its bones', () => {
+  const scene = new THREE.Scene()
+  const bird = createBird(scene, dummyMaterials(), { loadMagpie: false })
+  assert.equal(bird.magpieRig, null)
+
+  const rig = createMagpieRig(new THREE.BoxGeometry(1.6, 0.4, 1.2, 8, 1, 4), new THREE.MeshBasicMaterial())
+  assert.equal(bird.installMagpie(rig), true)
+  assert.equal(bird.installMagpie(rig), false, 'second install is refused')
+  assert.equal(bird.magpieRig, rig)
+  assert.ok(bird.group.children.includes(rig.mesh), 'rigged mesh joins the bird group')
+
+  const legacyGroups = bird.group.children.filter((c) => c instanceof THREE.Group)
+  assert.ok(
+    legacyGroups.length >= 3 && legacyGroups.every((g) => !g.visible),
+    'procedural wings and tail hide once the magpie installs',
+  )
+
+  bird.flap()
+  bird.updatePlay(0.016, { strafe: 0 }, 0.1)
+  assert.ok(rig.shoulderL.rotation.z > 0.2, 'left shoulder strokes on flap')
+  assert.ok(rig.shoulderR.rotation.z < -0.2, 'right shoulder mirrors the left')
+  assert.ok(rig.elbowL.rotation.z !== 0, 'elbow articulates')
+  assert.ok(rig.wristR.rotation.z !== 0, 'wrist articulates')
+
+  bird.reset()
+  assert.equal(rig.shoulderL.rotation.z, 0, 'reset zeroes the rig')
 })
 
 test('nearestWallClearance computes signed distance from hull extents to hex walls', () => {

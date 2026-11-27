@@ -23,6 +23,15 @@ import {
 import { UNIFORMS } from '../render/uniforms.js'
 import { FRAME_VERT, THRUST_FRAG, TRAIL_VERT, TRAIL_FRAG } from '../render/shaders.js'
 import { createShockConeMaterial } from '../render/materials.js'
+import { prepareMagpieTemplate } from './magpie-rig.js'
+import { createWingFlex } from './wing-flex.js'
+
+const MAGPIE_FILE = 'cyber-magpie.glb'
+
+function magpieUrl() {
+  const base = import.meta.env?.BASE_URL ?? '/'
+  return `${base}models/${MAGPIE_FILE}`
+}
 
 // Hex conduit wall clearance constants (flat-topped hex symmetry at 30° and 90°)
 const HEX_NX = Math.cos(Math.PI / 6)
@@ -564,16 +573,22 @@ function createThruster(materials) {
   return { collar, cone, light, material }
 }
 
-export function createBird(scene, materials) {
+export function createBird(
+  scene,
+  materials,
+  { magpieTemplate = null, loadMagpie = typeof window !== 'undefined' } = {},
+) {
   const group = new THREE.Group()
   group.name = 'magpie'
   group.scale.setScalar(BIRD_VISUAL_SCALE)
 
-  // Airframe components
-  group.add(createDorsalHull(materials.birdBody))
-  group.add(createVentralBelly(materials.birdBelly))
-  group.add(createBeak(materials.beak))
-  group.add(...createSensorCluster(materials))
+  // Airframe components: the procedural bird is the fallback visual; the
+  // rigged cyber-magpie (magpie-rig.js) hides these roots when it installs.
+  const dorsalHull = createDorsalHull(materials.birdBody)
+  const ventralBelly = createVentralBelly(materials.birdBelly)
+  const beak = createBeak(materials.beak)
+  const sensorCluster = createSensorCluster(materials)
+  group.add(dorsalHull, ventralBelly, beak, ...sensorCluster)
 
   const tail = createTail(materials)
   group.add(tail)
@@ -581,6 +596,15 @@ export function createBird(scene, materials) {
   const leftWing = createWing(materials, -1)
   const rightWing = createWing(materials, 1)
   group.add(leftWing.pivot, rightWing.pivot)
+  const legacyRoots = [
+    dorsalHull,
+    ventralBelly,
+    beak,
+    ...sensorCluster,
+    tail,
+    leftWing.pivot,
+    rightWing.pivot,
+  ]
 
   const thruster = createThruster(materials)
   group.add(thruster.collar, thruster.cone, thruster.light)
@@ -615,6 +639,27 @@ export function createBird(scene, materials) {
   const trailL = createTrail(scene, THEME.mag)
   const trailR = createTrail(scene, THEME.mag)
 
+  // Rigged cyber-magpie state. Until it installs, the wingtip markers of the
+  // procedural bird feed the trails; afterwards the rig's wrist tips do.
+  let magpie = null
+  let tipL = leftWing.tip
+  let tipR = rightWing.tip
+
+  function installMagpie(rig) {
+    if (!rig?.mesh || magpie) return false
+    magpie = rig
+    rig.mesh.traverse((node) => {
+      node.matrixAutoUpdate = true
+    })
+    group.add(rig.mesh)
+    for (const root of legacyRoots) root.visible = false
+    tipL = rig.tipL
+    tipR = rig.tipR
+    group.updateMatrix()
+    group.updateMatrixWorld()
+    return true
+  }
+
   const pos = new THREE.Vector3()
   /** World position of the thruster, refreshed with the trails; the afterburner streams from here. */
   const exhaust = new THREE.Vector3()
@@ -623,6 +668,7 @@ export function createBird(scene, materials) {
   let vx = 0
   let vy = 0
   let wingPulse = 0
+  const wingFlex = createWingFlex()
   let thrustPulse = 0
   let afterburner = 0
   let lastAfterburner = -1
@@ -634,9 +680,9 @@ export function createBird(scene, materials) {
     group.updateMatrixWorld()
     const cMat = thruster.cone.matrixWorld.elements
     exhaust.set(cMat[12], cMat[13], cMat[14])
-    const lMat = leftWing.tip.matrixWorld.elements
+    const lMat = tipL.matrixWorld.elements
     trailL.push(lMat[12], lMat[13], lMat[14], dz)
-    const rMat = rightWing.tip.matrixWorld.elements
+    const rMat = tipR.matrixWorld.elements
     trailR.push(rMat[12], rMat[13], rMat[14], dz)
     const overdriveBoost = UNIFORMS.uOverdrive.value * 0.95
     trailL.setIntensity(intensity + overdriveBoost)
@@ -649,6 +695,7 @@ export function createBird(scene, materials) {
     vy = 0
     wingPulse = 0
     thrustPulse = 0
+    wingFlex.reset()
     afterburner = 0
     lastAfterburner = -1
     t = 0
@@ -664,6 +711,15 @@ export function createBird(scene, materials) {
     rightWing.pivot.rotation.set(0, 0, 0)
     rightWing.elbow.rotation.set(0, 0, 0)
     rightWing.wrist.rotation.set(0, 0, 0)
+    if (magpie) {
+      magpie.shoulderL.rotation.set(0, 0, 0)
+      magpie.elbowL.rotation.set(0, 0, 0)
+      magpie.wristL.rotation.set(0, 0, 0)
+      magpie.shoulderR.rotation.set(0, 0, 0)
+      magpie.elbowR.rotation.set(0, 0, 0)
+      magpie.wristR.rotation.set(0, 0, 0)
+      magpie.tail.rotation.set(0, 0, 0)
+    }
     tail.updateMatrix()
     leftWing.pivot.updateMatrix()
     leftWing.elbow.updateMatrix()
@@ -675,9 +731,9 @@ export function createBird(scene, materials) {
     group.updateMatrixWorld()
     const cMat = thruster.cone.matrixWorld.elements
     exhaust.set(cMat[12], cMat[13], cMat[14])
-    const lMat = leftWing.tip.matrixWorld.elements
+    const lMat = tipL.matrixWorld.elements
     trailL.reset(lMat[12], lMat[13], lMat[14])
-    const rMat = rightWing.tip.matrixWorld.elements
+    const rMat = tipR.matrixWorld.elements
     trailR.reset(rMat[12], rMat[13], rMat[14])
     trailL.setVisible(true)
     trailR.setVisible(true)
@@ -686,6 +742,7 @@ export function createBird(scene, materials) {
   function flap() {
     vy = FLAP_VY
     wingPulse = 1
+    wingFlex.flap()
     thrustPulse = 1
   }
 
@@ -706,38 +763,54 @@ export function createBird(scene, materials) {
     if (wingPulse > 0) wingPulse = Math.max(0, wingPulse - dt / 0.12)
     if (thrustPulse > 0) thrustPulse = Math.max(0, thrustPulse - dt / 0.35)
 
-    // 1. Primary shoulder stroke (idle breathing + powerful flap pulse)
-    const idleShoulder = 0.15 + Math.sin(t * 9) * 0.08
-    const shoulderAngle = idleShoulder + wingPulse * 0.85
+    wingFlex.step(dt)
+    const flex = wingFlex.pose
 
-    // Spanwise aerodynamic pitch twist at shoulder
-    const shoulderPitch = -wingPulse * 0.14 + (vy / VY_MAX) * 0.03
+    // 1. Shoulder: idle breathing plus the sprung stroke (wing-flex.js)
+    const idleShoulder = 0.15 + Math.sin(t * 9) * 0.08
+    const shoulderAngle = idleShoulder + flex.shoulder
+
+    // Feathering: leading edge pitches down on the downstroke, up on the upstroke
+    const shoulderPitch = -flex.stroke * 0.14 + (vy / VY_MAX) * 0.03
     leftWing.pivot.rotation.set(shoulderPitch, 0, shoulderAngle)
     rightWing.pivot.rotation.set(shoulderPitch, 0, -shoulderAngle)
     leftWing.pivot.updateMatrix()
     rightWing.pivot.updateMatrix()
 
-    // 2. Elbow joint articulation: flexes and folds with phase lead
+    // 2. Elbow: inertial lag + air-load bend, swept back as the wing folds on the upstroke
     const idleElbow = 0.08 + Math.sin(t * 9 + 0.5) * 0.06
-    const elbowFlexZ = idleElbow + wingPulse * 0.36
-    const elbowPitch = -wingPulse * 0.07
-    leftWing.elbow.rotation.set(elbowPitch, 0, elbowFlexZ)
-    rightWing.elbow.rotation.set(elbowPitch, 0, -elbowFlexZ)
+    const elbowFlexZ = idleElbow + flex.elbow
+    const elbowPitch = -flex.stroke * 0.07
+    const elbowYaw = flex.elbowSweep
+    leftWing.elbow.rotation.set(elbowPitch, -elbowYaw, elbowFlexZ)
+    rightWing.elbow.rotation.set(elbowPitch, elbowYaw, -elbowFlexZ)
     leftWing.elbow.updateMatrix()
     rightWing.elbow.updateMatrix()
 
-    // 3. Wrist joint articulation: aerodynamic whip and secondary flexion
+    // 3. Wrist: the hand whips behind the forearm, reaches forward on the power stroke
     const idleWrist = 0.06 + Math.sin(t * 9 + 1.0) * 0.07
-    const wristFlexZ = idleWrist + Math.sin(wingPulse * Math.PI) * 0.42
-    const wristYaw = wingPulse * 0.08
+    const wristFlexZ = idleWrist + flex.wrist
+    const wristYaw = flex.wristSweep
     leftWing.wrist.rotation.set(0, -wristYaw, wristFlexZ)
     rightWing.wrist.rotation.set(0, wristYaw, -wristFlexZ)
     leftWing.wrist.updateMatrix()
     rightWing.wrist.updateMatrix()
 
     // Dynamic tail deflection: pitch flare on climb, rudder yaw/roll on strafe
-    tail.rotation.set(0.2 + wingPulse * 0.12 - (vy / VY_MAX) * 0.06, -vx * 0.035, -vx * 0.025)
+    const tailPitch = flex.depth * 0.12 - (vy / VY_MAX) * 0.06
+    tail.rotation.set(0.2 + tailPitch, -vx * 0.035, -vx * 0.025)
     tail.updateMatrix()
+
+    // The rigged magpie replays the same joint angles on its skeleton.
+    if (magpie) {
+      magpie.shoulderL.rotation.set(shoulderPitch, 0, shoulderAngle)
+      magpie.shoulderR.rotation.set(shoulderPitch, 0, -shoulderAngle)
+      magpie.elbowL.rotation.set(elbowPitch, -elbowYaw, elbowFlexZ)
+      magpie.elbowR.rotation.set(elbowPitch, elbowYaw, -elbowFlexZ)
+      magpie.wristL.rotation.set(0, -wristYaw, wristFlexZ)
+      magpie.wristR.rotation.set(0, wristYaw, -wristFlexZ)
+      magpie.tail.rotation.set(tailPitch, -vx * 0.035, -vx * 0.025)
+    }
 
     // Thruster flare & Mach diamonds: backwash casts light down conduit on flap
     const glow = 0.65 + thrustPulse * 1.6 + Math.sin(t * 23) * 0.05 + afterburner * 0.5
@@ -836,6 +909,27 @@ export function createBird(scene, materials) {
     group.updateMatrixWorld()
   }
 
+  if (magpieTemplate) {
+    installMagpie(magpieTemplate)
+  } else if (loadMagpie) {
+    // The cyber-magpie streams in behind the procedural fallback; a failed
+    // load just keeps it. The loader is a lazy chunk so the cached three
+    // chunk stays untouched (same pattern as the orb heroes in powerups.js).
+    import('three/addons/loaders/GLTFLoader.js')
+      .then(({ GLTFLoader }) => {
+        new GLTFLoader().load(
+          magpieUrl(),
+          (gltf) => {
+            const rig = prepareMagpieTemplate(gltf)
+            if (rig) installMagpie(rig)
+          },
+          undefined,
+          () => {},
+        )
+      })
+      .catch(() => {})
+  }
+
   reset()
 
   return {
@@ -871,6 +965,11 @@ export function createBird(scene, materials) {
     reset,
     flap,
     kill,
+    installMagpie,
+    /** The installed cyber-magpie rig, or null while the fallback bird flies. */
+    get magpieRig() {
+      return magpie
+    },
     setAfterburner,
     updateIdle,
     updatePlay,
